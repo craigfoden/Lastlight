@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/arrow_turret.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"arrow_turret"
+display_name = "Arrow Turret"
+cost = {
+&"stone": 3,
+&"wood": 4
+}
+texture = ExtResource("2")
+class_id = &"ranger"
+attacks = true
+damage = 4
+attack_range = 180.0
+fire_interval = 0.7

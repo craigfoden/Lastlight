@@ -9,6 +9,14 @@ extends Node2D
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
 const PlayerScene := preload("res://scenes/player/player.tscn")
 
+## The glowing tower's footprint on the build grid (solid, unbuildable) and
+## the walkable cell at its base that enemies path toward. Hardcoded for the
+## session-1 static map; map generation will compute these later.
+const TOWER_CELLS: Array[Vector2i] = [
+	Vector2i(-1, -2), Vector2i(0, -2), Vector2i(-1, -1), Vector2i(0, -1),
+]
+const HEART_CELL := Vector2i(0, 0)
+
 ## Players spawn on a ring around the glowing tower (which sits at the origin).
 @export var spawn_radius := 96.0
 
@@ -22,6 +30,10 @@ const PlayerScene := preload("res://scenes/player/player.tscn")
 @onready var team_materials: TeamMaterials = $TeamMaterials
 @onready var world_light: CanvasModulate = $WorldLight
 @onready var hud: Hud = $HUD
+@onready var build_manager: BuildManager = $BuildManager
+@onready var build_controller: BuildController = $BuildController
+@onready var build_menu: BuildMenu = $BuildMenu
+@onready var spawn_openings: Node2D = $World/SpawnOpenings
 
 
 func _ready() -> void:
@@ -30,6 +42,13 @@ func _ready() -> void:
 	# correct before the node enters the tree, no sync race.
 	player_spawner.spawn_function = _build_player
 	hud.setup(day_night, team_materials)
+
+	var opening_cells: Array[Vector2i] = []
+	for marker in spawn_openings.get_children():
+		opening_cells.append(build_manager.world_to_cell(marker.global_position))
+	build_manager.setup(team_materials, opening_cells, HEART_CELL, TOWER_CELLS)
+	build_controller.setup(build_manager)
+	build_menu.setup(build_manager, build_controller, team_materials)
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
 		node.harvested.connect(_on_resource_harvested)
 	Network.connection_failed.connect(_return_to_menu.bind("Could not reach the host."))
@@ -51,8 +70,18 @@ func _ready() -> void:
 			multiplayer.peer_connected.connect(_on_peer_connected)
 			multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 			_spawn_player(1)
+			for arg in OS.get_cmdline_user_args():
+				# Dev cheat for testing builds: --grant-materials=wood:10,stone:10
+				if arg.begins_with("--grant-materials="):
+					for pair in arg.get_slice("=", 1).split(","):
+						team_materials.host_add(
+								StringName(pair.get_slice(":", 0)),
+								int(pair.get_slice(":", 1)))
 
-
+	if OS.get_cmdline_user_args().has("--auto-build"):
+		_run_auto_build()
+	if OS.get_cmdline_user_args().has("--auto-block-test"):
+		_run_auto_block_test()
 	if OS.get_cmdline_user_args().has("--auto-harvest"):
 		_start_auto_harvest()
 	if OS.get_cmdline_user_args().has("--fast-cycle"):
@@ -64,6 +93,32 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	world_light.color = day_night.ambient_color()
+
+
+# Smoke-test hook (godot -- --auto-build): drive the real place/reject/sell
+# RPC chain on a fixed timeline; smoke tests assert on the [Build] logs.
+func _run_auto_build() -> void:
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
+	await get_tree().create_timer(2.0).timeout
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(3, -3))
+	await get_tree().create_timer(2.0).timeout
+	# Same cell again: the host must reject it as occupied.
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
+
+
+# Smoke-test hook (godot -- --auto-block-test): wall in the tower's heart
+# cell. Its north side is already tower footprint, so the third wall would
+# seal it — the never-block-the-path rule must reject it.
+func _run_auto_block_test() -> void:
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(1, 0))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(0, 1))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(-1, 0))
 
 
 # Smoke-test hook (godot -- --auto-harvest): every 2 s, teleport the local
@@ -104,6 +159,9 @@ func _on_peer_connected(peer_id: int) -> void:
 	team_materials.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
 		node.host_send_snapshot(peer_id)
+	for node in get_tree().get_nodes_in_group("enemies"):
+		node.host_send_snapshot(peer_id)
+	# Placed buildings need no snapshot: their spawner replays them.
 
 
 func _on_peer_disconnected(peer_id: int) -> void:

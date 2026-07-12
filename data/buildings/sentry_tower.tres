@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/sentry_tower.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"sentry_tower"
+display_name = "Sentry Tower"
+cost = {
+&"stone": 2,
+&"wood": 3
+}
+texture = ExtResource("2")
+attacks = true
+damage = 3
+attack_range = 120.0
+fire_interval = 1.2

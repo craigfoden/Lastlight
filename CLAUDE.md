@@ -51,7 +51,10 @@ $p.WaitForExit(); Get-Content $hostLog
 
 Dev CLI args (after `--`): `--host`, `--join=<ip>`, `--name=<n>`, `--quit-after-sec=<s>`
 (wall-clock quit for headless runs), `--auto-harvest` (teleport-harvest loop, exercises the RPC
-chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance).
+chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance),
+`--grant-materials=wood:10,stone:10` (host cheat for testing builds), `--auto-build`
+(scripted place/reject/sell timeline), `--auto-block-test` (walls in the tower heart; the
+sealing wall must be rejected by the path rule).
 
 ## Definition of done
 
@@ -90,8 +93,15 @@ in `scenes/hud/hud.gd` → place `ResourceNode`s in the world with `material_typ
 `World/ResourceNodes` in `game.tscn`; override `material_type`, `starting_amount`, and the
 `Sprite2D` texture per instance.
 
-**Add a tower / enemy / class:** frameworks land in sessions 2–4; write the recipe here in the
-same commit that lands each framework.
+**Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
+`id`, `display_name`, `cost` dict, `texture`, attack stats — walls just leave `attacks` false;
+set `class_id` for class exclusives) → add its sprite SVG → add the resource to
+`buildable_types` on the BuildManager node in `game.tscn`. Hotbar, ghost, costs, path
+validation, and sync all follow from the data.
+
+**Add an enemy / class:** frameworks land in sessions 3–4; write the recipe here in the same
+commit that lands each framework. (Interim: anything in group `"enemies"` with `hp`,
+`host_take_damage()`, and `host_send_snapshot()` is targetable by towers.)
 
 ## GOTCHAS (append whenever a session loses time to a pitfall)
 
@@ -112,6 +122,8 @@ same commit that lands each framework.
   separate Claude tool calls — launch both smoke-test instances from **one** command.
 - ENet clients take 30+ seconds to emit `connection_failed` when nothing is listening — it reads
   as a hang. `game.gd` enforces its own `join_timeout` (10 s) and bounces to the menu.
+- "Could not host (is the port already in use?)" usually means a leftover Godot instance from an
+  earlier playtest still holds port 24565 — check for running `Godot*` processes before testing.
 
 ## Team rules
 

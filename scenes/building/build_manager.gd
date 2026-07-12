@@ -1,0 +1,180 @@
+class_name BuildManager
+extends Node
+## Owns the build grid: occupancy, the never-block-the-path rule, and the
+## host-authoritative place/sell RPCs.
+##
+## Buildings replicate through a MultiplayerSpawner; occupancy and the
+## pathfinding grid are *derived* from the spawned nodes locally on every
+## peer (via child enter/exit hooks), so they never need their own sync and
+## clients can tint the placement ghost with the exact same rules the host
+## enforces.
+
+const CELL_SIZE := 32
+const BuildingScene := preload("res://scenes/building/building.tscn")
+
+## Everything placeable this run, in hotbar order.
+@export var buildable_types: Array[BuildingType] = []
+
+## Grid half-extent in cells; the region spans [-half, half).
+@export var grid_half_extent := 50
+
+var _astar := AStarGrid2D.new()
+## cell (Vector2i) -> Building node. Placed structures only.
+var _occupied := {}
+## Cells that must stay free forever: spawn openings and the tower's heart.
+var _reserved := {}
+## Cells blocked by scenery (tower footprint, live resource nodes).
+var _scenery := {}
+
+var _team_materials: TeamMaterials
+var _opening_cells: Array[Vector2i] = []
+## Where enemies are headed: a walkable cell at the glowing tower's base.
+var _heart_cell := Vector2i.ZERO
+
+@onready var _spawner: MultiplayerSpawner = $BuildingSpawner
+@onready var _buildings: Node2D = $Buildings
+
+
+func _ready() -> void:
+	_spawner.spawn_function = _build_building
+	_buildings.child_entered_tree.connect(_on_building_added)
+	_buildings.child_exiting_tree.connect(_on_building_removed)
+
+
+## Injected by the Game scene once the world exists.
+func setup(
+		team_materials: TeamMaterials,
+		opening_cells: Array[Vector2i],
+		heart_cell: Vector2i,
+		scenery_cells: Array[Vector2i]) -> void:
+	_team_materials = team_materials
+	_opening_cells = opening_cells
+	_heart_cell = heart_cell
+
+	var extent := grid_half_extent
+	_astar.region = Rect2i(-extent, -extent, extent * 2, extent * 2)
+	_astar.cell_size = Vector2(CELL_SIZE, CELL_SIZE)
+	# Orthogonal movement only: corridors and mazes behave predictably.
+	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	_astar.update()
+
+	for cell in scenery_cells:
+		_scenery[cell] = true
+		_astar.set_point_solid(cell)
+	for cell in opening_cells:
+		_reserved[cell] = true
+	_reserved[heart_cell] = true
+
+	# Live resource nodes block building; their cells free up when depleted.
+	# amount is replicated, so this stays identical on every peer.
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		if node.amount == 0 and not node.visible:
+			continue
+		var cell: Vector2i = world_to_cell(node.global_position)
+		_scenery[cell] = true
+		_astar.set_point_solid(cell)
+		node.depleted.connect(_on_scenery_cleared.bind(cell))
+
+
+func world_to_cell(pos: Vector2) -> Vector2i:
+	return Vector2i((pos / CELL_SIZE).floor())
+
+
+## Center of a cell in world space.
+func cell_to_world(cell: Vector2i) -> Vector2:
+	return Vector2(cell) * CELL_SIZE + Vector2(CELL_SIZE, CELL_SIZE) / 2.0
+
+
+func type_by_id(type_id: StringName) -> BuildingType:
+	for type in buildable_types:
+		if type.id == type_id:
+			return type
+	return null
+
+
+func building_at(cell: Vector2i) -> Building:
+	return _occupied.get(cell)
+
+
+## "" when placement is legal, otherwise a human-readable reason. Runs
+## identically on clients (ghost tint) and on the host (the actual gate).
+func placement_error(type: BuildingType, cell: Vector2i) -> String:
+	if type == null:
+		return "Unknown building type"
+	if not _astar.region.has_point(cell):
+		return "Out of bounds"
+	if _occupied.has(cell) or _scenery.has(cell):
+		return "Cell is occupied"
+	if _reserved.has(cell):
+		return "Cell must stay open"
+	if not _team_materials.can_afford(type.cost):
+		return "Not enough materials"
+	if _would_block_path(cell):
+		return "Would block every path to the tower"
+	return ""
+
+
+func _would_block_path(cell: Vector2i) -> bool:
+	# Hypothetically place it, test every opening, then revert. The cell is
+	# known non-solid here (occupancy/scenery were checked first).
+	_astar.set_point_solid(cell, true)
+	var blocked := false
+	for opening in _opening_cells:
+		if _astar.get_id_path(opening, _heart_cell).is_empty():
+			blocked = true
+			break
+	_astar.set_point_solid(cell, false)
+	return blocked
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_place(type_id: StringName, cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+	var type := type_by_id(type_id)
+	var error := placement_error(type, cell)
+	if error != "":
+		print("[Build] Rejected %s at %s: %s" % [type_id, cell, error])
+		return
+	_team_materials.host_spend(type.cost)
+	_spawner.spawn({"type_id": type_id, "cell": cell})
+	print("[Build] Placed %s at %s" % [type_id, cell])
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_sell(cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+	var building := building_at(cell)
+	if building == null:
+		return
+	# Full refund (session-2 decision) — materials are a shared pool anyway.
+	for material_id in building.type.cost:
+		_team_materials.host_add(material_id, building.type.cost[material_id])
+	building.queue_free()
+	print("[Build] Sold %s at %s (full refund)" % [building.type.id, cell])
+
+
+# Spawn function: runs on every peer, builds the identical node.
+func _build_building(data: Dictionary) -> Node:
+	var building := BuildingScene.instantiate()
+	building.name = "Building_%d_%d" % [data.cell.x, data.cell.y]
+	building.setup(type_by_id(data.type_id), data.cell)
+	building.position = cell_to_world(data.cell)
+	return building
+
+
+# Occupancy/pathfinding derive from the replicated container on every peer.
+func _on_building_added(node: Node) -> void:
+	_occupied[node.cell] = node
+	_astar.set_point_solid(node.cell)
+
+
+func _on_building_removed(node: Node) -> void:
+	_occupied.erase(node.cell)
+	_astar.set_point_solid(node.cell, false)
+
+
+func _on_scenery_cleared(cell: Vector2i) -> void:
+	_scenery.erase(cell)
+	_astar.set_point_solid(cell, false)

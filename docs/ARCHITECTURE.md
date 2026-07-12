@@ -112,6 +112,30 @@ User CLI args (after `--`) enable scripted multiplayer verification — keep the
 Key lifecycle events `print` with a `[System]` prefix so two-instance smoke tests can be
 asserted from logs. These hooks are cheap, guarded, and stay in the shipped build (harmless).
 
+## Building system (2026-07-12, session 2)
+
+- **Grid**: 32 px cells (`BuildManager.CELL_SIZE`), one cell per building for now (footprints
+  later if needed). `AStarGrid2D` over a 100×100-cell region, orthogonal movement only.
+- **Never-block-the-path**: placement hypothetically marks the cell solid, then requires a path
+  from *every* spawn-opening cell to the tower's **heart cell** (a reserved, walkable cell at
+  the tower base — the cell enemies will path to in session 3). Any opening cut off → rejected.
+- **Derived state, not synced state**: occupancy and the pathfinding grid are rebuilt locally on
+  every peer from the replicated `Buildings` container (child enter/exit hooks) and from
+  replicated resource-node stock (`depleted` frees the cell). Nothing to desync; clients tint
+  the placement ghost with the exact rules the host enforces (`placement_error()` — one
+  function, two jobs).
+- **Buildings replicate via MultiplayerSpawner** with a custom spawn function
+  (`{type_id, cell}`), names derived from the cell (`Building_x_y`) so RPC paths match.
+  Late joiners get placed buildings from the spawner's replay — no snapshot code needed.
+- **BuildingType .tres** is the whole definition: id, cost dict, texture, and attack stats
+  (walls are just `attacks = false`). `class_id` field exists but is unenforced until classes
+  land (session 4). **Selling refunds full cost** (materials are shared; friction adds nothing).
+- **Cosmetic-fx pattern**: the host applies damage instantly, then broadcasts an *unreliable*
+  `_show_shot` RPC; every peer draws a local projectile tween. Gameplay never depends on fx.
+  Real dodgeable projectiles come with player combat (session 4) if design wants them.
+- Training dummies stand in for enemies until session 3: group `"enemies"`, duck-typed contract
+  `hp` + `host_take_damage()` + `host_send_snapshot()` — real enemies must keep it.
+
 ---
 
 ## Template for new entries

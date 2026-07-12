@@ -7,6 +7,10 @@ extends StaticBody2D
 
 signal harvested(material_type: MaterialType, count: int)
 
+## Fired on every peer when stock hits zero (amount is replicated), so
+## derived state — like the build grid freeing this cell — stays in lockstep.
+signal depleted
+
 ## How close the harvesting player must be, in pixels. Checked on the host —
 ## never trust the client's own overlap test.
 const HARVEST_RANGE := 64.0
@@ -17,8 +21,11 @@ const HARVEST_RANGE := 64.0
 
 var amount := 0:
 	set(value):
+		var previous := amount
 		amount = value
 		_update_appearance()
+		if previous > 0 and amount <= 0:
+			depleted.emit()
 
 @onready var _sprite: Sprite2D = $Sprite2D
 @onready var _collision: CollisionShape2D = $CollisionShape2D

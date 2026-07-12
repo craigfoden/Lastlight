@@ -6,16 +6,6 @@ extends CanvasLayer
 ## The Game scene injects its DayNightCycle and TeamMaterials via setup() —
 ## the HUD never reaches into the tree to find them (dependency injection).
 
-## Materials shown in the top bar, in display order.
-## Recipe: added a new material .tres? Add a preload here to show it.
-const TRACKED_MATERIALS: Array[MaterialType] = [
-	preload("res://data/materials/wood.tres"),
-	preload("res://data/materials/stone.tres"),
-	preload("res://data/materials/essence_faint.tres"),
-	preload("res://data/materials/essence_bright.tres"),
-	preload("res://data/materials/essence_radiant.tres"),
-]
-
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
 var _material_labels := {}  # material id -> Label
@@ -28,7 +18,7 @@ var _material_labels := {}  # material id -> Label
 
 
 func _ready() -> void:
-	for material in TRACKED_MATERIALS:
+	for material in Materials.ALL:
 		var label := Label.new()
 		label.self_modulate = material.hud_color
 		materials_row.add_child(label)
@@ -58,7 +48,7 @@ func _process(_delta: float) -> void:
 
 
 func _refresh_materials() -> void:
-	for material in TRACKED_MATERIALS:
+	for material in Materials.ALL:
 		var count := 0
 		if _team_materials != null:
 			count = _team_materials.count_of(material.id)

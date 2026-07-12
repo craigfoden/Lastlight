@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Placeholder sentry tower (shared basic): final art will be a 32x32 tile. -->
+  <rect x="6" y="14" width="20" height="16" fill="#7a5a38" stroke="#4a3620" stroke-width="2"/>
+  <rect x="4" y="10" width="24" height="6" fill="#96714a" stroke="#4a3620" stroke-width="2"/>
+  <rect x="13" y="2" width="6" height="10" fill="#5a4227" stroke="#4a3620" stroke-width="2"/>
+  <circle cx="16" cy="6" r="2" fill="#d9c9a3"/>
+</svg>

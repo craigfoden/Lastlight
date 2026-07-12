@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Placeholder arrow turret (Ranger exclusive): final art will be a 32x32 tile. -->
+  <rect x="6" y="16" width="20" height="14" fill="#3e7d3a" stroke="#24491f" stroke-width="2"/>
+  <rect x="4" y="12" width="24" height="6" fill="#529949" stroke="#24491f" stroke-width="2"/>
+  <path d="M 10 4 Q 16 10 22 4" fill="none" stroke="#8a5a2b" stroke-width="2"/>
+  <line x1="16" y1="2" x2="16" y2="12" stroke="#d9c9a3" stroke-width="2"/>
+</svg>

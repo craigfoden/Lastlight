@@ -15,6 +15,26 @@ func count_of(material_id: StringName) -> int:
 	return pool.get(material_id, 0)
 
 
+## Readable on any peer (the pool is replicated), so clients can pre-check
+## affordability for UI. The host re-checks before actually spending.
+func can_afford(cost: Dictionary) -> bool:
+	for material_id in cost:
+		if count_of(material_id) < cost[material_id]:
+			return false
+	return true
+
+
+## Host only: deduct a cost dictionary from the pool.
+func host_spend(cost: Dictionary) -> void:
+	assert(multiplayer.is_server(), "Only the host mutates the material pool")
+	if not can_afford(cost):
+		return
+	var updated := pool.duplicate()
+	for material_id in cost:
+		updated[material_id] = int(updated.get(material_id, 0)) - cost[material_id]
+	_receive_pool.rpc(updated)
+
+
 ## Host only: award materials to the team.
 func host_add(material_id: StringName, count: int) -> void:
 	assert(multiplayer.is_server(), "Only the host mutates the material pool")
