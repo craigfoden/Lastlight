@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="16" fill="#1b1d33"/>
+  <!-- glow halo -->
+  <circle cx="64" cy="34" r="26" fill="#ffe9a3" opacity="0.25"/>
+  <circle cx="64" cy="34" r="16" fill="#ffe9a3" opacity="0.5"/>
+  <!-- tower -->
+  <rect x="52" y="40" width="24" height="64" fill="#8a8fa3"/>
+  <rect x="48" y="98" width="32" height="10" fill="#6b7086"/>
+  <rect x="50" y="34" width="28" height="8" fill="#6b7086"/>
+  <!-- light crystal -->
+  <polygon points="64,16 74,34 64,44 54,34" fill="#ffd75e"/>
+</svg>

@@ -1,0 +1,5 @@
+# Godot 4.x generated cache — never commit (per godot-docs version_control_systems).
+.godot/
+
+# Binary translations generated from CSV source files.
+*.translation

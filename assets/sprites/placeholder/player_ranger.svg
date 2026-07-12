@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 32 48">
+  <!-- Placeholder Ranger: final art will be 32x48 pixel art. -->
+  <rect x="8" y="14" width="16" height="24" rx="3" fill="#3e7d3a" stroke="#24491f" stroke-width="2"/>
+  <circle cx="16" cy="9" r="7" fill="#e8c39e" stroke="#24491f" stroke-width="2"/>
+  <rect x="10" y="4" width="12" height="4" fill="#5a3d24"/>
+  <rect x="10" y="38" width="5" height="8" fill="#5a3d24"/>
+  <rect x="17" y="38" width="5" height="8" fill="#5a3d24"/>
+  <!-- bow hint -->
+  <path d="M 26 12 Q 31 24 26 36" fill="none" stroke="#8a5a2b" stroke-width="2"/>
+</svg>

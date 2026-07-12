@@ -1,0 +1,2 @@
+# Normalize line endings to LF in the repo (Godot's own recommendation for Windows teams).
+* text=auto eol=lf
