@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/hud/hud.gd" id="1_script"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_script")
+
+[node name="TopBar" type="PanelContainer" parent="."]
+anchor_right = 1.0
+grow_horizontal = 2
+
+[node name="Margin" type="MarginContainer" parent="TopBar"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="TopBar/Margin"]
+theme_override_constants/separation = 24
+
+[node name="DayLabel" type="Label" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+text = "Day 1 / 7"
+
+[node name="ClockLabel" type="Label" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+text = "Daylight 5:00"
+
+[node name="LeftSpacer" type="Control" parent="TopBar/Margin/Row"]
+size_flags_horizontal = 3
+
+[node name="MaterialsRow" type="HBoxContainer" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+theme_override_constants/separation = 16
+
+[node name="RightSpacer" type="Control" parent="TopBar/Margin/Row"]
+size_flags_horizontal = 3
+
+[node name="PlayersLabel" type="Label" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+text = "Players: 1"
+
+[node name="ConnectingPanel" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.05, 0.1, 0.88)
+
+[node name="ConnectingLabel" type="Label" parent="ConnectingPanel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Connecting to host..."
+horizontal_alignment = 1
+vertical_alignment = 1

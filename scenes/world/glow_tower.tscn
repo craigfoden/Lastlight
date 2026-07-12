@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/glow_tower.svg" id="1_sprite"]
+
+[sub_resource type="RectangleShape2D" id="base_shape"]
+size = Vector2(30, 34)
+
+[sub_resource type="Gradient" id="light_gradient"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1, 0.92, 0.65, 1, 1, 0.92, 0.65, 0)
+
+[sub_resource type="GradientTexture2D" id="light_texture"]
+gradient = SubResource("light_gradient")
+width = 512
+height = 512
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0)
+
+[node name="GlowTower" type="StaticBody2D"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, -40)
+texture = ExtResource("1_sprite")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -17)
+shape = SubResource("base_shape")
+
+[node name="Light" type="PointLight2D" parent="."]
+position = Vector2(0, -68)
+color = Color(1, 0.92, 0.65, 1)
+energy = 1.1
+texture = SubResource("light_texture")
+texture_scale = 3.0

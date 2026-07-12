@@ -1,0 +1,103 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="2_daynight"]
+[ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="3_teammat"]
+[ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="4_tower"]
+[ext_resource type="PackedScene" path="res://scenes/world/resource_node.tscn" id="5_resource_node"]
+[ext_resource type="PackedScene" path="res://scenes/hud/hud.tscn" id="6_hud"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rock.svg" id="7_rock"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/essence_wisp.svg" id="8_wisp"]
+[ext_resource type="Resource" path="res://data/materials/stone.tres" id="9_stone"]
+[ext_resource type="Resource" path="res://data/materials/essence_faint.tres" id="10_essence"]
+
+[sub_resource type="SceneReplicationConfig" id="daynight_replication"]
+properties/0/path = NodePath(".:day_number")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:phase")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:time_in_phase")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+
+[sub_resource type="Gradient" id="village_gradient"]
+offsets = PackedFloat32Array(0, 0.7, 1)
+colors = PackedColorArray(0.24, 0.29, 0.2, 1, 0.24, 0.29, 0.2, 0.55, 0.24, 0.29, 0.2, 0)
+
+[sub_resource type="GradientTexture2D" id="village_texture"]
+gradient = SubResource("village_gradient")
+width = 512
+height = 512
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0)
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Ground" type="Polygon2D" parent="World"]
+color = Color(0.12, 0.15, 0.11, 1)
+polygon = PackedVector2Array(-1600, -1600, 1600, -1600, 1600, 1600, -1600, 1600)
+
+[node name="VillageGlow" type="Sprite2D" parent="World"]
+scale = Vector2(1.6, 1.6)
+texture = SubResource("village_texture")
+
+[node name="GlowTower" parent="World" instance=ExtResource("4_tower")]
+
+[node name="ResourceNodes" type="Node2D" parent="World"]
+
+[node name="Tree1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(220, -160)
+
+[node name="Tree2" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(250, 190)
+
+[node name="Tree3" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(-260, 120)
+
+[node name="Rock1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(-320, -210)
+material_type = ExtResource("9_stone")
+
+[node name="Sprite2D" parent="World/ResourceNodes/Rock1"]
+texture = ExtResource("7_rock")
+
+[node name="Rock2" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(370, 30)
+material_type = ExtResource("9_stone")
+
+[node name="Sprite2D" parent="World/ResourceNodes/Rock2"]
+texture = ExtResource("7_rock")
+
+[node name="Wisp1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
+position = Vector2(650, -430)
+material_type = ExtResource("10_essence")
+starting_amount = 3
+
+[node name="Sprite2D" parent="World/ResourceNodes/Wisp1"]
+texture = ExtResource("8_wisp")
+
+[node name="Players" type="Node2D" parent="."]
+
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Players")
+
+[node name="DayNight" type="Node" parent="."]
+script = ExtResource("2_daynight")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="DayNight"]
+root_path = NodePath("..")
+replication_interval = 0.25
+replication_config = SubResource("daynight_replication")
+
+[node name="TeamMaterials" type="Node" parent="."]
+script = ExtResource("3_teammat")
+
+[node name="WorldLight" type="CanvasModulate" parent="."]
+
+[node name="HUD" parent="." instance=ExtResource("6_hud")]

@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/main_menu/main_menu.gd" id="1_script"]
+
+[node name="MainMenu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.07, 0.08, 0.16, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+custom_minimum_size = Vector2(340, 0)
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Center/Column"]
+text = "LASTLIGHT"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 42
+
+[node name="Subtitle" type="Label" parent="Center/Column"]
+modulate = Color(1, 1, 1, 0.6)
+text = "Hold the light. Survive the week."
+horizontal_alignment = 1
+
+[node name="MenuSpacer" type="Control" parent="Center/Column"]
+custom_minimum_size = Vector2(0, 12)
+
+[node name="NameEdit" type="LineEdit" parent="Center/Column"]
+unique_name_in_owner = true
+placeholder_text = "Your name"
+
+[node name="HostButton" type="Button" parent="Center/Column"]
+unique_name_in_owner = true
+text = "Host Game"
+
+[node name="AddressEdit" type="LineEdit" parent="Center/Column"]
+unique_name_in_owner = true
+text = "127.0.0.1"
+placeholder_text = "Host IP address"
+
+[node name="JoinButton" type="Button" parent="Center/Column"]
+unique_name_in_owner = true
+text = "Join Game"
+
+[node name="StatusLabel" type="Label" parent="Center/Column"]
+unique_name_in_owner = true
+modulate = Color(1, 0.6, 0.6, 1)
+horizontal_alignment = 1

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MaterialType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/materials/material_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"essence_faint"
+display_name = "Faint Essence"
+hud_color = Color(0.49, 0.91, 1, 1)
