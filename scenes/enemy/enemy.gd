@@ -16,6 +16,7 @@ var _tower: GlowTower
 var _path := PackedVector2Array()
 var _path_index := 0
 var _attack_cooldown := 0.0
+var _root_remaining := 0.0
 
 @onready var _sprite: Sprite2D = $Sprite2D
 
@@ -54,6 +55,11 @@ func _physics_process(delta: float) -> void:
 			_attack_cooldown = type.attack_interval
 			_tower.host_take_damage(type.damage)
 		return
+	if _root_remaining > 0.0:
+		# Rooted: no walking (attacking, above, still works).
+		_root_remaining -= delta
+		velocity = Vector2.ZERO
+		return
 	if _path_index >= _path.size():
 		_repath()
 		if _path.is_empty():
@@ -66,7 +72,13 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
-## Host only (towers, later players, call this).
+## Host only: snare traps (and future crowd control) pin the enemy in place.
+func host_apply_root(duration: float) -> void:
+	if multiplayer.is_server():
+		_root_remaining = maxf(_root_remaining, duration)
+
+
+## Host only (towers and player shots call this).
 func host_take_damage(amount: int) -> void:
 	if not multiplayer.is_server() or hp <= 0:
 		return

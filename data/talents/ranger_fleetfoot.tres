@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TalentType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/talents/talent_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"ranger_fleetfoot"
+class_id = &"ranger"
+display_name = "Fleetfoot"
+description = "Years in the dark woods quicken the step. +10% move speed."
+modifiers = {
+&"move_speed_mult": 1.1
+}

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ClassType" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://data/classes/class_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/player_ranger.svg" id="2"]
+[ext_resource type="Resource" path="res://data/abilities/bow_shot.tres" id="3"]
+[ext_resource type="Resource" path="res://data/abilities/piercing_arrow.tres" id="4"]
+[ext_resource type="Resource" path="res://data/abilities/snare_trap.tres" id="5"]
+
+[resource]
+script = ExtResource("1")
+id = &"ranger"
+display_name = "Ranger"
+sprite = ExtResource("2")
+move_speed = 150.0
+basic_attack = ExtResource("3")
+ability_1 = ExtResource("4")
+ability_2 = ExtResource("5")
+dodge_speed = 430.0
+dodge_duration = 0.18
+dodge_cooldown = 1.5

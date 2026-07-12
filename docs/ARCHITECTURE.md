@@ -156,6 +156,31 @@ asserted from logs. These hooks are cheap, guarded, and stay in the shipped buil
 - **Day-phase-only joining** is enforced by the host kicking night joiners in `peer_connected`
   (app layer). ENet's `refuse_new_connections` was tried and rejected — see GOTCHAS.
 
+## Classes, abilities & meta-progression (2026-07-12, session 4)
+
+- **ClassType / AbilityType .tres**: a class = sprite, speed, dodge stats, and three ability
+  slots; an ability = cooldown + a `kind` (PROJECTILE with damage/speed/range/pierce, or
+  DEPLOYABLE with root/lifetime). Exclusive towers point at the class via
+  `BuildingType.class_id` — a building belongs to exactly one place, never listed twice.
+- **Casting flow**: owner client enforces its own cooldowns and sends `request_cast` to the
+  host (ownership-checked); the host broadcasts a spawn RPC; **every peer spawns an identical
+  local projectile/trap and only the host's copy deals damage** (host's enemies are the
+  authoritative ones). Cooldowns are client-enforced — accepted friends-co-op trade-off;
+  a host-side rate limit is the upgrade path if it ever matters.
+- **RPC authority lesson**: `@rpc("authority")` on a *player-owned* node authorizes the owning
+  CLIENT, not the host — host broadcasts get rejected. Host→all RPCs on player nodes must be
+  `any_peer` + an explicit sender-is-host guard. (Server-owned nodes keep plain `authority`.)
+- **Deployables** get deterministic names (`Trap_<peer>_<seq>`) so the host's consume RPC
+  resolves on every peer. In-flight projectiles/traps are NOT sent to late joiners (sub-minute
+  lifetimes, day-phase joins only — acceptable).
+- **Profile (autoload)**: local-only meta-progression in `user://profile.cfg` — account XP,
+  per-class XP, unlocked talents. Levels on a sqrt curve; one talent point per class level
+  past 1. Run end banks XP on every peer into *its own* profile; talents apply only to the
+  character the local peer simulates, so meta needs zero networking.
+- **TalentType .tres**: effects are a modifiers dictionary (`&"move_speed_mult": 1.1`);
+  consumers (player.gd) define the keys. Framework + one sample talent; spend-points UI is a
+  session-5 item.
+
 ---
 
 ## Template for new entries

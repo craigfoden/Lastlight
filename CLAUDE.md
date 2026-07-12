@@ -54,7 +54,8 @@ Dev CLI args (after `--`): `--host`, `--join=<ip>`, `--name=<n>`, `--quit-after-
 chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance),
 `--grant-materials=wood:10,stone:10` (host cheat for testing builds), `--auto-build`
 (scripted place/reject/sell timeline), `--auto-block-test` (walls in the tower heart; the
-sealing wall must be rejected by the path rule).
+sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N` /
+`--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane and cast the kit).
 
 ## Definition of done
 
@@ -105,7 +106,16 @@ WaveDirector node in `game.tscn`. Movement, pathing, targeting-by-towers, hp syn
 composition all follow. (Contract: group `"enemies"` + `hp` + `host_take_damage()` +
 `host_send_snapshot()`.)
 
-**Add a class:** framework lands in session 4; write the recipe here in the same commit.
+**Add an ability:** create `data/abilities/<id>.tres` (script `ability_type.gd`; `kind` =
+projectile or deployable + stats) and slot it into a class resource.
+
+**Add a class:** create `data/classes/<id>.tres` (script `class_type.gd`; sprite, speed, dodge
+stats, three ability slots) → mark its exclusive towers via `BuildingType.class_id` → set
+`Network.local_player_class` from the (future) class-select screen. Player combat, gating,
+HUD, talents, and XP banking all key off the class id.
+
+**Add a talent:** create `data/talents/<id>.tres` (script `talent_type.gd`; `class_id`,
+`modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys.
 
 ## GOTCHAS (append whenever a session loses time to a pitfall)
 
@@ -132,6 +142,14 @@ composition all follow. (Contract: group `"enemies"` + `hp` + `host_take_damage(
   still completes (the client fires `connected_to_server` and waits forever) while the host
   never fires `peer_connected`. Enforce join rules at the app layer: kick in `peer_connected`
   via `SceneMultiplayer.disconnect_peer()`.
+- `@rpc("authority")` on a node whose multiplayer authority is a CLIENT (player nodes!) rejects
+  calls from the host. Host→all broadcasts on such nodes need `any_peer` + a sender-is-host
+  guard. Symptom: "RPC ... not allowed ... Mode is 'authority', authority is <peer>".
+- Enemies detour around scenery rocks — a lane you eyeballed may be one cell off. When an
+  overlap "isn't detected", first verify the overlap actually happens (ask `path_to_heart()`),
+  before blaming physics.
+- Two local test instances share the same `user://profile.cfg` — both bank run XP into it, so
+  local multiplayer tests double-bank. Real players on separate machines are unaffected.
 
 ## Team rules
 

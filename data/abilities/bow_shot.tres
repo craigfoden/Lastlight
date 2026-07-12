@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bow_shot"
+display_name = "Bow Shot"
+cooldown = 0.45
+kind = 0
+damage = 3
+projectile_speed = 460.0
+projectile_range = 340.0
+pierce = 0

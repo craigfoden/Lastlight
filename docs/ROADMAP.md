@@ -17,7 +17,7 @@ same scene file.
 | 1 | **Networked foundation** — repo, docs, project scaffold; host/join (ENet, local); synced players (keyboard+gamepad); camera; day/night cycle with lighting; harvesting → shared pool; HUD | ✅ 2026-07-12 | Craig + Claude |
 | 2 | **Building & towers** — grid placement (host-validated, synced): place/cancel/refund; never-block-the-path pathfinding validation; data-driven tower framework; Arrow Turret + one shared basic tower shooting dummy targets | ✅ 2026-07-12 | Craig + Claude |
 | 3 | **Night assault** — data-driven enemy framework; pathfinding to the glowing tower; wave scheduler (escalating nights, difficulty-based openings); tower HP; necromancer game-over; reward chests; run-end XP screen. **Full loop playable — stop and evaluate fun, solo and 2-player, before adding content.** | ✅ 2026-07-12 (fun eval pending — players can't fight until the session-4 Ranger kit) | Craig + Claude |
-| 4 | **Class & meta skeleton** — class resource (abilities + tower list); ability system with cooldowns (Ranger kit complete); talent-tree framework; profile save (class XP, account XP, unlocks) separate from run save; XP scaling by nights survived | free | — |
+| 4 | **Class & meta skeleton** — class resource (abilities + tower list); ability system with cooldowns (Ranger kit complete); talent-tree framework; profile save (class XP, account XP, unlocks) separate from run save; XP scaling by nights survived | ✅ 2026-07-12 | Craig + Claude |
 | 5+ | **Content & polish** (pattern-following) — Paladin + Mage kits and towers via the recipes; enemy variety; gear tiers; map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
@@ -38,6 +38,13 @@ same scene file.
 - Enemy spawn data carries the original spawn position; a day-phase late joiner briefly sees
   live enemies at stale positions until the first sync tick (~0.05 s). Harmless today (enemies
   despawn at dawn and night joins are refused), noted for completeness.
+- No talent-spending UI yet — points accrue and show on the run-end screen; `Profile.unlock_talent()`
+  works but nothing calls it. Session 5 menu work.
+- Ability cooldowns are client-enforced (host checks ownership only) — add a host-side rate
+  limit if cheating ever matters.
+- No class-select screen (Ranger hardcoded as the only class); in-flight projectiles/traps are
+  not replayed to late joiners; enemies still can't hurt players (player HP/downed state is
+  future work alongside the fun eval).
 - Depleted resource nodes never respawn; day-phase respawn/scatter belongs to map-gen work.
 - Menu has no dedicated Quit button; window close only.
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.

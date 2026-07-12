@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"snare_trap"
+display_name = "Snare Trap"
+cooldown = 10.0
+kind = 1
+root_duration = 2.5
+lifetime = 30.0

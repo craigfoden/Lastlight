@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"piercing_arrow"
+display_name = "Piercing Arrow"
+cooldown = 6.0
+kind = 0
+damage = 6
+projectile_speed = 560.0
+projectile_range = 420.0
+pierce = 99

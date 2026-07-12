@@ -105,6 +105,8 @@ func _ready() -> void:
 
 	if OS.get_cmdline_user_args().has("--auto-build"):
 		_run_auto_build()
+	if OS.get_cmdline_user_args().has("--auto-fight"):
+		_start_auto_fight()
 	if OS.get_cmdline_user_args().has("--auto-block-test"):
 		_run_auto_block_test()
 	if OS.get_cmdline_user_args().has("--auto-harvest"):
@@ -142,6 +144,52 @@ func _run_auto_build() -> void:
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
 	await get_tree().create_timer(4.0).timeout
 	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
+
+
+# Smoke-test hook (godot -- --auto-fight): stand by the tower heart and cast
+# the whole Ranger kit at the nearest monster. Exercises aim/cast RPCs,
+# projectiles, piercing, and the snare trap.
+func _start_auto_fight() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 0.6
+	timer.autostart = true
+	timer.timeout.connect(_auto_fight_tick)
+	add_child(timer)
+
+
+func _auto_fight_tick() -> void:
+	var me: Player = players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me == null or not me.is_multiplayer_authority():
+		return
+	# Stand ON the eastern approach lane (ask the pathfinder — a rock makes
+	# A* detour a row, so a hardcoded spot misses the actual lane).
+	var lane := build_manager.path_to_heart(Vector2(1584, 16))
+	var stand := Vector2(100, 16)
+	for point in lane:
+		if absf(point.x - 100.0) < 17.0:
+			stand = point
+			break
+	me.global_position = stand
+	var nearest: Node2D = null
+	var best := INF
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy.hp <= 0:
+			continue
+		var dist: float = me.global_position.distance_squared_to(enemy.global_position)
+		if dist < best:
+			best = dist
+			nearest = enemy
+	if nearest == null:
+		return
+	var direction := me.global_position.direction_to(nearest.global_position)
+	var distance := me.global_position.distance_to(nearest.global_position)
+	# Hold fire until they're ON the trap, so the root gets tested too.
+	if me.cooldown_remaining(me.class_type.ability_2) <= 0.0 and distance < 160.0:
+		me.try_cast_toward(me.class_type.ability_2, direction)
+	elif me.cooldown_remaining(me.class_type.ability_1) <= 0.0 and distance < 60.0:
+		me.try_cast_toward(me.class_type.ability_1, direction)
+	elif distance < 60.0:
+		me.try_cast_toward(me.class_type.basic_attack, direction)
 
 
 # Smoke-test hook (godot -- --auto-block-test): wall in the tower's heart
@@ -281,6 +329,8 @@ func _end_run(victory: bool, nights: int) -> void:
 	wave_director.stop()
 	build_controller.select(null)
 	var xp := nights * xp_per_night + (xp_victory_bonus if victory else 0)
+	# Everyone banks their own XP into their own local profile.
+	Profile.bank_run(Network.local_player_class, xp)
 	run_end_screen.show_results(victory, nights, xp)
 	print("[Game] Run ended: %s after night %d (+%d XP)"
 			% ["VICTORY" if victory else "DEFEAT", nights, xp])

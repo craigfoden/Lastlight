@@ -127,9 +127,14 @@ func _nearest_open_neighbor(cell: Vector2i) -> Vector2i:
 
 ## "" when placement is legal, otherwise a human-readable reason. Runs
 ## identically on clients (ghost tint) and on the host (the actual gate).
-func placement_error(type: BuildingType, cell: Vector2i) -> String:
+func placement_error(
+		type: BuildingType,
+		cell: Vector2i,
+		builder_class: StringName = &"") -> String:
 	if type == null:
 		return "Unknown building type"
+	if type.class_id != &"" and type.class_id != builder_class:
+		return "Class exclusive (%s only)" % type.class_id
 	if not _astar.region.has_point(cell):
 		return "Out of bounds"
 	if _occupied.has(cell) or _scenery.has(cell):
@@ -160,8 +165,12 @@ func _would_block_path(cell: Vector2i) -> bool:
 func request_place(type_id: StringName, cell: Vector2i) -> void:
 	if not multiplayer.is_server():
 		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	var builder_class: StringName = Network.players.get(sender, {}).get("class_id", &"")
 	var type := type_by_id(type_id)
-	var error := placement_error(type, cell)
+	var error := placement_error(type, cell, builder_class)
 	if error != "":
 		print("[Build] Rejected %s at %s: %s" % [type_id, cell, error])
 		return

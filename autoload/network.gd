@@ -27,6 +27,10 @@ var pending_address := "127.0.0.1"
 ## Set by the main menu before hosting/joining.
 var local_player_name := "Player"
 
+## Chosen class. Only Ranger exists until the session-5 roster lands; a class
+## select screen will set this later.
+var local_player_class := &"ranger"
+
 ## Shown on the menu after being bounced back there (failed join, host quit).
 var last_error := ""
 
@@ -49,7 +53,7 @@ func host_game(port := DEFAULT_PORT) -> Error:
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
-	players = {1: {"name": local_player_name}}
+	players = {1: {"name": local_player_name, "class_id": local_player_class}}
 	player_list_changed.emit()
 	print("[Network] Hosting on port %d as '%s'" % [port, local_player_name])
 	return OK
@@ -79,13 +83,13 @@ func player_count() -> int:
 # When someone joins, every existing peer introduces itself directly to the
 # newcomer, so the newcomer assembles the full roster from those messages.
 func _on_peer_connected(id: int) -> void:
-	_register_player.rpc_id(id, local_player_name)
+	_register_player.rpc_id(id, local_player_name, local_player_class)
 
 
 @rpc("any_peer", "reliable")
-func _register_player(player_name: String) -> void:
+func _register_player(player_name: String, player_class: StringName) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	players[sender] = {"name": player_name}
+	players[sender] = {"name": player_name, "class_id": player_class}
 	player_list_changed.emit()
 	print("[Network] Player joined: '%s' (peer %d)" % [player_name, sender])
 
@@ -98,7 +102,10 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
-	players[multiplayer.get_unique_id()] = {"name": local_player_name}
+	players[multiplayer.get_unique_id()] = {
+		"name": local_player_name,
+		"class_id": local_player_class,
+	}
 	player_list_changed.emit()
 	print("[Network] Connected to host.")
 

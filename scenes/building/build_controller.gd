@@ -45,8 +45,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _selected != null:
 		if event.is_action_pressed("build_cancel"):
 			select(null)
+			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("build_confirm"):
 			_build_manager.request_place.rpc_id(1, _selected.id, _mouse_cell())
+			# Consume the click so the player doesn't also fire their weapon.
+			get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("sell"):
 		if _build_manager.building_at(_mouse_cell()) != null:
 			_build_manager.request_sell.rpc_id(1, _mouse_cell())
@@ -57,8 +60,9 @@ func _process(_delta: float) -> void:
 		return
 	var cell := _mouse_cell()
 	_ghost.global_position = _build_manager.cell_to_world(cell)
-	var valid := _build_manager.placement_error(_selected, cell) == ""
-	_ghost.modulate = GHOST_VALID if valid else GHOST_INVALID
+	var error := _build_manager.placement_error(
+			_selected, cell, Network.local_player_class)
+	_ghost.modulate = GHOST_VALID if error == "" else GHOST_INVALID
 
 
 func _mouse_cell() -> Vector2i:

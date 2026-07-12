@@ -18,6 +18,13 @@ var _material_labels := {}  # material id -> Label
 @onready var players_label: Label = %PlayersLabel
 @onready var materials_row: HBoxContainer = %MaterialsRow
 @onready var connecting_panel: Control = %ConnectingPanel
+@onready var ability_bar: Control = %AbilityBar
+@onready var attack_label: Label = %AttackLabel
+@onready var ability_1_label: Label = %Ability1Label
+@onready var ability_2_label: Label = %Ability2Label
+@onready var dodge_label: Label = %DodgeLabel
+
+var _local_player: Player
 
 
 func _ready() -> void:
@@ -61,6 +68,38 @@ func _process(_delta: float) -> void:
 			foes += 1
 	foes_label.text = "Foes: %d" % foes
 	foes_label.visible = foes > 0
+	_refresh_ability_bar()
+
+
+func _refresh_ability_bar() -> void:
+	if _local_player == null or not is_instance_valid(_local_player):
+		_local_player = null
+		for node in get_tree().get_nodes_in_group("players"):
+			if node.is_multiplayer_authority():
+				_local_player = node
+				break
+	ability_bar.visible = _local_player != null
+	if _local_player == null:
+		return
+	var class_type := _local_player.class_type
+	_set_slot(attack_label, "LMB", class_type.basic_attack,
+			_local_player.cooldown_remaining(class_type.basic_attack))
+	_set_slot(ability_1_label, "Q", class_type.ability_1,
+			_local_player.cooldown_remaining(class_type.ability_1))
+	_set_slot(ability_2_label, "F", class_type.ability_2,
+			_local_player.cooldown_remaining(class_type.ability_2))
+	var dodge_cd := _local_player.dodge_cooldown_remaining()
+	dodge_label.text = "SPC Dodge Roll" if dodge_cd <= 0.0 \
+			else "SPC Dodge Roll  %.1f" % dodge_cd
+
+
+func _set_slot(label: Label, key: String, ability: AbilityType, cd: float) -> void:
+	if ability == null:
+		label.visible = false
+		return
+	label.text = "%s %s" % [key, ability.display_name] if cd <= 0.0 \
+			else "%s %s  %.1f" % [key, ability.display_name, cd]
+	label.self_modulate = Color.WHITE if cd <= 0.0 else Color(1, 1, 1, 0.45)
 
 
 func _refresh_materials() -> void:
