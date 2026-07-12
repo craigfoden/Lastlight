@@ -12,6 +12,10 @@ extends Node
 const CELL_SIZE := 32
 const BuildingScene := preload("res://scenes/building/building.tscn")
 
+## The walkable grid changed (building placed/sold, scenery cleared) —
+## anything following a path should recompute it.
+signal grid_changed
+
 ## Everything placeable this run, in hotbar order.
 @export var buildable_types: Array[BuildingType] = []
 
@@ -54,6 +58,8 @@ func setup(
 	var extent := grid_half_extent
 	_astar.region = Rect2i(-extent, -extent, extent * 2, extent * 2)
 	_astar.cell_size = Vector2(CELL_SIZE, CELL_SIZE)
+	# Point paths should return cell centers, not top-left corners.
+	_astar.offset = Vector2(CELL_SIZE, CELL_SIZE) / 2.0
 	# Orthogonal movement only: corridors and mazes behave predictably.
 	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	_astar.update()
@@ -94,6 +100,29 @@ func type_by_id(type_id: StringName) -> BuildingType:
 
 func building_at(cell: Vector2i) -> Building:
 	return _occupied.get(cell)
+
+
+## World-space waypoints from a position to the tower's heart cell. The
+## never-block rule guarantees a path exists from any open cell; partial
+## paths cover the moment something is placed mid-walk (repath follows).
+func path_to_heart(from: Vector2) -> PackedVector2Array:
+	var from_cell := world_to_cell(from)
+	if not _astar.region.has_point(from_cell):
+		from_cell = from_cell.clamp(
+				_astar.region.position,
+				_astar.region.end - Vector2i.ONE)
+	if _astar.is_point_solid(from_cell):
+		from_cell = _nearest_open_neighbor(from_cell)
+	return _astar.get_point_path(from_cell, _heart_cell, true)
+
+
+func _nearest_open_neighbor(cell: Vector2i) -> Vector2i:
+	for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN,
+			Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]:
+		var neighbor: Vector2i = cell + offset
+		if _astar.region.has_point(neighbor) and not _astar.is_point_solid(neighbor):
+			return neighbor
+	return cell
 
 
 ## "" when placement is legal, otherwise a human-readable reason. Runs
@@ -168,13 +197,16 @@ func _build_building(data: Dictionary) -> Node:
 func _on_building_added(node: Node) -> void:
 	_occupied[node.cell] = node
 	_astar.set_point_solid(node.cell)
+	grid_changed.emit()
 
 
 func _on_building_removed(node: Node) -> void:
 	_occupied.erase(node.cell)
 	_astar.set_point_solid(node.cell, false)
+	grid_changed.emit()
 
 
 func _on_scenery_cleared(cell: Vector2i) -> void:
 	_scenery.erase(cell)
 	_astar.set_point_solid(cell, false)
+	grid_changed.emit()

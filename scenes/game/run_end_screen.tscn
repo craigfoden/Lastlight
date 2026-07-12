@@ -1,0 +1,36 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/game/run_end_screen.gd" id="1_script"]
+
+[node name="RunEndScreen" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_script")
+
+[node name="Curtain" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.03, 0.08, 0.92)
+
+[node name="Center" type="CenterContainer" parent="Curtain"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="Curtain/Center"]
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Curtain/Center/Column"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="StatsLabel" type="Label" parent="Curtain/Center/Column"]
+unique_name_in_owner = true
+horizontal_alignment = 1
+
+[node name="MenuButton" type="Button" parent="Curtain/Center/Column"]
+unique_name_in_owner = true
+text = "Return to Menu"

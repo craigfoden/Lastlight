@@ -136,6 +136,26 @@ asserted from logs. These hooks are cheap, guarded, and stay in the shipped buil
 - Training dummies stand in for enemies until session 3: group `"enemies"`, duck-typed contract
   `hp` + `host_take_damage()` + `host_send_snapshot()` — real enemies must keep it.
 
+## Night assault (2026-07-12, session 3)
+
+- **Enemies are host-simulated**: the host runs pathfinding (BuildManager's grid,
+  `path_to_heart()`), movement, and attacks; clients get position from a MultiplayerSynchronizer
+  and hp via the discrete-state RPC lane. Repath on `BuildManager.grid_changed` — mazes update
+  under the horde's feet. Enemy kinds are `EnemyType` .tres resources on the WaveDirector.
+- **Spawn-function injection**: enemies need live node refs (build manager, tower). Spawn data
+  carries only serializable ids; each peer's spawn function injects its *own local* instances.
+  Pattern to reuse for anything spawned that needs scene refs.
+- **WaveDirector** (host-only logic): waves scale `base + per_night·(n−1) + per_extra_player`,
+  spawn through the opening markers on a timer, and **dawn burns all leftovers** (fiction: the
+  amplified sunlight) — nights are self-contained, no lingering state.
+- **Run lifecycle**: tower hp zero → host broadcasts `_end_run(false)`; surviving the final
+  night → `_end_run(true)`. Chests v1 = shared-pool material grant per player at each dawn
+  (per-player gear loot arrives with gear tiers). XP formula is a placeholder shown on the
+  run-end screen; session 4's profile banks it. Necromancer *boss fight* is session-5 content;
+  session 3's loss condition is the descent.
+- **Day-phase-only joining** is enforced by the host kicking night joiners in `peer_connected`
+  (app layer). ENet's `refuse_new_connections` was tried and rejected — see GOTCHAS.
+
 ---
 
 ## Template for new entries

@@ -8,10 +8,13 @@ extends CanvasLayer
 
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
+var _glow_tower: GlowTower
 var _material_labels := {}  # material id -> Label
 
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
+@onready var tower_label: Label = %TowerLabel
+@onready var foes_label: Label = %FoesLabel
 @onready var players_label: Label = %PlayersLabel
 @onready var materials_row: HBoxContainer = %MaterialsRow
 @onready var connecting_panel: Control = %ConnectingPanel
@@ -28,9 +31,13 @@ func _ready() -> void:
 	_refresh_players()
 
 
-func setup(day_night: DayNightCycle, team_materials: TeamMaterials) -> void:
+func setup(
+		day_night: DayNightCycle,
+		team_materials: TeamMaterials,
+		glow_tower: GlowTower) -> void:
 	_day_night = day_night
 	_team_materials = team_materials
+	_glow_tower = glow_tower
 	team_materials.pool_changed.connect(_refresh_materials)
 
 
@@ -45,6 +52,15 @@ func _process(_delta: float) -> void:
 	var remaining := int(ceilf(_day_night.time_remaining()))
 	var phase_name := "Daylight" if _day_night.phase == DayNightCycle.Phase.DAY else "NIGHT"
 	clock_label.text = "%s  %d:%02d" % [phase_name, remaining / 60, remaining % 60]
+	tower_label.text = "Tower %d/%d" % [_glow_tower.hp, _glow_tower.max_hp]
+	var low := _glow_tower.hp <= _glow_tower.max_hp * 0.3
+	tower_label.self_modulate = Color(1, 0.45, 0.45) if low else Color.WHITE
+	var foes := 0
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy.hp > 0:
+			foes += 1
+	foes_label.text = "Foes: %d" % foes
+	foes_label.visible = foes > 0
 
 
 func _refresh_materials() -> void:

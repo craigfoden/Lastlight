@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 32 48">
+  <!-- Placeholder wretch: fast, frail, twitchy. 32x48 like all characters. -->
+  <rect x="11" y="18" width="10" height="18" rx="4" fill="#7a5a8a" stroke="#46325a" stroke-width="2"/>
+  <circle cx="16" cy="11" r="6" fill="#9a7aae" stroke="#46325a" stroke-width="2"/>
+  <circle cx="14" cy="10" r="1.5" fill="#e8e0f0"/>
+  <circle cx="19" cy="10" r="1.5" fill="#e8e0f0"/>
+  <line x1="11" y1="22" x2="4" y2="30" stroke="#46325a" stroke-width="3"/>
+  <line x1="21" y1="22" x2="28" y2="30" stroke="#46325a" stroke-width="3"/>
+  <line x1="13" y1="36" x2="10" y2="46" stroke="#46325a" stroke-width="3"/>
+  <line x1="19" y1="36" x2="22" y2="46" stroke="#46325a" stroke-width="3"/>
+</svg>

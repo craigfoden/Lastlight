@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/enemies/enemy_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/shambler.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"shambler"
+display_name = "Shambler"
+texture = ExtResource("2")
+max_hp = 12
+move_speed = 55.0
+damage = 4
+attack_interval = 1.5
+attack_range = 48.0

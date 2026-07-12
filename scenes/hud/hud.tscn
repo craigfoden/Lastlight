@@ -26,6 +26,15 @@ text = "Day 1 / 7"
 unique_name_in_owner = true
 text = "Daylight 5:00"
 
+[node name="TowerLabel" type="Label" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+text = "Tower 100/100"
+
+[node name="FoesLabel" type="Label" parent="TopBar/Margin/Row"]
+unique_name_in_owner = true
+visible = false
+text = "Foes: 0"
+
 [node name="LeftSpacer" type="Control" parent="TopBar/Margin/Row"]
 size_flags_horizontal = 3
 

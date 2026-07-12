@@ -99,9 +99,13 @@ set `class_id` for class exclusives) → add its sprite SVG → add the resource
 `buildable_types` on the BuildManager node in `game.tscn`. Hotbar, ghost, costs, path
 validation, and sync all follow from the data.
 
-**Add an enemy / class:** frameworks land in sessions 3–4; write the recipe here in the same
-commit that lands each framework. (Interim: anything in group `"enemies"` with `hp`,
-`host_take_damage()`, and `host_send_snapshot()` is targetable by towers.)
+**Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
+speed, attack stats) → add its 32×48 sprite SVG → add the resource to `enemy_types` on the
+WaveDirector node in `game.tscn`. Movement, pathing, targeting-by-towers, hp sync, and wave
+composition all follow. (Contract: group `"enemies"` + `hp` + `host_take_damage()` +
+`host_send_snapshot()`.)
+
+**Add a class:** framework lands in session 4; write the recipe here in the same commit.
 
 ## GOTCHAS (append whenever a session loses time to a pitfall)
 
@@ -124,6 +128,10 @@ commit that lands each framework. (Interim: anything in group `"enemies"` with `
   as a hang. `game.gd` enforces its own `join_timeout` (10 s) and bounces to the menu.
 - "Could not host (is the port already in use?)" usually means a leftover Godot instance from an
   earlier playtest still holds port 24565 — check for running `Godot*` processes before testing.
+- `refuse_new_connections` on an ENet server does NOT reject connections — the ENet handshake
+  still completes (the client fires `connected_to_server` and waits forever) while the host
+  never fires `peer_connected`. Enforce join rules at the app layer: kick in `peer_connected`
+  via `SceneMultiplayer.disconnect_peer()`.
 
 ## Team rules
 
