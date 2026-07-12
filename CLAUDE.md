@@ -110,6 +110,8 @@ same commit that lands each framework.
 - Commit `.uid` files; gitignore only `.godot/` and `*.translation` (Godot 4.1+ rules).
 - Two shell-sandboxed processes may not reach each other over loopback UDP when launched from
   separate Claude tool calls — launch both smoke-test instances from **one** command.
+- ENet clients take 30+ seconds to emit `connection_failed` when nothing is listening — it reads
+  as a hang. `game.gd` enforces its own `join_timeout` (10 s) and bounces to the menu.
 
 ## Team rules
 

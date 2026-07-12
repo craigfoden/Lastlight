@@ -8,6 +8,10 @@ extends Control
 
 const GAME_SCENE := "res://scenes/game/game.tscn"
 
+## Cmdline autostart must run once per launch, not every time we come back to
+## the menu — otherwise a failed scripted --join retries in a loop forever.
+static var _cmdline_applied := false
+
 @onready var name_edit: LineEdit = %NameEdit
 @onready var address_edit: LineEdit = %AddressEdit
 @onready var status_label: Label = %StatusLabel
@@ -26,6 +30,9 @@ func _ready() -> void:
 
 
 func _apply_cmdline_args() -> void:
+	if _cmdline_applied:
+		return
+	_cmdline_applied = true
 	var args := OS.get_cmdline_user_args()
 	# Name and test helpers first, so they apply before any host/join fires.
 	for arg in args:

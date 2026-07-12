@@ -12,6 +12,10 @@ const PlayerScene := preload("res://scenes/player/player.tscn")
 ## Players spawn on a ring around the glowing tower (which sits at the origin).
 @export var spawn_radius := 96.0
 
+## Seconds a joining client waits before giving up. ENet itself can take 30+
+## seconds to admit failure, which reads as a hang — we enforce our own limit.
+@export var join_timeout := 10.0
+
 @onready var players: Node2D = $Players
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var day_night: DayNightCycle = $DayNight
@@ -36,6 +40,7 @@ func _ready() -> void:
 			hud.show_connecting(true)
 			multiplayer.connected_to_server.connect(hud.show_connecting.bind(false))
 			Network.join_game(Network.pending_address)
+			_start_join_timeout()
 		_:
 			# HOST from the menu, or NONE when running this scene directly
 			# from the editor (F6) — both mean: be the host, even solo.
@@ -123,6 +128,23 @@ func _build_player(data: Dictionary) -> Node:
 	player.name = str(data.peer_id)
 	player.position = data.position
 	return player
+
+
+# A child Timer (not a SceneTreeTimer) so it is freed with the scene and can
+# never fire into a dead context after we've already left for the menu.
+func _start_join_timeout() -> void:
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = join_timeout
+	timer.timeout.connect(_on_join_timeout)
+	add_child(timer)
+	timer.start()
+
+
+func _on_join_timeout() -> void:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		_return_to_menu("Could not reach the host (timed out).")
 
 
 func _on_resource_harvested(material_type: MaterialType, count: int) -> void:
