@@ -6,10 +6,12 @@ Main stays 2D and shippable until phase 8 flips the switch. Read the session-8 e
 `ARCHITECTURE.md` (on this branch) before starting: it records the driver gotchas the
 prototype already paid for.
 
-**Try the slice first** (10 minutes, judge the night): launch normally and press
-"3D Prototype (session 8 evaluation)" on the menu, or `godot --path . -- --proto3d`, or open
-`scenes/proto3d/proto3d.tscn` and F6. WASD moves, mouse ghost snaps to cells, LMB places
-walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted shots.
+**Try the slice first** (10 minutes, judge the night): run
+`godot --path . res://scenes/proto3d/proto3d.tscn`, or open the scene and F6. (The menu
+button and `--proto3d` flag mentioned in the session-8 notes were never built — launch the
+scene directly.) WASD moves, mouse ghost snaps to cells, LMB places walls, night falls
+~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted shots;
+`--omni-shadows` turns tower-light shadows on (the phase-1 renderer probe).
 
 ## Ground rules
 
@@ -34,12 +36,13 @@ walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for s
 
 ## What gets rewritten (the phases)
 
-**Phase 1 — Renderer decision + conventions.** Test Forward+ vs Compatibility on BOTH
-machines (known: omni shadows render their lit region black on Compatibility/ANGLE — the
-prototype ships with them off). Decide, log it, and set the 3D conventions in CLAUDE.md:
-1 unit = 1 cell, ground plane y = 0, sprite `pixel_size 0.036`, unshaded billboards with
-hand-driven tint (see prototype), collision layer scheme (proposal: 1 world, 2 players,
-4 enemies, 8 hitboxes — mirror the 2D layers).
+**Phase 1 — Renderer decision + conventions.** ✅ 2026-07-13 (Chris) — **Forward+**, see
+the decision log entry. The black-omni-shadow bug reproduced on Chris's ANGLE stack too;
+Forward+ rendered them correctly AND ran ~75% faster on the same old GPU. Conventions
+landed in CLAUDE.md (1 unit = 1 cell, ground y = 0, `pixel_size 0.036` unshaded billboards
+with hand-driven tint, collision layers 1/2/4/8 mirroring 2D). Still owed before phase 2
+flips `project.godot`: the same matrix on Craig's machine (repro command in the decision
+log; `--omni-shadows` flag is in `proto3d.gd`).
 
 **Phase 2 — World & WorldGen.** `game3d.tscn` shell: ground, WorldEnvironment, sun, glow
 tower scene (mesh + OmniLight + heart). Port WorldGen: same seed, same `Res_%d`/`Prop_%d`
@@ -81,7 +84,9 @@ the gem is a placeholder sphere.
 
 ## Open questions for whoever runs phase 1
 
-- Forward+ or Compatibility? (Weigh: omni shadows + glow/bloom vs. lowest-spec machines.)
+- ~~Forward+ or Compatibility?~~ **Forward+** (phase 1, 2026-07-13): omni shadows correct
+  and faster even on our lowest-spec machine; Godot ≥4.4 auto-falls-back to Compatibility
+  so nobody is stranded — gate omni shadows off at runtime on the fallback.
 - Do scenery obstacles keep the group-`"obstacles"` build-grid contract, or does the 3D
   WorldGen register cells directly?
 - Billboards forever, or billboards-now-meshes-later for characters? (Billboards preserve

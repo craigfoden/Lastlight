@@ -346,6 +346,46 @@ light source, and night as absence-of-light instead of a modulate tint.
 
 ---
 
+## 3D port phase 1 — renderer decision: Forward+ (2026-07-13, session 9, branch `3d-ortho-prototype`)
+
+**Decision: the 3D port targets the Forward+ renderer (Vulkan). Compatibility remains only
+as Godot's automatic fallback, never the target.** Verified on Chris's machine (Radeon RX
+Vega M GH + Intel HD 630, 2020-era drivers, tested over an RDP session) with a 4-way matrix
+on the prototype scene — {Compatibility/ANGLE, Forward+} × {omni shadows off, on} — using
+`--screenshot-at=4,17` (day/night frames) and the new `--omni-shadows` dev flag in
+`proto3d.gd`.
+
+**Why:**
+- **Omni shadows — the tower light, the heart of phase 7 — are broken on Compatibility and
+  correct on Forward+.** On ANGLE/D3D11 the entire lit pool renders solid black, exactly
+  Craig's session-8 bug, now reproduced on a second machine and GPU vendor. On Forward+ the
+  same frame is the intended look: a warm graded pool with props casting radial shadows
+  away from the tower.
+- **Forward+ was ~75% faster here**: 55–59 fps vs 32 fps on the identical scene and
+  machine — and this is a 2018 iGPU-class GPU on a Vulkan 1.2.131 driver from 2020. The
+  "Compatibility is kinder to low-spec machines" assumption failed on our actual
+  low-spec machine.
+- **Choosing Forward+ strands nobody**: since Godot 4.4, Forward+ falls back
+  Vulkan → D3D12 → Compatibility automatically (godot-docs
+  `tutorials/rendering/renderers.rst`). Worst case a machine gets today's Compatibility
+  look. Consequence: **omni-light shadows must be gated at runtime** — check the active
+  rendering method and keep `shadow_enabled = false` when it is `gl_compatibility` —
+  never assumed on.
+- **Baseline parity confirmed**: with omni shadows off, ANGLE and Forward+ frames are
+  near-identical at day and night, so fallback machines regress nothing; they only miss
+  the tower-light shadows (and, later, glow/bloom on the gem).
+
+**Still owed:** the same matrix on Craig's machine before phase 2 flips
+`renderer/rendering_method` in `project.godot` (merge-sensitive — call it out in the
+commit). Repro:
+`$godot --rendering-method forward_plus --path . res://scenes/proto3d/proto3d.tscn -- --screenshot-at=4,17 --quit-after-sec=20 --omni-shadows`
+vs the same with `--rendering-driver opengl3_angle` instead of the method override; shots
+land in `user://proto_shot_*.png`. Driver fact found on the way: native OpenGL
+(Compatibility's first-choice driver) hard-crashes at context creation over RDP on this
+machine — see GOTCHAS in CLAUDE.md.
+
+---
+
 ## Template for new entries
 
 ```

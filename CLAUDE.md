@@ -98,6 +98,15 @@ A system is done when ALL of:
   cell's bottom edge). Flat decals skip the anchor and use `z_index = -1`. Don't hand-set
   z_index to force draw order on world objects — fix the Y instead (the layer table lives in
   ARCHITECTURE.md).
+- **3D port** (branch `3d-ortho-prototype`, phases in `docs/PORT_PLAN.md`): renderer is
+  **Forward+** (decision log 2026-07-13). Omni-light shadows are gated at runtime — force
+  `shadow_enabled = false` whenever the engine fell back to Compatibility, where they render
+  the lit region black. Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
+  plane is y = 0; the 2D grid's XY maps to XZ (cell `(x, y)` → world `(x + 0.5, ·, y + 0.5)`).
+  Characters are `Sprite3D` billboards: `pixel_size = 0.036`, `BILLBOARD_FIXED_Y`,
+  `shaded = false`, day/night lighting hand-driven via `modulate` each frame (the 3D
+  CanvasModulate — `shaded` billboards vary by driver). Collision layers mirror the 2D
+  scheme exactly: 1 world/solids, 2 players, 4 enemies, 8 hitboxes.
 
 ## Recipes
 
@@ -195,6 +204,15 @@ HUD, talents, and XP banking all key off the class id.
   docs** (em-dashes → mojibake, adds a BOM and CRLF): it reads BOM-less UTF-8 as ANSI. Edit
   repo text files with proper file tools; if a shell write is unavoidable, check `git diff`
   for encoding damage immediately after.
+- Native OpenGL (the Compatibility renderer's first-choice driver) can hard-crash at context
+  creation — seen over an RDP session: the process dies silently with only the engine header
+  in the log (last line `Accessibility: AccessKit driver loaded`), which reads as "the game
+  never launched". Force `--rendering-driver opengl3_angle` (or Forward+) when testing over
+  remote desktop.
+- PowerShell `... | Select-Object -First N` **kills the upstream native process** the moment
+  N objects have arrived (pipeline stop). A Godot run filtered that way dies mid-startup with
+  exit −1 and looks exactly like a renderer crash. Redirect to a file and filter after the
+  process exits instead.
 
 ## Team rules
 

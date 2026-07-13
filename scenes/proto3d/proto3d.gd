@@ -328,6 +328,11 @@ func _parse_dev_args() -> void:
 		if arg.begins_with("--screenshot-at="):
 			for stamp in arg.get_slice("=", 1).split(","):
 				_save_screenshot_after(float(stamp))
+		elif arg == "--omni-shadows":
+			# Phase-1 renderer test: omni shadows are known-broken on some
+			# Compatibility/ANGLE stacks (lit region renders black).
+			_tower_light.shadow_enabled = true
+			print("[Proto3D] Omni shadow test: tower light shadows ON")
 		elif arg.begins_with("--quit-after-sec="):
 			get_tree().create_timer(float(arg.get_slice("=", 1))).timeout.connect(
 					func() -> void: get_tree().quit())
@@ -338,4 +343,5 @@ func _save_screenshot_after(delay_sec: float) -> void:
 	var image := get_viewport().get_texture().get_image()
 	var path := "user://proto_shot_%d.png" % int(delay_sec)
 	image.save_png(path)
-	print("[Proto3D] Screenshot saved to %s" % ProjectSettings.globalize_path(path))
+	print("[Proto3D] Screenshot saved to %s (%d fps)" % [
+			ProjectSettings.globalize_path(path), Engine.get_frames_per_second()])
