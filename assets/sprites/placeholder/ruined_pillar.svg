@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Placeholder ruined pillar (solid structure): final art will be a 32x32 tile. -->
+  <rect x="9" y="26" width="14" height="4" fill="#5c5850"/>
+  <rect x="11" y="8" width="10" height="18" fill="#8d887c" stroke="#5c5850" stroke-width="1.5"/>
+  <polygon points="11,8 21,8 19,4 13,6" fill="#a49e90"/>
+  <line x1="16" y1="10" x2="16" y2="26" stroke="#6f6b60" stroke-width="1"/>
+</svg>

@@ -47,6 +47,7 @@ var run_over := false
 @onready var build_menu: BuildMenu = $BuildMenu
 @onready var spawn_openings: Node2D = $World/SpawnOpenings
 @onready var wave_director: WaveDirector = $WaveDirector
+@onready var world_gen: WorldGen = $World/WorldGen
 @onready var glow_tower: GlowTower = $World/GlowTower
 @onready var run_end_screen: RunEndScreen = $RunEndScreen
 
@@ -63,10 +64,16 @@ func _ready() -> void:
 	for marker in spawn_openings.get_children():
 		opening_cells.append(build_manager.world_to_cell(marker.global_position))
 		spawn_positions.append(marker.global_position)
-	build_manager.setup(team_materials, opening_cells, HEART_CELL, TOWER_CELLS)
+	# The tower footprint plus every solid prop WorldGen scattered are permanent
+	# unbuildable, unwalkable cells (WorldGen already ran — it is a child).
+	var scenery_cells: Array[Vector2i] = TOWER_CELLS.duplicate()
+	for node in get_tree().get_nodes_in_group("obstacles"):
+		scenery_cells.append(build_manager.world_to_cell(node.global_position))
+	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
 	build_controller.setup(build_manager)
 	build_menu.setup(build_manager, build_controller, team_materials)
-	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions)
+	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
+			world_gen.safe_radius)
 	wave_director.night_survived.connect(_on_night_survived)
 	glow_tower.destroyed.connect(_on_tower_destroyed)
 	run_end_screen.menu_requested.connect(_return_to_menu.bind(""))
@@ -111,6 +118,8 @@ func _ready() -> void:
 		_run_auto_block_test()
 	if OS.get_cmdline_user_args().has("--auto-harvest"):
 		_start_auto_harvest()
+	if OS.get_cmdline_user_args().has("--hurt-test"):
+		_start_hurt_test()
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--fast-cycle":
 			# Dev helper: 10 s days / 6 s nights to see dusk and night quickly.
@@ -234,6 +243,24 @@ func _auto_harvest_tick() -> void:
 	me.try_harvest()
 
 
+# Smoke-test hook (godot -- --hurt-test): the host chips every player's hp on a
+# timer so the downed -> respawn (and revive, when a teammate is near) path can
+# be exercised headlessly. Harmless otherwise (guarded to the host).
+func _start_hurt_test() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 1.0
+	timer.autostart = true
+	timer.timeout.connect(_hurt_test_tick)
+	add_child(timer)
+
+
+func _hurt_test_tick() -> void:
+	if not multiplayer.is_server():
+		return
+	for node in get_tree().get_nodes_in_group("players"):
+		node.host_take_damage(15)
+
+
 # Host only. The joiner's Game scene is already loaded (clients connect from
 # inside it), so it is safe to spawn their player and push them the state that
 # is not covered by synchronizers.
@@ -251,6 +278,8 @@ func _on_peer_connected(peer_id: int) -> void:
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
 		node.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("enemies"):
+		node.host_send_snapshot(peer_id)
+	for node in get_tree().get_nodes_in_group("players"):
 		node.host_send_snapshot(peer_id)
 	# Placed buildings need no snapshot: their spawner replays them.
 

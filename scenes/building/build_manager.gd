@@ -106,14 +106,23 @@ func building_at(cell: Vector2i) -> Building:
 ## never-block rule guarantees a path exists from any open cell; partial
 ## paths cover the moment something is placed mid-walk (repath follows).
 func path_to_heart(from: Vector2) -> PackedVector2Array:
-	var from_cell := world_to_cell(from)
-	if not _astar.region.has_point(from_cell):
-		from_cell = from_cell.clamp(
-				_astar.region.position,
-				_astar.region.end - Vector2i.ONE)
-	if _astar.is_point_solid(from_cell):
-		from_cell = _nearest_open_neighbor(from_cell)
-	return _astar.get_point_path(from_cell, _heart_cell, true)
+	return _astar.get_point_path(_walkable_cell(world_to_cell(from)), _heart_cell, true)
+
+
+## World-space path between two arbitrary points — roaming monsters chasing a
+## player. Both endpoints are nudged onto the nearest walkable cell first.
+func path_to(from: Vector2, to: Vector2) -> PackedVector2Array:
+	return _astar.get_point_path(
+			_walkable_cell(world_to_cell(from)),
+			_walkable_cell(world_to_cell(to)), true)
+
+
+func _walkable_cell(cell: Vector2i) -> Vector2i:
+	if not _astar.region.has_point(cell):
+		cell = cell.clamp(_astar.region.position, _astar.region.end - Vector2i.ONE)
+	if _astar.is_point_solid(cell):
+		cell = _nearest_open_neighbor(cell)
+	return cell
 
 
 func _nearest_open_neighbor(cell: Vector2i) -> Vector2i:

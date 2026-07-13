@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Placeholder dead tree (solid obstacle): final art will be a 32x32 tile. -->
+  <rect x="14" y="14" width="4" height="16" fill="#4a3521"/>
+  <path d="M16 18 L8 12" stroke="#4a3521" stroke-width="3" fill="none"/>
+  <path d="M16 15 L24 8" stroke="#4a3521" stroke-width="3" fill="none"/>
+  <path d="M16 12 L16 3" stroke="#4a3521" stroke-width="3" fill="none"/>
+  <path d="M8 12 L5 8" stroke="#3a2917" stroke-width="2" fill="none"/>
+  <path d="M24 8 L27 4" stroke="#3a2917" stroke-width="2" fill="none"/>
+</svg>

@@ -181,6 +181,54 @@ asserted from logs. These hooks are cheap, guarded, and stay in the shipped buil
   consumers (player.gd) define the keys. Framework + one sample talent; spend-points UI is a
   session-5 item.
 
+## World population, daytime threats & player survival (2026-07-13, session 5)
+
+- **Deterministic world generation (`WorldGen`, derived-not-synced)**: a fixed
+  seed drives one `RandomNumberGenerator`; every peer runs the same `_ready`
+  and builds an identical scatter of resource nodes and scenery. Nothing about
+  the layout is networked — same principle as the build grid. Because the nodes
+  land at identical paths (`Res_%d`, `Prop_%d`) on every peer, the existing
+  client→host harvest RPC resolves untouched (verified: a client's harvest lands
+  on the host's matching node). Resource *stock* still syncs via ResourceNode's
+  discrete-state RPC lane. **Why not a MultiplayerSpawner?** Resource nodes are
+  static-equivalent content, not runtime spawns; deterministic generation gives
+  late joiners the world for free (they generate it before connecting) with zero
+  spawn traffic. **Trade-off:** the seed is a baked constant, so every run has
+  the same map. A per-run seed must be *synced before generation* — deferred to
+  real map-generation work.
+- **A clear corridor guarantees connectivity.** WorldGen never places a
+  grid-solid thing (resource or solid prop) on the row `y == 0`; the spawn
+  openings and the tower heart all sit on that row, so a straight walkable lane
+  always exists before anyone builds. This lets scattered obstacles register as
+  grid-solid (enemies path around them via A*) without any risk of sealing the
+  map at generation time.
+- **Solid vs decorative scenery.** `SceneryProp` (one scene) is solid or decor
+  by an export. Solids join group `"obstacles"`; `game.gd` collects their cells
+  and passes them to `BuildManager.setup` as permanent scenery cells (same
+  channel as the tower footprint — never cleared). Decor drops its collision
+  entirely. Enemies collide physically (layer 1) as a backstop to A*.
+- **Bigger safe zone is a radius, not just art.** `WorldGen.safe_radius` (the
+  enlarged VillageGlow matches it visually) keeps solid props and *all* monster
+  activity out of the village ring: roamers won't spawn inside it and deaggro at
+  its edge (`Enemy._in_safe_zone`). The village is a genuine haven.
+- **Daytime threats reuse the night machinery.** `WaveDirector` now runs a
+  second loop: during the day it tops a small roamer population (scaled per
+  player) back up on a timer, spawning `Enemy`s with `Behavior.ROAM` outside the
+  safe zone. Roamers wander via A* and chase/attack the nearest exposed player;
+  they are cleared at nightfall so the night assault stays self-contained. One
+  spawner, one enemy scene, a behavior flag in the spawn data.
+- **Player HP is host-authoritative on a client-authoritative node.** Movement
+  stays client-authored; hp/downed/revive/respawn are decided by the host (it
+  simulates the enemies). Because a player node's authority is the owning
+  *client*, host→all state broadcasts use the `any_peer` + sender-is-host guard
+  pattern (NOT `authority`) — the same carve-out projectiles use (see GOTCHAS).
+  The host runs survival logic for *every* player via `set_process(is_server())`
+  (movement still simulates only on the owner). Respawn repositioning is an RPC
+  to the owning peer, which moves *itself* (it holds position authority). Downed
+  players are revived by a living teammate in range, else recalled to the village
+  on a timer. Verified across two instances: downed, respawn, and revive all fire
+  with no RPC-authority errors.
+
 ---
 
 ## Template for new entries

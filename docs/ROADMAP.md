@@ -18,7 +18,8 @@ same scene file.
 | 2 | **Building & towers** — grid placement (host-validated, synced): place/cancel/refund; never-block-the-path pathfinding validation; data-driven tower framework; Arrow Turret + one shared basic tower shooting dummy targets | ✅ 2026-07-12 | Craig + Claude |
 | 3 | **Night assault** — data-driven enemy framework; pathfinding to the glowing tower; wave scheduler (escalating nights, difficulty-based openings); tower HP; necromancer game-over; reward chests; run-end XP screen. **Full loop playable — stop and evaluate fun, solo and 2-player, before adding content.** | ✅ 2026-07-12 (fun eval pending — players can't fight until the session-4 Ranger kit) | Craig + Claude |
 | 4 | **Class & meta skeleton** — class resource (abilities + tower list); ability system with cooldowns (Ranger kit complete); talent-tree framework; profile save (class XP, account XP, unlocks) separate from run save; XP scaling by nights survived | ✅ 2026-07-12 | Craig + Claude |
-| 5+ | **Content & polish** (pattern-following) — Paladin + Mage kits and towers via the recipes; enemy variety; gear tiers; map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 5 | **World feel & danger pass** — deterministic world population (denser materials, solid + decorative scenery); enlarged safe zone (radius, not just art); daytime roaming monsters; player HP + downed/revive/village-respawn; corner mini-map (materials, mobs, teammates, home). First pass at making the day loop feel alive and risky. | ✅ 2026-07-13 | Craig + Claude |
+| 6+ | **Content & polish** (pattern-following) — Paladin + Mage kits and towers via the recipes; enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -30,8 +31,8 @@ same scene file.
   and can trap the player). Needs an occupancy check against bodies.
 - No health bars on dummies (they fade with damage); enemies proper get bars in session 3.
 - No grid overlay while in build mode — ghost + tint only.
-- Enemies don't attack players or buildings, only the tower; walls are pure maze. (Design ok
-  for v1; revisit after fun eval.)
+- Night-assault enemies attack only the tower (walls stay pure maze); daytime ROAM enemies
+  now attack players (session 5). Enemies still never attack buildings. (Design ok for v1.)
 - Enemies stack on the same cell (no separation steering) — crowds overlap visually.
 - A kicked night-joiner sees "The host ended the game" rather than "locked during night
   assaults" — a proper refusal message needs an auth-stage handshake (polish).
@@ -43,9 +44,15 @@ same scene file.
 - Ability cooldowns are client-enforced (host checks ownership only) — add a host-side rate
   limit if cheating ever matters.
 - No class-select screen (Ranger hardcoded as the only class); in-flight projectiles/traps are
-  not replayed to late joiners; enemies still can't hurt players (player HP/downed state is
-  future work alongside the fun eval).
+  not replayed to late joiners. (Player HP + downed/respawn landed in session 5.)
+- Dodge grants no invulnerability yet — it's a burst move only. Host applies damage and does
+  not know a client's dodge state; i-frames need a cheap dodge-state signal to the host (polish).
+- World seed is a baked constant: every run has the same map. Per-run variety needs a seed
+  synced before WorldGen runs (map-generation work).
+- Mini-map is functional but untuned (fixed range, no zoom, no fog); verified headless only —
+  give it a visual pass when real art lands.
 - Depleted resource nodes never respawn; day-phase respawn/scatter belongs to map-gen work.
+  (Softened by session 5: there are ~130 nodes now, so running dry mid-run is unlikely.)
 - Menu has no dedicated Quit button; window close only.
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.
 

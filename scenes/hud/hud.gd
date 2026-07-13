@@ -19,6 +19,9 @@ var _material_labels := {}  # material id -> Label
 @onready var materials_row: HBoxContainer = %MaterialsRow
 @onready var connecting_panel: Control = %ConnectingPanel
 @onready var ability_bar: Control = %AbilityBar
+@onready var health_label: Label = %HealthLabel
+@onready var downed_banner: Label = %DownedBanner
+@onready var minimap: Minimap = %Minimap
 @onready var attack_label: Label = %AttackLabel
 @onready var ability_1_label: Label = %Ability1Label
 @onready var ability_2_label: Label = %Ability2Label
@@ -46,6 +49,7 @@ func setup(
 	_team_materials = team_materials
 	_glow_tower = glow_tower
 	team_materials.pool_changed.connect(_refresh_materials)
+	minimap.setup(glow_tower)
 
 
 func show_connecting(showing: bool) -> void:
@@ -80,7 +84,14 @@ func _refresh_ability_bar() -> void:
 				break
 	ability_bar.visible = _local_player != null
 	if _local_player == null:
+		downed_banner.visible = false
 		return
+	health_label.text = "HP %d/%d" % [_local_player.hp, _local_player.max_hp]
+	var low := _local_player.hp <= _local_player.max_hp * 0.3
+	health_label.self_modulate = Color(1, 0.45, 0.45) if low else Color.WHITE
+	downed_banner.visible = _local_player.downed
+	if _local_player.downed:
+		downed_banner.text = "DOWNED\nA teammate can revive you — or the village will call you back."
 	var class_type := _local_player.class_type
 	_set_slot(attack_label, "LMB", class_type.basic_attack,
 			_local_player.cooldown_remaining(class_type.basic_attack))

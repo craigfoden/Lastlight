@@ -17,7 +17,9 @@ extends Resource
 
 @export_group("Attack")
 @export var damage := 3
-## Seconds between swings at the glowing tower.
+## Seconds between swings (at the tower, or at a player when roaming).
 @export var attack_interval := 1.5
-## Pixels from the tower at which it stops and starts swinging.
+## Pixels from the target at which it stops and starts swinging.
 @export var attack_range := 48.0
+## Roaming only: how close a player must come before this monster gives chase.
+@export var aggro_range := 260.0

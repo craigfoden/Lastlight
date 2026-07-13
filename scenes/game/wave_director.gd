@@ -1,9 +1,13 @@
 class_name WaveDirector
 extends Node
-## Night-wave scheduler. Host-only logic: when night falls it queues up an
-## escalating number of monsters, spawns them through the map's openings on a
-## timer, and burns whatever survives at dawn. Enemies replicate through the
-## MultiplayerSpawner below; clients only ever see the results.
+## Threat scheduler (host-only logic). Two jobs:
+##  * Night: queue an escalating wave of ASSAULT monsters, spawn them through
+##    the map openings on a timer, and burn whatever survives at dawn.
+##  * Day: keep a small population of ROAM monsters alive out in the dark
+##    (outside the safe zone) so venturing far is never risk-free. They are
+##    cleared when night falls and the assault takes over.
+## Enemies replicate through the MultiplayerSpawner below; clients only ever
+## see the results.
 
 ## Fired on the host at dawn when the tower survived the night.
 signal night_survived(night_number: int)
@@ -23,10 +27,20 @@ const EnemyScene := preload("res://scenes/enemy/enemy.tscn")
 @export var fast_share_per_night := 0.1
 @export var fast_share_max := 0.4
 
+@export_group("Daytime threats")
+## Roamers kept alive during the day (solo baseline + per extra player).
+@export var day_roamer_base := 3
+@export var day_roamer_per_player := 1
+## How often the day loop tops the roamer population back up.
+@export var day_spawn_interval := 3.0
+## Roamers spawn on a ring between the safe zone and this radius.
+@export var roamer_spawn_max_radius := 1300.0
+
 var _day_night: DayNightCycle
 var _build_manager: BuildManager
 var _tower: GlowTower
 var _spawn_positions: Array[Vector2] = []
+var _safe_radius := 0.0
 var _to_spawn := 0
 var _night_number := 0
 var _spawn_seq := 0
@@ -35,11 +49,18 @@ var _stopped := false
 @onready var _spawner: MultiplayerSpawner = $EnemySpawner
 @onready var _enemies: Node2D = $Enemies
 @onready var _spawn_timer: Timer = $SpawnTimer
+@onready var _day_timer := Timer.new()
 
 
 func _ready() -> void:
 	_spawner.spawn_function = _build_enemy
 	_spawn_timer.timeout.connect(_spawn_tick)
+	# Daytime roamer top-up runs on its own cadence; the tick guards on host
+	# + day-phase, so it is harmless on clients and at night.
+	_day_timer.wait_time = day_spawn_interval
+	_day_timer.timeout.connect(_day_tick)
+	add_child(_day_timer)
+	_day_timer.start()
 
 
 ## Injected by the Game scene on every peer.
@@ -47,11 +68,13 @@ func setup(
 		day_night: DayNightCycle,
 		build_manager: BuildManager,
 		tower: GlowTower,
-		spawn_positions: Array[Vector2]) -> void:
+		spawn_positions: Array[Vector2],
+		safe_radius: float) -> void:
 	_day_night = day_night
 	_build_manager = build_manager
 	_tower = tower
 	_spawn_positions = spawn_positions
+	_safe_radius = safe_radius
 	day_night.phase_changed.connect(_on_phase_changed)
 
 
@@ -68,6 +91,8 @@ func _on_phase_changed(phase: DayNightCycle.Phase) -> void:
 	if not multiplayer.is_server() or _stopped:
 		return
 	if phase == DayNightCycle.Phase.NIGHT:
+		# The daytime roamers retreat as the assault masses at the openings.
+		_despawn_all()
 		_night_number = _day_night.day_number
 		_to_spawn = base_count \
 				+ count_per_night * (_night_number - 1) \
@@ -98,11 +123,46 @@ func _spawn_tick() -> void:
 	_spawner.spawn({"type_id": type.id, "position": spawn_position, "seq": _spawn_seq})
 
 
+# Daytime top-up: keep the roamer population at target while it is day.
+func _day_tick() -> void:
+	if not multiplayer.is_server() or _stopped:
+		return
+	if _day_night == null or _day_night.phase != DayNightCycle.Phase.DAY:
+		return
+	if enemy_types.is_empty():
+		return
+	var target := day_roamer_base + day_roamer_per_player * (Network.player_count() - 1)
+	if _alive_roamers() >= target:
+		return
+	_spawn_seq += 1
+	var type := enemy_types[_spawn_seq % enemy_types.size()]
+	var radius := randf_range(_safe_radius + 80.0, roamer_spawn_max_radius)
+	var spawn_position := Vector2(radius, 0).rotated(randf() * TAU)
+	_spawner.spawn({
+		"type_id": type.id,
+		"position": spawn_position,
+		"seq": _spawn_seq,
+		"roam": true,
+	})
+	print("[Waves] Day roamer released (%s)" % type.id)
+
+
+func _alive_roamers() -> int:
+	var count := 0
+	for enemy in _enemies.get_children():
+		if enemy.behavior == Enemy.Behavior.ROAM and enemy.hp > 0:
+			count += 1
+	return count
+
+
 # Runs on every peer; node refs are each peer's own local instances.
 func _build_enemy(data: Dictionary) -> Node:
 	var enemy := EnemyScene.instantiate()
 	enemy.name = "Enemy_%d" % data.seq
-	enemy.setup(_type_by_id(data.type_id), data.position, _build_manager, _tower)
+	var behavior: Enemy.Behavior = Enemy.Behavior.ROAM if data.get("roam", false) \
+			else Enemy.Behavior.ASSAULT
+	enemy.setup(_type_by_id(data.type_id), data.position, _build_manager, _tower,
+			behavior, _safe_radius)
 	return enemy
 
 

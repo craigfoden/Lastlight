@@ -1,10 +1,9 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="2_daynight"]
 [ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="3_teammat"]
 [ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="4_tower"]
-[ext_resource type="PackedScene" path="res://scenes/world/resource_node.tscn" id="5_resource_node"]
 [ext_resource type="PackedScene" path="res://scenes/hud/hud.tscn" id="6_hud"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rock.svg" id="7_rock"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/essence_wisp.svg" id="8_wisp"]
@@ -22,6 +21,17 @@
 [ext_resource type="Resource" path="res://data/buildings/wall.tres" id="16_wall"]
 [ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="17_sentry"]
 [ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="18_turret"]
+[ext_resource type="Script" path="res://scenes/world/world_gen.gd" id="24_worldgen"]
+[ext_resource type="Resource" path="res://data/materials/wood.tres" id="25_wood"]
+[ext_resource type="Resource" path="res://data/materials/essence_bright.tres" id="26_ebright"]
+[ext_resource type="Resource" path="res://data/materials/essence_radiant.tres" id="27_eradiant"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/tree.svg" id="28_tree"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/boulder.svg" id="29_boulder"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/dead_tree.svg" id="30_deadtree"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/ruined_pillar.svg" id="31_pillar"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/grass_tuft.svg" id="32_grass"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/bones.svg" id="33_bones"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rubble.svg" id="34_rubble"]
 
 [sub_resource type="SceneReplicationConfig" id="daynight_replication"]
 properties/0/path = NodePath(".:day_number")
@@ -56,43 +66,23 @@ color = Color(0.12, 0.15, 0.11, 1)
 polygon = PackedVector2Array(-1600, -1600, 1600, -1600, 1600, 1600, -1600, 1600)
 
 [node name="VillageGlow" type="Sprite2D" parent="World"]
-scale = Vector2(1.6, 1.6)
+scale = Vector2(2, 2)
 texture = SubResource("village_texture")
 
 [node name="GlowTower" parent="World" instance=ExtResource("4_tower")]
 
-[node name="ResourceNodes" type="Node2D" parent="World"]
-
-[node name="Tree1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(220, -160)
-
-[node name="Tree2" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(250, 190)
-
-[node name="Tree3" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(-260, 120)
-
-[node name="Rock1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(-320, -210)
-material_type = ExtResource("9_stone")
-
-[node name="Sprite2D" parent="World/ResourceNodes/Rock1"]
-texture = ExtResource("7_rock")
-
-[node name="Rock2" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(370, 30)
-material_type = ExtResource("9_stone")
-
-[node name="Sprite2D" parent="World/ResourceNodes/Rock2"]
-texture = ExtResource("7_rock")
-
-[node name="Wisp1" parent="World/ResourceNodes" instance=ExtResource("5_resource_node")]
-position = Vector2(650, -430)
-material_type = ExtResource("10_essence")
-starting_amount = 3
-
-[node name="Sprite2D" parent="World/ResourceNodes/Wisp1"]
-texture = ExtResource("8_wisp")
+[node name="WorldGen" type="Node2D" parent="World"]
+script = ExtResource("24_worldgen")
+wood = ExtResource("25_wood")
+stone = ExtResource("9_stone")
+essence_faint = ExtResource("10_essence")
+essence_bright = ExtResource("26_ebright")
+essence_radiant = ExtResource("27_eradiant")
+tree_texture = ExtResource("28_tree")
+rock_texture = ExtResource("7_rock")
+wisp_texture = ExtResource("8_wisp")
+solid_textures = Array[Texture2D]([ExtResource("29_boulder"), ExtResource("30_deadtree"), ExtResource("31_pillar")])
+decor_textures = Array[Texture2D]([ExtResource("32_grass"), ExtResource("33_bones"), ExtResource("34_rubble")])
 
 [node name="SpawnOpenings" type="Node2D" parent="World"]
 

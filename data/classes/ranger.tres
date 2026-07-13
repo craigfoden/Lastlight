@@ -12,6 +12,7 @@ id = &"ranger"
 display_name = "Ranger"
 sprite = ExtResource("2")
 move_speed = 150.0
+max_hp = 90
 basic_attack = ExtResource("3")
 ability_1 = ExtResource("4")
 ability_2 = ExtResource("5")

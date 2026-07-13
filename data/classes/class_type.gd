@@ -12,6 +12,9 @@ extends Resource
 
 @export var move_speed := 150.0
 
+## Hit points. Enemies whittle this down; zero means downed (see player.gd).
+@export var max_hp := 100
+
 @export var basic_attack: AbilityType
 @export var ability_1: AbilityType
 @export var ability_2: AbilityType

@@ -55,7 +55,8 @@ chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance),
 `--grant-materials=wood:10,stone:10` (host cheat for testing builds), `--auto-build`
 (scripted place/reject/sell timeline), `--auto-block-test` (walls in the tower heart; the
 sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N` /
-`--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane and cast the kit).
+`--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane and cast the kit),
+`--hurt-test` (host chips every player's hp on a timer — exercises downed/revive/respawn).
 
 ## Definition of done
 
@@ -90,9 +91,17 @@ A system is done when ALL of:
 never-to-change `id`, a `display_name`, `hud_color`) → add a `preload` to `TRACKED_MATERIALS`
 in `scenes/hud/hud.gd` → place `ResourceNode`s in the world with `material_type` pointing at it.
 
-**Add a harvestable node to the map:** instance `scenes/world/resource_node.tscn` under
-`World/ResourceNodes` in `game.tscn`; override `material_type`, `starting_amount`, and the
-`Sprite2D` texture per instance.
+**Populate the world (materials & scenery):** the map is scattered at load by `World/WorldGen`
+(`scenes/world/world_gen.gd`) from a fixed seed — identical on every peer, never synced. Tune
+its exports for density/rarity/amounts (`resource_count`, `near_amount`/`far_amount`, the ring
+radii, `plaza_radius`/`safe_radius`), or point its material/texture slots at new resources.
+Don't hand-place `ResourceNode`s in `game.tscn` anymore — WorldGen owns the layout. Keep grid-
+solid content off the `y == 0` row (the guaranteed opening→heart corridor).
+
+**Add a scenery prop:** add a 32×32 SVG to `assets/sprites/placeholder/`, then add the texture
+to `solid_textures` (blocks movement + registers in the build grid via group `"obstacles"`) or
+`decor_textures` (visual only) on the `World/WorldGen` node. `scenes/world/scenery_prop.tscn`
+is the shared body; solid vs decor is one export.
 
 **Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
 `id`, `display_name`, `cost` dict, `texture`, attack stats — walls just leave `attacks` false;
@@ -150,6 +159,18 @@ HUD, talents, and XP banking all key off the class id.
   before blaming physics.
 - Two local test instances share the same `user://profile.cfg` — both bank run XP into it, so
   local multiplayer tests double-bank. Real players on separate machines are unaffected.
+- WorldGen is deterministic *only* if every peer runs the same code with the same seed. Its
+  generated nodes carry no MultiplayerSpawner — their RPCs (harvest) resolve by NodePath, which
+  matches across peers because names are seed-deterministic (`Res_%d`/`Prop_%d`). Introduce any
+  per-peer nondeterminism (a real random seed, `Time`-based values, Dictionary-iteration-order
+  placement) and paths diverge → harvest RPCs silently target a non-existent node. If you need a
+  per-run seed, sync it to all peers *before* generation.
+- Host→all state broadcasts on a **player** node (hp, downed) must be `any_peer` + a
+  sender-is-host guard, never `@rpc("authority")` — the node's authority is the owning client,
+  so a plain-authority host broadcast is rejected (same rule as player projectiles). Player
+  survival logic runs on the host for every player via `set_process(is_server())`; movement
+  still simulates only on the owner, so host respawns reposition by RPCing the owner to move
+  *itself*.
 
 ## Team rules
 

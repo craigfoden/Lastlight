@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Placeholder grass tuft (decor, no collision): final art will be a 32x32 tile. -->
+  <path d="M10 28 Q8 18 6 14" stroke="#3f7a3a" stroke-width="2" fill="none"/>
+  <path d="M14 28 Q14 16 13 10" stroke="#4c8f45" stroke-width="2" fill="none"/>
+  <path d="M18 28 Q20 18 22 13" stroke="#3f7a3a" stroke-width="2" fill="none"/>
+  <path d="M22 28 Q24 20 26 16" stroke="#356b31" stroke-width="2" fill="none"/>
+</svg>

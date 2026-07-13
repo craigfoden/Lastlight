@@ -1,4 +1,4 @@
-# Playtest Checklist — after Session 4
+# Playtest Checklist — after Session 5
 
 Everything below has passed scripted headless tests; what it has **never** had is human eyes
 and hands. Work through this at the machine, tick things off, and bring back the feedback at
@@ -64,6 +64,21 @@ RT shoot, RB/LB abilities, B dodge, A interact.
 - [ ] Dawn: leftovers burn, chest materials appear in the pool.
 - [ ] Night visibility: can you read the fight in the dark, or is it murky?
 
+### 6b. World, daytime danger & survival (session 5 — new)
+- [ ] The map no longer feels empty: resource nodes are plentiful and scenery (boulders, dead
+      trees, ruined pillars, grass, bones, rubble) dresses the open world. Solid props block
+      you and enemies; decor you walk through.
+- [ ] Materials are common near the village and rarer/essence-heavy the further out you go.
+- [ ] The safe zone (the glow ring) is roomy, and monsters do **not** enter it.
+- [ ] Venture past the glow during the day → roaming monsters give chase and hurt you; retreat
+      into the glow → they break off at the edge.
+- [ ] Take enough hits → **downed** (greyed, prone, banner shows). A teammate standing over you
+      revives you; alone, the village recalls you after a few seconds. HP shows on the HUD.
+- [ ] Mini-map (bottom-right): resource dots in material colours, red mob dots, cyan teammates,
+      a gold marker for home pinned to the rim when the tower is off-screen. Reads correctly as
+      you move? (Solo test: `--host` alone. Danger test far from base: wander out and wait.)
+- [ ] At nightfall the daytime roamers clear out and the assault takes over as before.
+
 ### 6. Run end & meta (5 min)
 - [ ] Lose on purpose (`--tower-hp=10`): necromancer screen on both windows, XP banked,
       Return to Menu works from both.
@@ -87,7 +102,8 @@ Bug reports: which window (host or guest), what you did, what you expected, and 
 text if any (the console window behind each game shows our `[System]` logs — screenshots fine).
 
 **Not useful yet** (known placeholder territory): art quality, missing audio, menu prettiness,
-missing Paladin/Mage, enemies not attacking players (that system is deliberately not built
-yet), exact damage numbers.
+missing Paladin/Mage, night-assault enemies not attacking players/buildings (only the tower),
+dodge not granting invulnerability yet, the map being the same every run (fixed seed), exact
+damage numbers.
 
 Bring the three verdicts + notes to the next session and they steer Session 5.
