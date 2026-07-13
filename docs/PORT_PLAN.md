@@ -6,12 +6,11 @@ Main stays 2D and shippable until phase 8 flips the switch. Read the session-8 e
 `ARCHITECTURE.md` (on this branch) before starting: it records the driver gotchas the
 prototype already paid for.
 
-**Try the slice first** (10 minutes, judge the night): run
-`godot --path . res://scenes/proto3d/proto3d.tscn`, or open the scene and F6. (The menu
-button and `--proto3d` flag mentioned in the session-8 notes were never built — launch the
-scene directly.) WASD moves, mouse ghost snaps to cells, LMB places walls, night falls
-~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted shots;
-`--omni-shadows` turns tower-light shadows on (the phase-1 renderer probe).
+**Try the slice first** (10 minutes, judge the night): launch normally and press
+"3D Prototype (session 8 evaluation)" on the menu, or `godot --path . -- --proto3d`, or open
+`scenes/proto3d/proto3d.tscn` and F6. WASD moves, mouse ghost snaps to cells, LMB places
+walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted
+shots; add `--omni-shadows` to turn tower-light shadows on (the phase-1 renderer probe).
 
 ## Ground rules
 
