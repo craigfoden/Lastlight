@@ -7,10 +7,13 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
 
 ## Environment (per machine)
 
-- Engine: **Godot 4.7-stable, standard build (not .NET)** — pinned. On this machine the binary
-  lives in `C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\` (yes, that folder is named
-  `...exe`); use the `Godot_v4.7-stable_win64_console.exe` variant inside it so output is
-  captured. Install yours anywhere; keep the version exact.
+- Engine: **Godot 4.7-stable, standard build (not .NET)** — pinned; install yours anywhere,
+  keep the version exact, and use the `_console.exe` variant from scripts/CLI so output is
+  captured. Known installs (this section kept clobbering itself machine-to-machine — list
+  yours, don't replace others'):
+  - Craig: `C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe`
+  - Chris: `C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\Godot_v4.7-stable_win64_console.exe`
+    (yes, that folder is named `...exe`)
 - Docs ground truth: shallow clone of godot-docs, branch `4.7`, in a **sibling folder**:
   `C:\SourceControl\godot-docs`. **Never trust memory for Godot APIs** — training data lags the
   engine. Grep the clone (`tutorials/`, `classes/`). Best-practices section is the idiom
@@ -19,7 +22,8 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
 ## Run & verify commands (PowerShell)
 
 ```powershell
-$godot = 'C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\Godot_v4.7-stable_win64_console.exe'
+# Your _console.exe path — per-machine installs are listed in Environment above.
+$godot = 'C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe'  # Craig's
 
 # Import assets / regenerate .uid files (run after adding files; also catches import errors)
 & $godot --headless --import --path C:\SourceControl\Lastlight
@@ -57,7 +61,9 @@ chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance),
 (scripted place/reject/sell timeline), `--auto-block-test` (walls in the tower heart; the
 sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N` /
 `--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane and cast the kit),
-`--hurt-test` (host chips every player's hp on a timer — exercises downed/revive/respawn).
+`--hurt-test` (host chips every player's hp on a timer — exercises downed/revive/respawn),
+`--screenshot-after-sec=N` (save the viewport to `user://screenshot.png`; windowed runs only —
+lets visual passes be eyeballed from scripted launches).
 
 ## Definition of done
 
@@ -83,8 +89,15 @@ A system is done when ALL of:
   `host_*` (host-only plain funcs). See ARCHITECTURE.md for the full sync model.
 - Lifecycle events `print("[System] ...")` — the smoke tests assert on these logs.
 - Tunable numbers live in `@export` vars or `.tres` resources, never inline.
-- Placeholder art: SVGs at final sprite dimensions (32×32 tiles, 32×48 characters) in
-  `assets/sprites/placeholder/`, one file per sprite. No packed spritesheets until real art.
+- Placeholder art: SVGs at final sprite dimensions in `assets/sprites/placeholder/`, one file
+  per sprite. No packed spritesheets until real art. 3/4-view conventions (session 7): flat
+  ground decals 32×32; characters and standing props/towers 32×48; walls 32×40; standing art
+  shows a lit top + darker front face and reaches the bottom edge (the base line).
+- 3/4 depth: the world Y-sorts as one space. Standing sprites bottom-anchor via
+  `SpriteAnchor.apply(sprite)` **after** assigning the texture (baseline = origin.y + 16, the
+  cell's bottom edge). Flat decals skip the anchor and use `z_index = -1`. Don't hand-set
+  z_index to force draw order on world objects — fix the Y instead (the layer table lives in
+  ARCHITECTURE.md).
 
 ## Recipes
 
@@ -99,10 +112,11 @@ radii, `plaza_radius`/`safe_radius`), or point its material/texture slots at new
 Don't hand-place `ResourceNode`s in `game.tscn` anymore — WorldGen owns the layout. Keep grid-
 solid content off the `y == 0` row (the guaranteed opening→heart corridor).
 
-**Add a scenery prop:** add a 32×32 SVG to `assets/sprites/placeholder/`, then add the texture
-to `solid_textures` (blocks movement + registers in the build grid via group `"obstacles"`) or
-`decor_textures` (visual only) on the `World/WorldGen` node. `scenes/world/scenery_prop.tscn`
-is the shared body; solid vs decor is one export.
+**Add a scenery prop:** add an SVG to `assets/sprites/placeholder/` (solid/standing: 32×48
+with a front face, bottom-anchored automatically; decor: flat 32×32 decal), then add the
+texture to `solid_textures` (blocks movement + registers in the build grid via group
+`"obstacles"`) or `decor_textures` (visual only) on the `World/WorldGen` node.
+`scenes/world/scenery_prop.tscn` is the shared body; solid vs decor is one export.
 
 **Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
 `id`, `display_name`, `cost` dict, `texture`, attack stats — walls just leave `attacks` false;
@@ -173,6 +187,14 @@ HUD, talents, and XP banking all key off the class id.
   survival logic runs on the host for every player via `set_process(is_server())`; movement
   still simulates only on the owner, so host respawns reposition by RPCing the owner to move
   *itself*.
+- A CanvasItem whose parent is a plain `Node` is a **"topmost" canvas item** — it silently
+  escapes every ancestor's Y-sort and transform. That's why BuildManager and WaveDirector are
+  Node2D despite being pure logic: their Buildings/Enemies containers must stay inside the
+  world's Y-sort chain. Any new manager that owns visible children must extend Node2D too.
+- PowerShell 5.1 `Get-Content` → `Set-Content`/`Add-Content` round-trips **corrupt UTF-8 repo
+  docs** (em-dashes → mojibake, adds a BOM and CRLF): it reads BOM-less UTF-8 as ANSI. Edit
+  repo text files with proper file tools; if a shell write is unavoidable, check `git diff`
+  for encoding damage immediately after.
 
 ## Team rules
 

@@ -274,6 +274,45 @@ spawned, day/night cycled — no RPC-authority errors).
   The removal control (`X` over a building) already existed but was undiscoverable — added a
   controls hint row to the build bar spelling out select/place/cancel/remove + the refund split.
 
+## 3/4 top-down view pass (2026-07-13, session 7)
+
+**Decision: the game presents in 3/4 top-down ("fake perspective", Zelda/Stardew style), not
+isometric.** The square logic grid stays exactly as it was; depth comes from Y-sorting plus art
+conventions. **Why:** placement precision is the core verb of a tower defense, and screen-
+aligned square cells are the most readable grid there is. True 2D isometric was rejected for a
+permanent ~2–3× art cost (two faces per prop, diagonal character facings, diamond tiles), a
+harder mouse-to-cell story, and the classic multi-cell sorting problem — while most of what iso
+buys (volume, depth) is available in 2D via Y-sort + front-face art. If we ever want the real
+iso look, the modern route is 3D with a fixed ortho camera, i.e. a different project phase, and
+nothing in this pass forecloses it.
+
+- **Y-sort chain.** `y_sort_enabled` on `Game` and every world container (`World`, `WorldGen`,
+  `Players`, `Buildings`, `Enemies`). Nested Y-sorted CanvasItems merge into one sort space, so
+  players, enemies, props, and buildings all interleave by Y. UI is untouched: every UI root is
+  a `CanvasLayer`, outside the canvas-item sort entirely.
+- **GOTCHA that shaped the tree: a CanvasItem under a plain `Node` parent is a "topmost" canvas
+  item** (docs: `CanvasItem.get_global_transform`) — it escapes the ancestor Y-sort space.
+  `BuildManager` and `WaveDirector` were plain `Node`s holding the `Buildings`/`Enemies`
+  containers, so both were retyped to `Node2D` (scripts now `extends Node2D`) purely to keep the
+  chain unbroken. NodePaths (and therefore RPC routing) are unchanged.
+- **Baseline anchor convention.** Y-sort compares node *origins*, so every standing sprite
+  plants its bottom edge 16 px below its origin — the bottom edge of its cell
+  (`SpriteAnchor.apply()`, `scenes/world/sprite_anchor.gd`). Applied after texture assignment in
+  player/enemy/building/resource node/solid scenery/build ghost. WorldGen now assigns resource
+  textures *before* `add_child` so `_ready` anchors against the real texture height.
+- **Z-index layers** (Y-sort only orders items on the same z_index): ground −10, village glow
+  −9, flat decals −1 (decor scenery, snare traps), the whole sorted world 0, player projectiles
+  +1, build ghost 25. Player no longer carries `z_index = 20` (session 6's "player drawn on
+  top" fix) — Y-sort now produces the correct answer in both directions: in front when south of
+  a prop, tucked behind when north.
+- **Art conventions.** Characters and standing props/towers are 32×48, walls 32×40 (top surface
+  spills into the cell behind), harvest rocks/boulders stay 32×32 with a lit top + darker front
+  face. Decor (grass/bones/rubble) stays a flat 32×32 decal. Characters get a shared
+  `shadow.svg` decal at the feet; standing props bake a ground-shadow ellipse into the SVG.
+- **Dev hook `--screenshot-after-sec=N`** saves the viewport to `user://screenshot.png` from a
+  windowed CLI run — visual passes can now be eyeballed from scripted runs (headless renders no
+  frames, so pair it with a normal windowed launch).
+
 ---
 
 ## Template for new entries

@@ -25,6 +25,7 @@ func setup(new_type: BuildingType, new_cell: Vector2i) -> void:
 func _ready() -> void:
 	print("[Building] %s at %s" % [type.id, cell])
 	_sprite.texture = type.texture
+	SpriteAnchor.apply(_sprite)
 	if type.attacks and multiplayer.is_server():
 		_fire_timer.wait_time = type.fire_interval
 		_fire_timer.timeout.connect(_host_fire)

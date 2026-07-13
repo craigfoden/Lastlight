@@ -1,7 +1,11 @@
 class_name BuildManager
-extends Node
+extends Node2D
 ## Owns the build grid: occupancy, the never-block-the-path rule, and the
 ## host-authoritative place/sell RPCs.
+##
+## Node2D (not Node) so the Y-sort chain from Game reaches the Buildings
+## container — a CanvasItem under a plain Node is "topmost" and would escape
+## the world's depth sorting (see the 3/4-view entry in ARCHITECTURE.md).
 ##
 ## Buildings replicate through a MultiplayerSpawner; occupancy and the
 ## pathfinding grid are *derived* from the spawned nodes locally on every

@@ -32,6 +32,8 @@ func select(type: BuildingType) -> void:
 	_ghost.visible = type != null
 	if type != null:
 		_ghost.texture = type.texture
+		# Preview exactly where the sprite will stand (shared baseline anchor).
+		SpriteAnchor.apply(_ghost)
 	selection_changed.emit(type)
 
 

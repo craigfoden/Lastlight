@@ -1,9 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <!-- Placeholder wall segment: final art will be a 32x32 tile. -->
-  <rect x="1" y="1" width="30" height="30" fill="#8d8d99" stroke="#55555f" stroke-width="2"/>
-  <line x1="1" y1="11" x2="31" y2="11" stroke="#55555f" stroke-width="2"/>
-  <line x1="1" y1="21" x2="31" y2="21" stroke="#55555f" stroke-width="2"/>
-  <line x1="11" y1="1" x2="11" y2="11" stroke="#55555f" stroke-width="2"/>
-  <line x1="21" y1="11" x2="21" y2="21" stroke="#55555f" stroke-width="2"/>
-  <line x1="11" y1="21" x2="11" y2="31" stroke="#55555f" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+  <!-- Placeholder wall segment, 3/4 view: 32x40 — stone top surface (upper 14px,
+       spills into the cell behind) + darker front face with brickwork. -->
+  <rect x="1" y="1" width="30" height="13" fill="#9fa1ad" stroke="#55555f" stroke-width="2"/>
+  <line x1="11" y1="1" x2="11" y2="14" stroke="#7c7d89" stroke-width="1.5"/>
+  <line x1="21" y1="1" x2="21" y2="14" stroke="#7c7d89" stroke-width="1.5"/>
+  <rect x="1" y="14" width="30" height="24" fill="#77777f" stroke="#4c4c55" stroke-width="2"/>
+  <line x1="1" y1="26" x2="31" y2="26" stroke="#4c4c55" stroke-width="2"/>
+  <line x1="11" y1="14" x2="11" y2="26" stroke="#4c4c55" stroke-width="2"/>
+  <line x1="21" y1="26" x2="21" y2="38" stroke="#4c4c55" stroke-width="2"/>
 </svg>

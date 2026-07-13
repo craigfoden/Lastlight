@@ -33,6 +33,8 @@ var amount := 0:
 
 func _ready() -> void:
 	# Group membership ("resource_nodes") is declared in the scene file.
+	# WorldGen assigns the texture before add_child, so the anchor sees it.
+	SpriteAnchor.apply(_sprite)
 	amount = starting_amount
 
 

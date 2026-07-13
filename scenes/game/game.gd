@@ -133,10 +133,23 @@ func _ready() -> void:
 		elif arg.begins_with("--final-day="):
 			# Dev helper: shorter runs, e.g. --final-day=1 to win after night 1.
 			day_night.final_day = int(arg.get_slice("=", 1))
+		elif arg.begins_with("--screenshot-after-sec="):
+			_save_screenshot_after(float(arg.get_slice("=", 1)))
 
 
 func _process(_delta: float) -> void:
 	world_light.color = day_night.ambient_color()
+
+
+# Dev hook (godot -- --screenshot-after-sec=8): save what this instance sees to
+# user://screenshot.png, so visual passes (Y-sort, anchors, art) can be checked
+# from scripted CLI runs. Windowed runs only — headless renders no frames.
+func _save_screenshot_after(delay_sec: float) -> void:
+	await get_tree().create_timer(delay_sec).timeout
+	var image := get_viewport().get_texture().get_image()
+	var path := "user://screenshot.png"
+	image.save_png(path)
+	print("[Game] Screenshot saved to %s" % ProjectSettings.globalize_path(path))
 
 
 # Smoke-test hook (godot -- --auto-build): drive the real place/reject/sell

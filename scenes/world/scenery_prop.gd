@@ -18,7 +18,11 @@ func _ready() -> void:
 		_sprite.texture = texture
 	if solid:
 		add_to_group("obstacles")
+		# Standing prop: plant it on the shared baseline so Y-sort reads right.
+		SpriteAnchor.apply(_sprite)
 	else:
-		# Decor never blocks anything: drop its collision entirely.
+		# Decor never blocks anything: drop its collision entirely and draw it
+		# as a flat ground decal beneath every standing object.
+		z_index = -1
 		collision_layer = 0
 		_collision.set_deferred("disabled", true)

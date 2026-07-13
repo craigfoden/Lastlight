@@ -57,21 +57,26 @@ fill_from = Vector2(0.5, 0.5)
 fill_to = Vector2(0.5, 0)
 
 [node name="Game" type="Node2D"]
+y_sort_enabled = true
 script = ExtResource("1_game")
 
 [node name="World" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="Ground" type="Polygon2D" parent="World"]
+z_index = -10
 color = Color(0.12, 0.15, 0.11, 1)
 polygon = PackedVector2Array(-3300, -3300, 3300, -3300, 3300, 3300, -3300, 3300)
 
 [node name="VillageGlow" type="Sprite2D" parent="World"]
+z_index = -9
 scale = Vector2(2, 2)
 texture = SubResource("village_texture")
 
 [node name="GlowTower" parent="World" instance=ExtResource("4_tower")]
 
 [node name="WorldGen" type="Node2D" parent="World"]
+y_sort_enabled = true
 script = ExtResource("24_worldgen")
 wood = ExtResource("25_wood")
 stone = ExtResource("9_stone")
@@ -93,6 +98,7 @@ position = Vector2(-1584, 16)
 position = Vector2(1584, 16)
 
 [node name="Players" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
 spawn_path = NodePath("../Players")
@@ -110,20 +116,24 @@ script = ExtResource("3_teammat")
 
 [node name="WorldLight" type="CanvasModulate" parent="."]
 
-[node name="BuildManager" type="Node" parent="."]
+[node name="BuildManager" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("12_buildmgr")
 buildable_types = Array[ExtResource("15_buildingtype")]([ExtResource("16_wall"), ExtResource("17_sentry"), ExtResource("18_turret")])
 
 [node name="Buildings" type="Node2D" parent="BuildManager"]
+y_sort_enabled = true
 
 [node name="BuildingSpawner" type="MultiplayerSpawner" parent="BuildManager"]
 spawn_path = NodePath("../Buildings")
 
-[node name="WaveDirector" type="Node" parent="."]
+[node name="WaveDirector" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("19_wavedir")
 enemy_types = Array[ExtResource("20_enemytype")]([ExtResource("21_shambler"), ExtResource("22_wretch")])
 
 [node name="Enemies" type="Node2D" parent="WaveDirector"]
+y_sort_enabled = true
 
 [node name="EnemySpawner" type="MultiplayerSpawner" parent="WaveDirector"]
 spawn_path = NodePath("../Enemies")
@@ -134,6 +144,7 @@ spawn_path = NodePath("../Enemies")
 script = ExtResource("13_buildctl")
 
 [node name="Ghost" type="Sprite2D" parent="BuildController"]
+z_index = 25
 visible = false
 
 [node name="HUD" parent="." instance=ExtResource("6_hud")]

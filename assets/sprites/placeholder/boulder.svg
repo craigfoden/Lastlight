@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <!-- Placeholder boulder (solid obstacle): final art will be a 32x32 tile. -->
+  <!-- Placeholder boulder (solid obstacle), 3/4 view: lit top, darker front face. -->
+  <ellipse cx="16" cy="29" rx="13" ry="3" fill="#000000" opacity="0.22"/>
   <polygon points="3,29 2,18 8,9 18,5 27,9 30,20 27,29" fill="#6b6e78" stroke="#3f4149" stroke-width="2"/>
   <polygon points="9,14 17,10 22,16 13,20" fill="#888b96"/>
-  <polygon points="20,20 26,19 25,26 19,26" fill="#54565f"/>
+  <polygon points="3,29 3,24 29,22 27,29" fill="#4d4f58"/>
 </svg>

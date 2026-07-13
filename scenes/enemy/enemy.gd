@@ -57,6 +57,7 @@ func setup(
 
 func _ready() -> void:
 	_sprite.texture = type.texture
+	SpriteAnchor.apply(_sprite)
 	hp = type.max_hp
 	if not multiplayer.is_server():
 		set_physics_process(false)

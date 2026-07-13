@@ -66,6 +66,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	sprite.texture = class_type.sprite
+	SpriteAnchor.apply(sprite)
 	var is_local := is_multiplayer_authority()
 	if is_local:
 		# Talents come from MY profile and only affect the character I

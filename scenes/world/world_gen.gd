@@ -81,8 +81,10 @@ func _scatter_resources(rng: RandomNumberGenerator) -> void:
 		node.position = _snap(pos)
 		node.material_type = material
 		node.starting_amount = _amount_for(dist)
-		add_child(node)
+		# Texture before add_child: _ready anchors the sprite to the baseline
+		# and needs the real texture's height, not the scene default's.
 		node.get_node("Sprite2D").texture = _texture_for(material)
+		add_child(node)
 
 
 func _scatter_scenery(rng: RandomNumberGenerator) -> void:

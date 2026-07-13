@@ -1,6 +1,8 @@
 class_name WaveDirector
-extends Node
-## Threat scheduler (host-only logic). Two jobs:
+extends Node2D
+## Threat scheduler (host-only logic). Node2D only so the Y-sort chain from
+## Game reaches the Enemies container (see the 3/4-view entry in
+## ARCHITECTURE.md). Two jobs:
 ##  * Night: pour a CONTINUOUS stream of ASSAULT monsters through the map
 ##    openings until dawn — the spawn rate ramps up as the night wears on and
 ##    a rising living-cap keeps steady pressure on the tower. Dawn burns any
