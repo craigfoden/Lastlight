@@ -7,7 +7,7 @@ extends Control
 ## so it needs no networking of its own.
 
 ## World-space radius (pixels) the radar covers from centre to rim.
-@export var world_range := 720.0
+@export var world_range := 1000.0
 @export var node_dot := 2.5
 @export var enemy_dot := 3.0
 @export var player_dot := 3.5

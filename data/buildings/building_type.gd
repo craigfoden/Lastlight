@@ -8,8 +8,13 @@ extends Resource
 
 @export var display_name: String
 
-## material id -> amount. Selling refunds this in full (session-2 decision).
+## material id -> amount.
 @export var cost: Dictionary
+
+## Fraction of `cost` returned when this building is removed. Walls refund in
+## full (1.0); towers salvage for less (0.5). Data-driven so every building
+## tunes its own value — no magic numbers in the removal logic.
+@export_range(0.0, 1.0, 0.05) var refund_fraction := 1.0
 
 @export var texture: Texture2D
 

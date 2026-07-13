@@ -13,6 +13,7 @@ cost = {
 }
 texture = ExtResource("2")
 class_id = &"ranger"
+refund_fraction = 0.5
 attacks = true
 damage = 4
 attack_range = 180.0

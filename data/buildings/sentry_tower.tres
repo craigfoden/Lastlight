@@ -12,6 +12,7 @@ cost = {
 &"wood": 3
 }
 texture = ExtResource("2")
+refund_fraction = 0.5
 attacks = true
 damage = 3
 attack_range = 120.0

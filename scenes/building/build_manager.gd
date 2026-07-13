@@ -19,8 +19,9 @@ signal grid_changed
 ## Everything placeable this run, in hotbar order.
 @export var buildable_types: Array[BuildingType] = []
 
-## Grid half-extent in cells; the region spans [-half, half).
-@export var grid_half_extent := 50
+## Grid half-extent in cells; the region spans [-half, half). At 32 px/cell a
+## half-extent of 100 is a 200×200-cell, 6400×6400 px world.
+@export var grid_half_extent := 100
 
 var _astar := AStarGrid2D.new()
 ## cell (Vector2i) -> Building node. Placed structures only.
@@ -150,11 +151,26 @@ func placement_error(
 		return "Cell is occupied"
 	if _reserved.has(cell):
 		return "Cell must stay open"
+	if _player_on(cell):
+		return "Someone is standing here"
 	if not _team_materials.can_afford(type.cost):
 		return "Not enough materials"
 	if _would_block_path(cell):
 		return "Would block every path to the tower"
 	return ""
+
+
+# A building must never drop on a body — it would collide with and trap them.
+# Runs identically on every peer (player positions are replicated), so the
+# client's ghost tint matches the host's gate.
+func _player_on(cell: Vector2i) -> bool:
+	for node in get_tree().get_nodes_in_group("players"):
+		var player := node as Player
+		if player == null:
+			continue
+		if world_to_cell(player.global_position) == cell:
+			return true
+	return false
 
 
 func _would_block_path(cell: Vector2i) -> bool:
@@ -195,11 +211,19 @@ func request_sell(cell: Vector2i) -> void:
 	var building := building_at(cell)
 	if building == null:
 		return
-	# Full refund (session-2 decision) — materials are a shared pool anyway.
+	# Removal refunds each material by the building's own `refund_fraction`
+	# (walls 100 %, towers 50 % — see BuildingType). Fractions floor: no free
+	# rounding-up of an odd cost.
+	var fraction: float = building.type.refund_fraction
+	var refunded := {}
 	for material_id in building.type.cost:
-		_team_materials.host_add(material_id, building.type.cost[material_id])
+		var amount := int(floor(building.type.cost[material_id] * fraction))
+		if amount > 0:
+			_team_materials.host_add(material_id, amount)
+			refunded[material_id] = amount
 	building.queue_free()
-	print("[Build] Sold %s at %s (full refund)" % [building.type.id, cell])
+	print("[Build] Removed %s at %s (%d%% refund: %s)"
+			% [building.type.id, cell, int(roundf(fraction * 100.0)), refunded])
 
 
 # Spawn function: runs on every peer, builds the identical node.

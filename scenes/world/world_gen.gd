@@ -27,9 +27,9 @@ const CELL_SIZE := 32
 ## solid obstacles out of the safe gathering ring). The visual "safe zone".
 @export var safe_radius := 480.0
 ## Boundary between the common near band and the essence-bearing mid band.
-@export var mid_radius := 1000.0
+@export var mid_radius := 2000.0
 ## Nothing spawns beyond this from the origin (kept inside the ground + grid).
-@export var world_extent := 1500.0
+@export var world_extent := 3000.0
 
 @export_group("Resources")
 @export var wood: MaterialType
@@ -40,8 +40,9 @@ const CELL_SIZE := 32
 @export var tree_texture: Texture2D
 @export var rock_texture: Texture2D
 @export var wisp_texture: Texture2D
-## How many resource nodes to scatter. High on purpose — materials are common.
-@export var resource_count := 130
+## How many resource nodes to scatter. High on purpose — materials are common,
+## and the world is now ~4× the area, so the count rose to keep density up.
+@export var resource_count := 380
 ## Stock on the closest nodes vs the furthest (lerped by distance).
 @export var near_amount := 14
 @export var far_amount := 5
@@ -49,7 +50,7 @@ const CELL_SIZE := 32
 @export_group("Scenery")
 @export var solid_textures: Array[Texture2D] = []
 @export var decor_textures: Array[Texture2D] = []
-@export var scenery_count := 170
+@export var scenery_count := 460
 ## Share of scenery that is solid cover (the rest is flat decor).
 @export var solid_share := 0.45
 

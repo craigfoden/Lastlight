@@ -229,6 +229,51 @@ asserted from logs. These hooks are cheap, guarded, and stay in the shipped buil
   on a timer. Verified across two instances: downed, respawn, and revive all fire
   with no RPC-authority errors.
 
+## Playtest feedback pass — feel, danger & QoL (2026-07-13, session 6)
+
+Eight items from the first real playtest. All verified headless: import clean (zero
+errors/warnings), solo host run, and a host + one client run (harvest RPC chain, both players
+spawned, day/night cycled — no RPC-authority errors).
+
+- **Never build on a body.** `BuildManager.placement_error()` now rejects a cell any player
+  stands on ("Someone is standing here"), iterating group `"players"` and comparing
+  `world_to_cell`. Runs on every peer (positions are replicated) so the client's ghost tint and
+  the host's gate agree — same one-function-two-jobs pattern as the rest of placement. Closes a
+  known session-1 gap (buildings could trap a player).
+- **Player is the top sprite.** The project had no y-sort/z_index at all; players drew *under*
+  buildings and enemies purely by tree order. Fix: a flat `z_index = 20` on the Player root
+  (children inherit via `z_as_relative`). Deliberately not full Y-sorting — the ask was "player
+  always visible", and a fixed high z-band delivers that without the per-frame sort cost or the
+  scene restructure YSort containers would need. Revisit if depth-sorting becomes a broader need.
+- **Daytime monsters lurk in the dark, never enter the light.** "The light" = the existing
+  `safe_radius` (no new light system — cheapest thing that matches the mental model). ROAM
+  behaviour already aggroed only within `aggro_range` and deaggroed when a player re-entered the
+  safe zone; the missing piece was that a *chasing* roamer could physically cross the boundary
+  (the safe zone isn't a solid in the A* grid). Added a movement clamp in `Enemy._advance_path`:
+  for ROAM only, if the next step would land inside the safe zone, stop and drop the path.
+  ASSAULT is exempt — the night horde is *meant* to march through the village to the tower.
+- **Nights are a continuous, ramping stream, not a fixed count.** `WaveDirector` no longer
+  computes a per-night total. It spawns until dawn on a self-rescheduling one-shot timer whose
+  interval eases from `spawn_interval_start` → `spawn_interval_end` across the night (via
+  `time_in_phase / phase_length`) and shortens per night (`interval_scale_per_night`). A living-
+  ASSAULT cap (`max_alive_base` + per-night + per-extra-player) keeps it fair-but-relentless:
+  thin the horde and more pour in, up to the cap. Verified the ramp (spawn intervals shrink) and
+  the cap (holds at 10 on night 1 until defenders kill). Daytime roamers are unchanged in kind,
+  just spread wider (`roamer_spawn_max_radius` 1300 → 2400) to populate the larger dark.
+- **Map ~2×.** `WorldGen.world_extent` 1500 → 3000, `mid_radius` 1000 → 2000, grid
+  `grid_half_extent` 50 → 100 (200×200 cells), `Ground` polygon and scatter counts (resources
+  130 → 380, scenery 170 → 460) scaled to keep density up; mini-map `world_range` 720 → 1000.
+  **Night spawn openings stay at ±1584** (not pushed to the new edge): enemy approach time is a
+  pacing lever, and a ~58 s trek from the far edge would gut the "dangerous from dusk" feel. The
+  doubled outer ring is daytime exploration/gathering territory instead — dangerous by roamer,
+  empty at night. No camera limits exist (camera just follows the player), so a bigger world
+  needed no camera work.
+- **Removal with a per-building refund fraction.** Selling used to refund 100 % of everything.
+  Added `BuildingType.refund_fraction` (data-driven, no magic numbers): walls keep the 1.0
+  default (full refund), towers set 0.5. `request_sell` floors the refund (no free rounding-up).
+  The removal control (`X` over a building) already existed but was undiscoverable — added a
+  controls hint row to the build bar spelling out select/place/cancel/remove + the refund split.
+
 ---
 
 ## Template for new entries

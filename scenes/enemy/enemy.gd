@@ -181,6 +181,16 @@ func _advance_path() -> void:
 		_path_index += 1
 		return
 	velocity = global_position.direction_to(waypoint) * type.move_speed
+	# Daytime roamers lurk in the dark and never set foot in the light: if this
+	# step would cross into the safe zone, stop at its edge and drop the path
+	# (a fresh one is picked next tick). ASSAULT monsters ignore this — the
+	# night horde is meant to march through the village to the tower.
+	if behavior == Behavior.ROAM and _safe_radius > 0.0:
+		var next_pos := global_position + velocity * get_physics_process_delta_time()
+		if _in_safe_zone(next_pos):
+			velocity = Vector2.ZERO
+			_path_index = _path.size()
+			return
 	move_and_slide()
 
 

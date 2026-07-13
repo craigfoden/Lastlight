@@ -7,9 +7,10 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
 
 ## Environment (per machine)
 
-- Engine: **Godot 4.7-stable, standard build (not .NET)** — pinned. On this machine:
-  `C:\SourceControl\Godot\Godot_v4.7-stable_win64.exe` (use the `_console.exe` variant from
-  scripts/CLI so output is captured). Install yours anywhere; keep the version exact.
+- Engine: **Godot 4.7-stable, standard build (not .NET)** — pinned. On this machine the binary
+  lives in `C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\` (yes, that folder is named
+  `...exe`); use the `Godot_v4.7-stable_win64_console.exe` variant inside it so output is
+  captured. Install yours anywhere; keep the version exact.
 - Docs ground truth: shallow clone of godot-docs, branch `4.7`, in a **sibling folder**:
   `C:\SourceControl\godot-docs`. **Never trust memory for Godot APIs** — training data lags the
   engine. Grep the clone (`tutorials/`, `classes/`). Best-practices section is the idiom
@@ -18,7 +19,7 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
 ## Run & verify commands (PowerShell)
 
 ```powershell
-$godot = 'C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe'
+$godot = 'C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\Godot_v4.7-stable_win64_console.exe'
 
 # Import assets / regenerate .uid files (run after adding files; also catches import errors)
 & $godot --headless --import --path C:\SourceControl\Lastlight
@@ -105,9 +106,10 @@ is the shared body; solid vs decor is one export.
 
 **Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
 `id`, `display_name`, `cost` dict, `texture`, attack stats — walls just leave `attacks` false;
-set `class_id` for class exclusives) → add its sprite SVG → add the resource to
-`buildable_types` on the BuildManager node in `game.tscn`. Hotbar, ghost, costs, path
-validation, and sync all follow from the data.
+set `class_id` for class exclusives; set `refund_fraction` for salvage-on-removal — defaults to
+1.0/full, towers use 0.5) → add its sprite SVG → add the resource to `buildable_types` on the
+BuildManager node in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and
+sync all follow from the data.
 
 **Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
 speed, attack stats) → add its 32×48 sprite SVG → add the resource to `enemy_types` on the
