@@ -313,6 +313,37 @@ nothing in this pass forecloses it.
   windowed CLI run — visual passes can now be eyeballed from scripted runs (headless renders no
   frames, so pair it with a normal windowed launch).
 
+## 3D-ortho hybrid prototype (2026-07-13, session 8, branch `3d-ortho-prototype`)
+
+**Decision: evaluate the "3D world + 2D billboard sprites" direction with a look-and-feel
+slice before committing to any port. Main stays 2D and playable.** The slice lives in
+`scenes/proto3d/` and is launched directly
+(`godot --path . res://scenes/proto3d/proto3d.tscn -- --screenshot-at=4,17`).
+**Why:** the hybrid keeps hand-drawn character art (3 facings, fast iteration) while the
+renderer provides what 2D fakes: a real sun with cast shadows, the glow tower as an actual
+light source, and night as absence-of-light instead of a modulate tint.
+
+- **Scale: 1 world unit = 1 grid cell** (= 32 px of 2D art). Sprites at
+  `pixel_size ≈ 0.036` so 48 px characters hold their own against meshed trees.
+- **Billboards are `shaded = false` + hand-tinted** via `modulate` each frame (a 3D
+  CanvasModulate). `shaded` billboards vary by driver — full-bright on some Compatibility
+  stacks, double-dimmed on others — so the tint is the single deterministic light path for
+  sprites. Sprites near the tower lerp toward its warmth by distance.
+- **OmniLight shadows stay OFF on the Compatibility renderer** — with them on, the entire
+  lit region renders black (seen on an ANGLE/D3D11 fallback; do not trust omni shadows on
+  Compatibility). Directional (sun) shadows work fine and carry the look.
+- **Input ports cleanly:** WASD is rotated by the camera yaw (screen-up = world 45°), and
+  mouse→cell is `project_ray_origin/normal` intersected with the ground plane, then
+  `floori` — the 3D equivalents of the 2D grid math, each ~3 lines.
+- **What a real port would keep:** the entire multiplayer architecture (RPCs, host
+  authority, sync lanes are node-type-agnostic), `AStarGrid2D` as the logical grid, all
+  data-driven `.tres` content. What it replaces: scenes, physics bodies, camera, WorldGen's
+  node types, and the HUD's minimap math.
+- **Go/no-go:** play the slice (walk the light edge at night, place walls by mouse) and
+  decide. If go: port lands as sessions on this branch with the same
+  definition-of-done; if no-go: the branch stays as reference and main's 3/4 view remains
+  the shipped look.
+
 ---
 
 ## Template for new entries
