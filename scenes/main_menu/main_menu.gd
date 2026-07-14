@@ -5,24 +5,12 @@ extends Control
 ##   godot -- --host             host immediately
 ##   godot -- --join=127.0.0.1   join immediately
 ##   godot -- --name=Craig       set the player name
-##   godot -- --game3d --host    host/join the 3D port scene instead of the 2D game
 
-const GAME_SCENE := "res://scenes/game/game.tscn"
-## Branch-only (3d-ortho-prototype): the session-8 hybrid look slice. Reached
-## by the menu button or `-- --proto3d` so nobody needs to launch the scene
-## by path. Remove button + flag if the branch is abandoned.
-const PROTO3D_SCENE := "res://scenes/proto3d/proto3d.tscn"
-## Branch-only: the 3D port in progress (PORT_PLAN phases 2+). `-- --game3d`
-## routes a scripted host/join into the 3D scene; the menu buttons stay on the
-## 2D game until phase 8 flips the default.
-const GAME3D_SCENE := "res://scenes/game3d/game3d.tscn"
+const GAME_SCENE := "res://scenes/game3d/game3d.tscn"
 
 ## Cmdline autostart must run once per launch, not every time we come back to
 ## the menu — otherwise a failed scripted --join retries in a loop forever.
 static var _cmdline_applied := false
-
-## Which game scene host/join loads — the 2D game unless `--game3d` says otherwise.
-var _game_scene := GAME_SCENE
 
 @onready var name_edit: LineEdit = %NameEdit
 @onready var address_edit: LineEdit = %AddressEdit
@@ -32,7 +20,6 @@ var _game_scene := GAME_SCENE
 func _ready() -> void:
 	%HostButton.pressed.connect(_start_host)
 	%JoinButton.pressed.connect(_start_join)
-	%Proto3DButton.pressed.connect(_start_proto3d)
 	name_edit.text = "Player %d" % randi_range(1, 99)
 	if Network.last_error != "":
 		status_label.text = Network.last_error
@@ -51,8 +38,6 @@ func _apply_cmdline_args() -> void:
 	for arg in args:
 		if arg.begins_with("--name="):
 			name_edit.text = arg.get_slice("=", 1)
-		elif arg == "--game3d":
-			_game_scene = GAME3D_SCENE
 		elif arg.begins_with("--quit-after-sec="):
 			# For scripted smoke tests: headless frames run uncapped, so
 			# --quit-after (frames) is useless for timing — quit on wall clock.
@@ -60,9 +45,6 @@ func _apply_cmdline_args() -> void:
 			var seconds := arg.get_slice("=", 1).to_float()
 			get_tree().create_timer(seconds).timeout.connect(get_tree().quit)
 	for arg in args:
-		if arg == "--proto3d":
-			_start_proto3d()
-			return
 		if arg == "--host":
 			_start_host()
 			return
@@ -76,18 +58,14 @@ func _apply_cmdline_args() -> void:
 func _start_host() -> void:
 	_store_player_name()
 	Network.start_mode = Network.StartMode.HOST
-	get_tree().change_scene_to_file(_game_scene)
-
-
-func _start_proto3d() -> void:
-	get_tree().change_scene_to_file(PROTO3D_SCENE)
+	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _start_join() -> void:
 	_store_player_name()
 	Network.start_mode = Network.StartMode.JOIN
 	Network.pending_address = address_edit.text.strip_edges()
-	get_tree().change_scene_to_file(_game_scene)
+	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _store_player_name() -> void:

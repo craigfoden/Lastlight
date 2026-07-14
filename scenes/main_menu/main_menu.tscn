@@ -61,10 +61,3 @@ unique_name_in_owner = true
 modulate = Color(1, 0.6, 0.6, 1)
 horizontal_alignment = 1
 
-[node name="ProtoSpacer" type="Control" parent="Center/Column"]
-custom_minimum_size = Vector2(0, 16)
-
-[node name="Proto3DButton" type="Button" parent="Center/Column"]
-unique_name_in_owner = true
-modulate = Color(1, 0.92, 0.7, 0.85)
-text = "3D Prototype (session 8 evaluation)"
