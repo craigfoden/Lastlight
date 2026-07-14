@@ -149,7 +149,9 @@ texture to `solid_textures` (blocks movement + registers in the build grid via g
 set `class_id` for class exclusives; set `refund_fraction` for salvage-on-removal — defaults to
 1.0/full, towers use 0.5) → add its sprite SVG → add the resource to `buildable_types` on the
 BuildManager node in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and
-sync all follow from the data.
+sync all follow from the data. **3D branch:** also set `visual_3d` to a small mesh scene
+(`scenes/building3d/visuals/`) and add the resource to `buildable_types` on the BuildManager
+node in `game3d.tscn` too.
 
 **Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
 speed, attack stats) → add its 32×48 sprite SVG → add the resource to `enemy_types` on the

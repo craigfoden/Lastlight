@@ -476,6 +476,33 @@ for the 3D scene.
 
 ---
 
+## 3D port phase 5 — building on the XZ grid (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**BuildManager's grid logic ported verbatim** — AStarGrid2D never knew about rendering.
+With `cell_size = 1` and `offset = 0.5`, point paths return cell centers that ARE world XZ
+coordinates; consumers lift `(x, y)` → `(x, 0, y)`. `--auto-build` and `--auto-block-test`
+are green solo AND host+client: placements validated and spawner-replicated to both peers,
+costs/refunds in lockstep, occupied-cell rejection, and the never-block-the-path rule
+rejected the sealing wall.
+
+- **BuildingType gains an additive `visual_3d: PackedScene`** (the 2D game ignores it) —
+  buildings stay data-driven in 3D: a .tres + a mesh scene under
+  `scenes/building3d/visuals/`. Recipe updated in CLAUDE.md, same commit. `attack_range`
+  and shot speed stay px-denominated in data; Building3D divides by 32 at the boundary
+  (the phase-3 `PX_PER_UNIT` rule).
+- **The glow tower moved to world (0, 0, -1)** so its 2×2 base covers the 2D game's
+  `TOWER_CELLS` ((-1,-2)…(0,-1)) and the heart cell (0,0) stays walkable at its base —
+  the grid contract (and `--auto-block-test` geometry) now matches 2D exactly. Phase 2
+  had it centered on the origin, which would have put the heart *inside* the tower.
+- BuildController3D picks cells with the prototype's ray-plane trick; a missed ray maps to
+  `CELL_NOWHERE` (far outside the region → "Out of bounds"), never to cell (0,0). The
+  ghost is a translucent one-cell box for now (placeholder until an art pass).
+- BuildMenu3D is a parallel port for the same reason as Hud3D (the 2D menu is typed to the
+  2D build classes). Building3D keeps the enemy-targeting contract (group `"enemies"`,
+  `hp`, `host_take_damage`) — it dry-fires until phase 6 delivers targets.
+
+---
+
 ## Template for new entries
 
 ```

@@ -1,8 +1,15 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="Script" path="res://scenes/game3d/game3d.gd" id="1_game"]
 [ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="18_teammat"]
 [ext_resource type="PackedScene" path="res://scenes/hud3d/hud_3d.tscn" id="19_hud"]
+[ext_resource type="Script" path="res://scenes/building3d/build_manager_3d.gd" id="20_buildmgr"]
+[ext_resource type="Script" path="res://scenes/building3d/build_controller_3d.gd" id="21_buildctl"]
+[ext_resource type="PackedScene" path="res://scenes/building3d/build_menu_3d.tscn" id="22_buildmenu"]
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="23_buildingtype"]
+[ext_resource type="Resource" path="res://data/buildings/wall.tres" id="24_wall"]
+[ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="25_sentry"]
+[ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="26_turret"]
 [ext_resource type="PackedScene" path="res://scenes/world3d/glow_tower_3d.tscn" id="2_tower"]
 [ext_resource type="Script" path="res://scenes/world3d/world_gen_3d.gd" id="3_worldgen"]
 [ext_resource type="Resource" path="res://data/materials/wood.tres" id="4_wood"]
@@ -53,6 +60,7 @@ shadow_enabled = true
 mesh = SubResource("ground_mesh")
 
 [node name="GlowTower" parent="World" instance=ExtResource("2_tower")]
+position = Vector3(0, 0, -1)
 
 [node name="WorldGen" type="Node3D" parent="World"]
 script = ExtResource("3_worldgen")
@@ -83,7 +91,21 @@ spawn_path = NodePath("../Players")
 [node name="TeamMaterials" type="Node" parent="."]
 script = ExtResource("18_teammat")
 
+[node name="BuildManager" type="Node3D" parent="."]
+script = ExtResource("20_buildmgr")
+buildable_types = Array[ExtResource("23_buildingtype")]([ExtResource("24_wall"), ExtResource("25_sentry"), ExtResource("26_turret")])
+
+[node name="Buildings" type="Node3D" parent="BuildManager"]
+
+[node name="BuildingSpawner" type="MultiplayerSpawner" parent="BuildManager"]
+spawn_path = NodePath("../Buildings")
+
+[node name="BuildController" type="Node3D" parent="."]
+script = ExtResource("21_buildctl")
+
 [node name="HUD" parent="." instance=ExtResource("19_hud")]
+
+[node name="BuildMenu" parent="." instance=ExtResource("22_buildmenu")]
 
 [node name="FallbackRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)

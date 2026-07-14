@@ -70,9 +70,12 @@ so the port grows a slim parallel `Hud3D` instead (pool + players + connecting c
 now; clock/tower/abilities/minimap arrive with phases 6-7). TeamMaterials + the Materials
 registry did carry over with zero changes.
 
-**Phase 5 — Building.** Ray-plane picking + ghost from the prototype, building scene =
-mesh + StaticBody3D, BuildManager logic unchanged on the XZ grid, path validation and
-`--auto-build` / `--auto-block-test` green.
+**Phase 5 — Building.** ✅ 2026-07-14 (Chris) — BuildManager3D carries the 2D grid logic
+verbatim (AStarGrid2D, cell_size 1 → paths return world XZ directly); ray-plane picking +
+box ghost; Building3D = mesh scene (new additive `BuildingType.visual_3d`) +
+StaticBody3D; BuildMenu3D/controller are parallel ports (2D menu is 2D-typed, same as the
+HUD). The glow tower moved to (0, 0, -1) so the 2D TOWER_CELLS/heart-cell contract holds.
+`--auto-build` and `--auto-block-test` green solo AND host+client, zero errors/warnings.
 
 **Phase 6 — Enemies & waves.** CharacterBody3D + billboard sprite, XZ waypoint following,
 WaveDirector logic unchanged, tower HP, `--auto-fight` and `--hurt-test` green. Abilities:

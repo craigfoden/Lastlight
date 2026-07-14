@@ -8,10 +8,19 @@ extends Node3D
 ##   godot --rendering-method forward_plus --path . res://scenes/game3d/game3d.tscn
 ## Dev args (after --): --quit-after-sec=N, --screenshot-at=a,b (windowed),
 ## --auto-walk (local player strolls), --log-players-after-sec=a,b,
-## --auto-harvest (teleport-harvest loop, exercises the RPC chain).
+## --auto-harvest (teleport-harvest loop, exercises the RPC chain),
+## --auto-build / --auto-block-test / --grant-materials=... (same as 2D).
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
 const PlayerScene := preload("res://scenes/player3d/player_3d.tscn")
+
+## The glowing tower's footprint on the build grid (solid, unbuildable) and
+## the walkable cell at its base that enemies path toward. Same cells as the
+## 2D game — the tower sits at world (0, 0, -1) so its 2x2 base covers them.
+const TOWER_CELLS: Array[Vector2i] = [
+	Vector2i(-1, -2), Vector2i(0, -2), Vector2i(-1, -1), Vector2i(0, -1),
+]
+const HEART_CELL := Vector2i(0, 0)
 
 ## Players spawn on a ring around the glowing tower (the 2D game's 96 px), in cells.
 @export var spawn_radius := 3.0
@@ -26,6 +35,10 @@ var _auto_walk := false
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var team_materials: TeamMaterials = $TeamMaterials
 @onready var hud: Hud3D = $HUD
+@onready var build_manager: BuildManager3D = $BuildManager
+@onready var build_controller: BuildController3D = $BuildController
+@onready var build_menu: BuildMenu3D = $BuildMenu
+@onready var spawn_openings: Node3D = $World/SpawnOpenings
 
 
 func _ready() -> void:
@@ -34,6 +47,19 @@ func _ready() -> void:
 	# correct before the node enters the tree, no sync race.
 	player_spawner.spawn_function = _build_player
 	hud.setup(team_materials)
+
+	var opening_cells: Array[Vector2i] = []
+	for marker in spawn_openings.get_children():
+		opening_cells.append(build_manager.world_to_cell(marker.global_position))
+	# The tower footprint plus every solid prop WorldGen scattered are permanent
+	# unbuildable, unwalkable cells (WorldGen already ran — it is a child).
+	var scenery_cells: Array[Vector2i] = TOWER_CELLS.duplicate()
+	for node in get_tree().get_nodes_in_group("obstacles"):
+		scenery_cells.append(build_manager.world_to_cell(node.global_position))
+	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
+	build_controller.setup(build_manager)
+	build_menu.setup(build_manager, build_controller, team_materials)
+
 	_parse_dev_args()
 	# Harvests announce themselves; the game routes them to the shared pool
 	# (signals up, calls down). The signal only fires on the host.
@@ -57,6 +83,13 @@ func _ready() -> void:
 			multiplayer.peer_connected.connect(_on_peer_connected)
 			multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 			_spawn_player(1)
+			for arg in OS.get_cmdline_user_args():
+				# Dev cheat for testing builds: --grant-materials=wood:10,stone:10
+				if arg.begins_with("--grant-materials="):
+					for pair in arg.get_slice("=", 1).split(","):
+						team_materials.host_add(
+								StringName(pair.get_slice(":", 0)),
+								int(pair.get_slice(":", 1)))
 	print("[Game3D] World shell ready (%s / %s)" % [
 			RenderingServer.get_current_rendering_method(),
 			RenderingServer.get_current_rendering_driver_name()])
@@ -140,9 +173,42 @@ func _parse_dev_args() -> void:
 			_auto_walk = true
 		elif arg == "--auto-harvest":
 			_start_auto_harvest()
+		elif arg == "--auto-build":
+			_run_auto_build()
+		elif arg == "--auto-block-test":
+			_run_auto_block_test()
 		elif arg.begins_with("--log-players-after-sec="):
 			for stamp in arg.get_slice("=", 1).split(","):
 				_log_players_after(float(stamp))
+
+
+# Smoke-test hook (godot -- --auto-build): drive the real place/reject/sell
+# RPC chain on a fixed timeline; smoke tests assert on the [Build] logs.
+# Same cells as the 2D hook.
+func _run_auto_build() -> void:
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
+	await get_tree().create_timer(2.0).timeout
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(3, -3))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"arrow_turret", Vector2i(2, -3))
+	await get_tree().create_timer(1.0).timeout
+	# Same cell again: the host must reject it as occupied.
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
+
+
+# Smoke-test hook (godot -- --auto-block-test): wall in the tower's heart
+# cell. Its north side is already tower footprint, so the third wall would
+# seal it — the never-block-the-path rule must reject it.
+func _run_auto_block_test() -> void:
+	await get_tree().create_timer(4.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(1, 0))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(0, 1))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(-1, 0))
 
 
 # Smoke-test hook (godot -- --auto-harvest): every 2 s, teleport the local
