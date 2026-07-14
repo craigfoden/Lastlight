@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/world3d/resource_node_3d.gd" id="1_script"]
+
+[sub_resource type="CylinderShape3D" id="body_shape"]
+radius = 0.38
+height = 1.2
+
+[node name="ResourceNode" type="StaticBody3D" groups=["resource_nodes"]]
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.6, 0)
+shape = SubResource("body_shape")

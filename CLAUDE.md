@@ -99,9 +99,11 @@ A system is done when ALL of:
   z_index to force draw order on world objects — fix the Y instead (the layer table lives in
   ARCHITECTURE.md).
 - **3D port** (branch `3d-ortho-prototype`, phases in `docs/PORT_PLAN.md`): renderer is
-  **Forward+** (decision log 2026-07-13). Omni-light shadows are gated at runtime — force
-  `shadow_enabled = false` whenever the engine fell back to Compatibility, where they render
-  the lit region black. Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
+  **Forward+** (decision log 2026-07-13). Omni-light shadows are **night-only and gated**:
+  drive them through `GlowTower3D.set_light_shadows()`, which refuses them on the
+  Compatibility fallback (lit region renders black) — and never leave them on in daylight,
+  where the light's whole range box over-darkens on some Vulkan drivers (decision log
+  2026-07-14). Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
   plane is y = 0; the 2D grid's XY maps to XZ (cell `(x, y)` → world `(x + 0.5, ·, y + 0.5)`).
   Characters are `Sprite3D` billboards: `pixel_size = 0.036`, `BILLBOARD_FIXED_Y`,
   `shaded = false`, day/night lighting hand-driven via `modulate` each frame (the 3D
@@ -120,6 +122,12 @@ its exports for density/rarity/amounts (`resource_count`, `near_amount`/`far_amo
 radii, `plaza_radius`/`safe_radius`), or point its material/texture slots at new resources.
 Don't hand-place `ResourceNode`s in `game.tscn` anymore — WorldGen owns the layout. Keep grid-
 solid content off the `y == 0` row (the guaranteed opening→heart corridor).
+**3D branch:** `World/WorldGen` in `scenes/game3d/game3d.tscn` (`world_gen_3d.gd`) scatters
+the identical layout — same seed, same cells, radii in cells (2D px / 32 exactly; keep new
+radii binary-exact if parity should hold). Resource looks are the `tree_scene`/`rock_scene`/
+`wisp_scene` exports; solids are mesh scenes in `solid_scenes` (they join group
+`"obstacles"`), decor is flat 32×32 decal textures in `decor_textures` (scenes under
+`scenes/world3d/visuals/`).
 
 **Add a scenery prop:** add an SVG to `assets/sprites/placeholder/` (solid/standing: 32×48
 with a front face, bottom-anchored automatically; decor: flat 32×32 decal), then add the

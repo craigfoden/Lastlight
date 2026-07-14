@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/world3d/scenery_prop_3d.gd" id="1_script"]
+
+[sub_resource type="BoxShape3D" id="prop_shape"]
+size = Vector3(0.81, 1.2, 0.81)
+
+[node name="SceneryProp" type="StaticBody3D"]
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.6, 0)
+shape = SubResource("prop_shape")

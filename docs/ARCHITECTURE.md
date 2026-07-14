@@ -386,6 +386,45 @@ machine — see GOTCHAS in CLAUDE.md.
 
 ---
 
+## 3D port phase 2 — world shell & WorldGen3D (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**Decision: the 3D world lives in parallel scenes (`scenes/game3d/`, `scenes/world3d/`)
+with the 2D WorldGen's logic deliberately duplicated, not shared.** A common base class
+would touch 2D files main still ships from; the 2D copy retires wholesale in phase 8.
+
+- **Cell-for-cell layout parity with the 2D map, by construction.** WorldGen3D runs the
+  identical rng call sequence, and every radius is the 2D pixel value / 32 — an exact
+  binary scaling that commutes with float rounding (multiply-by-2^k, sqrt, and floor all
+  preserve it), so every scatter lands in the same grid cell as 2D. Same seed → the map
+  players know.
+- **Determinism smoke: the layout hash.** `[WorldGen3D] ... layout hash N` digests every
+  spawned node (name:material:cell). Identical hash across peers ⇒ the NodePath RPC
+  contract (GOTCHAS) holds. Verified identical across three separate processes and both
+  renderers. (True host+client join lands with phase 3's player port — the hash is the
+  world-side half of that smoke.)
+- **The `"obstacles"` group contract is kept** (PORT_PLAN open question #2): solid
+  SceneryProp3D joins group `"obstacles"`; the phase-5 build-grid port reads it unchanged.
+- **Omni-shadow daylight finding — amends phase 1:** with `shadow_enabled` on, the tower
+  OmniLight's *entire range box* renders over-darkened in daylight on the Vega M Vulkan
+  driver (a dark world-space square; physically impossible — shadowed-from-omni ground
+  must equal ground outside the range). It is in the phase-1 `fwd_on` day shot too; phase
+  1 eyeballed the night frame, where the artifact has nothing to subtract and the look is
+  correct. **Policy: tower-light shadows are night-only**, driven through
+  `GlowTower3D.set_light_shadows()` (phase 7 wires it to DayNightCycle), and always off on
+  the Compatibility fallback (black-pool bug). Re-evaluate when Craig's machine matrix
+  lands. Forward+ remains the right renderer — day and night both render correctly with
+  the policy applied.
+- Ground plane is visual-only (no collision): the game is top-down, players stay pinned to
+  y = 0 — phase 3 either confirms no-gravity movement or adds a floor body then.
+- Decor props are flat `PlaneMesh` decals with alpha-scissor materials, lifted 0.01 above
+  the ground (the 3D twin of the 2D decal's `z_index = -1`).
+- Harvest/hp RPC lanes ported verbatim (`request_harvest`, `_sync_amount`, `_sync_hp`,
+  `host_send_snapshot`); ResourceNode3D reads meshes' remaining stock as scale (2D used
+  sprite alpha). `game3d.gd` carries a local dev-args parser (screenshot/quit) until the
+  real game args port over — same rough edge proto3d has.
+
+---
+
 ## Template for new entries
 
 ```

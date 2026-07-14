@@ -43,11 +43,15 @@ with hand-driven tint, collision layers 1/2/4/8 mirroring 2D). Still owed before
 flips `project.godot`: the same matrix on Craig's machine (repro command in the decision
 log; `--omni-shadows` flag is in `proto3d.gd`).
 
-**Phase 2 — World & WorldGen.** `game3d.tscn` shell: ground, WorldEnvironment, sun, glow
-tower scene (mesh + OmniLight + heart). Port WorldGen: same seed, same `Res_%d`/`Prop_%d`
-naming (the RPC-by-NodePath contract from the GOTCHAS still applies!), StaticBody3D
-collision on solids, meshes for trees/rocks, billboard wisps. Resource nodes keep their
-harvest RPC lane unchanged.
+**Phase 2 — World & WorldGen.** ✅ 2026-07-14 (Chris) — `scenes/game3d/game3d.tscn` shell
+(ground, environment, sun, GlowTower3D with heart + OmniLight) and `world_gen_3d.gd`: same
+seed, same rng sequence, radii = 2D px / 32 exactly → cell-for-cell the 2D layout, with
+`Res_%d`/`Prop_%d` names intact and a printed **layout hash** as the cross-peer
+determinism smoke (identical across processes and renderers). Harvest/hp RPC lanes ported
+verbatim; solids join group `"obstacles"` (open question #2: contract kept). New finding,
+logged: omni shadows also misrender in *daylight* on Vulkan/Vega M (over-darkened range
+box) — tower-light shadows are now night-only via `GlowTower3D.set_light_shadows()`,
+which phase 7 wires to DayNightCycle.
 
 **Phase 3 — Player + multiplayer smoke. The risk-killer.** CharacterBody3D, camera rig and
 camera-relative input from the prototype, Label3D name tags, synchronizer replicating

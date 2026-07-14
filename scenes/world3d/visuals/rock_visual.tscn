@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="rock_mat"]
+albedo_color = Color(0.478431, 0.490196, 0.529412, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="rock_mesh"]
+material = SubResource("rock_mat")
+radius = 0.45
+height = 0.55
+
+[node name="RockVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.1, 0)
+scale = Vector3(1, 0.8, 0.8)
+mesh = SubResource("rock_mesh")

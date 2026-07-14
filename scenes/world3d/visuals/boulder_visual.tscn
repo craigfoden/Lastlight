@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="boulder_mat"]
+albedo_color = Color(0.431373, 0.439216, 0.462745, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="boulder_mesh"]
+material = SubResource("boulder_mat")
+radius = 0.55
+height = 0.8
+
+[node name="BoulderVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.3, 0)
+scale = Vector3(1.15, 0.9, 1)
+mesh = SubResource("boulder_mesh")
