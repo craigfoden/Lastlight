@@ -340,6 +340,10 @@ func _parse_dev_args() -> void:
 
 func _save_screenshot_after(delay_sec: float) -> void:
 	await get_tree().create_timer(delay_sec).timeout
+	# Wait for a full frame first (docs: tutorials/rendering/viewports.rst) —
+	# without it the capture can be a STALE frame; on macOS/Metal it froze on
+	# the run's first frames and both timestamped shots came back identical.
+	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	var path := "user://proto_shot_%d.png" % int(delay_sec)
 	image.save_png(path)

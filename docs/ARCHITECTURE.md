@@ -503,6 +503,57 @@ rejected the sealing wall.
 
 ---
 
+## 3D port phase 1 addendum — the matrix on Craig's machine, now a Mac (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The pending phase-1 matrix ran on Craig's new machine (macOS, Apple M3 Pro, Metal) and
+Forward+ passed: `project.godot` is flipped to `forward_plus`** (mobile fallback
+`"mobile"`). The 4-way probe — {Compatibility, Forward+} × {omni shadows off, on},
+day/night screenshots — showed Forward+ rendering the intended night (dark world, warm
+tower pool, radial prop shadows) at 115–145 fps windowed. Compatibility also ran without
+the Windows black-pool bug (macOS ANGLE sits on Metal, not D3D11), but the target stays
+Forward+ per the phase-1 decision; omni shadows remain runtime-gated for fallback stacks.
+
+- **macOS suspends rendering for fully-occluded windows**, which broke the probe twice
+  before it ran clean: scripted windowed runs launched from a shell can sit behind other
+  windows, the engine stops presenting frames, and the screenshot hook silently saved a
+  stale early frame (two shots 13 s apart, byte-identical). Two fixes, both landed:
+  the three `--screenshot-*` hooks now `await RenderingServer.frame_post_draw` before
+  `get_image()` (the documented capture idiom — a stalled await is now a *visible* miss
+  instead of a silently wrong frame), and scripted visual runs on macOS pass Godot's
+  `--always-on-top` so the window keeps rendering. GOTCHAS entry added.
+
+---
+
+## 3D port phase 6 — enemies, waves, combat, survival (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The whole threat layer is parallel ports with the 2D scheduling and RPC lanes verbatim**:
+WaveDirector3D (continuous night stream + day roamers, same tunables, geometry in cells),
+Enemy3D (CharacterBody3D FLOATING at y = 0, billboard sprite, XZ waypoints lifted from the
+grid paths), Projectile3D / SnareTrap3D (Area3D at chest height / ground-decal + squat
+cylinder trigger), Player3D combat + survival (aim/cast/dodge, hp/downed/revive/respawn),
+and the run-end flow. `RunEndScreen` and `DayNightCycle` instanced **unchanged** — the
+first 2D scene files reused as-is in the 3D game. Smokes green solo AND host+client:
+kit kills, trap roots, tower battered, defeat, victory, downed→respawn, late-join
+snapshots (players/enemies/tower), and night join refusal.
+
+- **GlowTower3D's node moved back to the origin; its column/gem/light/collision children
+  carry the z = -1 offset instead.** Phase 5 moved the *node* to (0, 0, -1) for the
+  footprint, but verbatim enemy/safe-zone ports measure `tower.global_position` — the 2D
+  tower node sits at the origin, and with the node at (0, 0, -1) an enemy at the heart
+  cell is 1.58 u away, outside its 1.5 u (48 px) attack range: enemies would path
+  perfectly and never swing. Node at origin restores 2D distance parity everywhere;
+  children at z = -1 keep the footprint/heart geometry phase 5 fixed.
+- **Night join refusal came forward from phase 7 to 6** — the rule guards the *night
+  assault*, which exists as soon as waves do. Same app-layer kick as 2D.
+- Enemy billboards skip `alpha_cut` (players use DISCARD): the hp fade needs alpha blend.
+  Player survival tinting reuses the 2D modulate scheme minus the downed slump rotation
+  (meaningless on a Y-billboard); phase 7's tint-by-light must compose with it.
+- `--fast-cycle`'s 6 s night is too short for enemies to cross ~46 cells to the tower —
+  combat smokes use `--cycle=8:60`-style pacing instead. Same math as 2D (the map is the
+  same 50-cell crossing); noted here because the first smoke "passed" with zero combat.
+
+---
+
 ## Template for new entries
 
 ```

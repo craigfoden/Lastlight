@@ -3,6 +3,12 @@ extends StaticBody3D
 ## The village heart in the 3D world: mesh column, emissive gem, and the tower
 ## light as a real OmniLight3D. Same host-authoritative hp lane as the 2D
 ## GlowTower — if hp reaches zero, the necromancer descends and the run is lost.
+##
+## The node sits at the ORIGIN like the 2D tower (enemy attack range and the
+## safe zone measure distance to global_position — 2D parity depends on it);
+## the column/gem/light/collision children are offset to z = -1 so the mesh
+## still covers the TOWER_CELLS footprint north of the heart (phase 6, was
+## previously the node itself at (0, 0, -1)).
 
 ## Fired on every peer when hp first reaches zero.
 signal destroyed

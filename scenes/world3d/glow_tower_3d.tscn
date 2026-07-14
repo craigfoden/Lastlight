@@ -30,20 +30,20 @@ collision_mask = 0
 script = ExtResource("1_script")
 
 [node name="Column" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1.6, 0)
+position = Vector3(0, 1.6, -1)
 mesh = SubResource("column_mesh")
 
 [node name="Gem" type="MeshInstance3D" parent="."]
-position = Vector3(0, 3.6, 0)
+position = Vector3(0, 3.6, -1)
 mesh = SubResource("gem_mesh")
 
 [node name="Light" type="OmniLight3D" parent="."]
-position = Vector3(0, 3.6, 0)
+position = Vector3(0, 3.6, -1)
 light_color = Color(1, 0.85098, 0.541176, 1)
 light_energy = 1.6
 omni_range = 16.0
 omni_attenuation = 0.8
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-position = Vector3(0, 1.6, 0)
+position = Vector3(0, 1.6, -1)
 shape = SubResource("base_shape")

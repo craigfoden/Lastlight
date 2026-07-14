@@ -11,7 +11,11 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
   keep the version exact, and use the `_console.exe` variant from scripts/CLI so output is
   captured. Known installs (this section kept clobbering itself machine-to-machine — list
   yours, don't replace others'):
-  - Craig: `C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe`
+  - Craig (Windows, retired 2026-07-14): `C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe`
+  - Craig (Mac, current): `/Applications/Godot.app/Contents/MacOS/Godot` — repo lives at
+    `/Users/craigfoden/Documents/SourceControl/Lastlight`; no `_console` variant needed on
+    macOS, the binary already writes to stdout. `user://` =
+    `~/Library/Application Support/Godot/app_userdata/Lastlight`.
   - Chris: `C:\Users\Chris\Downloads\Godot_v4.7-stable_win64.exe\Godot_v4.7-stable_win64_console.exe`
     (yes, that folder is named `...exe`)
 - Docs ground truth: shallow clone of godot-docs, branch `4.7`, in a **sibling folder**:
@@ -19,11 +23,11 @@ Canon design: `docs/GAME_DESIGN.md`. Claims/status: `docs/ROADMAP.md`.
   engine. Grep the clone (`tutorials/`, `classes/`). Best-practices section is the idiom
   authority after this repo's decision log.
 
-## Run & verify commands (PowerShell)
+## Run & verify commands (PowerShell; macOS variant below)
 
 ```powershell
 # Your _console.exe path — per-machine installs are listed in Environment above.
-$godot = 'C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe'  # Craig's
+$godot = 'C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe'
 
 # Import assets / regenerate .uid files (run after adding files; also catches import errors)
 & $godot --headless --import --path C:\SourceControl\Lastlight
@@ -33,6 +37,17 @@ $godot = 'C:\SourceControl\Godot\Godot_v4.7-stable_win64_console.exe'  # Craig's
 
 # Open the editor
 & $godot --editor --path C:\SourceControl\Lastlight
+```
+
+macOS (zsh) — same commands, different paths. For any windowed run whose screenshots you
+intend to read, add `--always-on-top` (see GOTCHAS: occluded windows stop rendering):
+
+```zsh
+GODOT=/Applications/Godot.app/Contents/MacOS/Godot
+PROJ=~/Documents/SourceControl/Lastlight
+"$GODOT" --headless --import --path "$PROJ"          # import
+"$GODOT" --path "$PROJ"                              # launch
+"$GODOT" --always-on-top --path "$PROJ" -- --game3d --host --screenshot-at=4,17
 ```
 
 ### Testing multiplayer locally (two instances, one machine)
@@ -232,6 +247,15 @@ HUD, talents, and XP banking all key off the class id.
   N objects have arrived (pipeline stop). A Godot run filtered that way dies mid-startup with
   exit −1 and looks exactly like a renderer crash. Redirect to a file and filter after the
   process exits instead.
+- **macOS suspends rendering for fully-occluded windows.** A scripted windowed run launched
+  from a shell can sit behind other windows, stop presenting frames, and the screenshot
+  hooks then capture a stale early frame (two shots taken 13 s apart came back
+  byte-identical). The hooks now `await RenderingServer.frame_post_draw` (a stalled run
+  misses the save *visibly* instead of saving the wrong frame); pass `--always-on-top` on
+  any macOS run whose screenshots you intend to read.
+- `--fast-cycle`'s 6 s night ends before enemies can cross the ~46 cells from an opening to
+  the tower — a combat smoke on it "passes" with zero combat. Use `--cycle=8:60`-style
+  pacing (long night) when asserting on `[Enemy]`/`[Trap]`/`[Tower]` logs.
 
 ## Team rules
 

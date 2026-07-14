@@ -1,6 +1,12 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=37 format=3]
 
 [ext_resource type="Script" path="res://scenes/game3d/game3d.gd" id="1_game"]
+[ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="27_daynight"]
+[ext_resource type="Script" path="res://scenes/game3d/wave_director_3d.gd" id="28_wavedir"]
+[ext_resource type="Script" path="res://data/enemies/enemy_type.gd" id="29_enemytype"]
+[ext_resource type="Resource" path="res://data/enemies/shambler.tres" id="30_shambler"]
+[ext_resource type="Resource" path="res://data/enemies/wretch.tres" id="31_wretch"]
+[ext_resource type="PackedScene" path="res://scenes/game/run_end_screen.tscn" id="32_runend"]
 [ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="18_teammat"]
 [ext_resource type="PackedScene" path="res://scenes/hud3d/hud_3d.tscn" id="19_hud"]
 [ext_resource type="Script" path="res://scenes/building3d/build_manager_3d.gd" id="20_buildmgr"]
@@ -26,6 +32,17 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/grass_tuft.svg" id="15_grass"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/bones.svg" id="16_bones"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rubble.svg" id="17_rubble"]
+
+[sub_resource type="SceneReplicationConfig" id="daynight_replication"]
+properties/0/path = NodePath(".:day_number")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:phase")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:time_in_phase")
+properties/2/spawn = true
+properties/2/replication_mode = 1
 
 [sub_resource type="Environment" id="world_env"]
 background_mode = 1
@@ -60,7 +77,6 @@ shadow_enabled = true
 mesh = SubResource("ground_mesh")
 
 [node name="GlowTower" parent="World" instance=ExtResource("2_tower")]
-position = Vector3(0, 0, -1)
 
 [node name="WorldGen" type="Node3D" parent="World"]
 script = ExtResource("3_worldgen")
@@ -88,8 +104,27 @@ position = Vector3(49.5, 0, 0.5)
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
 spawn_path = NodePath("../Players")
 
+[node name="DayNight" type="Node" parent="."]
+script = ExtResource("27_daynight")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="DayNight"]
+root_path = NodePath("..")
+replication_interval = 0.25
+replication_config = SubResource("daynight_replication")
+
 [node name="TeamMaterials" type="Node" parent="."]
 script = ExtResource("18_teammat")
+
+[node name="WaveDirector" type="Node3D" parent="."]
+script = ExtResource("28_wavedir")
+enemy_types = Array[ExtResource("29_enemytype")]([ExtResource("30_shambler"), ExtResource("31_wretch")])
+
+[node name="Enemies" type="Node3D" parent="WaveDirector"]
+
+[node name="EnemySpawner" type="MultiplayerSpawner" parent="WaveDirector"]
+spawn_path = NodePath("../Enemies")
+
+[node name="SpawnTimer" type="Timer" parent="WaveDirector"]
 
 [node name="BuildManager" type="Node3D" parent="."]
 script = ExtResource("20_buildmgr")
@@ -106,6 +141,8 @@ script = ExtResource("21_buildctl")
 [node name="HUD" parent="." instance=ExtResource("19_hud")]
 
 [node name="BuildMenu" parent="." instance=ExtResource("22_buildmenu")]
+
+[node name="RunEndScreen" parent="." instance=ExtResource("32_runend")]
 
 [node name="FallbackRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)

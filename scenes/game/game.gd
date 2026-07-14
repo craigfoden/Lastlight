@@ -146,6 +146,9 @@ func _process(_delta: float) -> void:
 # from scripted CLI runs. Windowed runs only — headless renders no frames.
 func _save_screenshot_after(delay_sec: float) -> void:
 	await get_tree().create_timer(delay_sec).timeout
+	# Wait for a full frame first (docs: tutorials/rendering/viewports.rst) —
+	# without it the capture can be a STALE frame (seen on macOS/Metal).
+	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	var path := "user://screenshot.png"
 	image.save_png(path)

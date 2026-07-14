@@ -1,8 +1,9 @@
 # 3D Port Plan — branch `3d-ortho-prototype`
 
-**Status (2026-07-13):** Craig picked the hybrid direction — 3D world under a fixed
-orthographic camera, 2D billboard sprites for characters — and handed continuation to Chris.
-Main stays 2D and shippable until phase 8 flips the switch. Read the session-8 entry in
+**Status (2026-07-14):** phases 1–6 done (Chris 1–5, Craig 6). Craig's machine is now a
+Mac — the phase-1 matrix re-ran there and passed, so `project.godot` is flipped to
+Forward+. Remaining: phase 7 (light as gameplay) and phase 8 (the flip). Main stays 2D
+and shippable until phase 8 flips the switch. Read the session-8 entry in
 `ARCHITECTURE.md` (on this branch) before starting: it records the driver gotchas the
 prototype already paid for.
 
@@ -39,9 +40,9 @@ shots; add `--omni-shadows` to turn tower-light shadows on (the phase-1 renderer
 the decision log entry. The black-omni-shadow bug reproduced on Chris's ANGLE stack too;
 Forward+ rendered them correctly AND ran ~75% faster on the same old GPU. Conventions
 landed in CLAUDE.md (1 unit = 1 cell, ground y = 0, `pixel_size 0.036` unshaded billboards
-with hand-driven tint, collision layers 1/2/4/8 mirroring 2D). Still owed before phase 2
-flips `project.godot`: the same matrix on Craig's machine (repro command in the decision
-log; `--omni-shadows` flag is in `proto3d.gd`).
+with hand-driven tint, collision layers 1/2/4/8 mirroring 2D). The owed matrix on Craig's
+machine ran 2026-07-14 (now a Mac: Metal / M3 Pro — Forward+ correct and fast, see the
+phase-1 addendum in the decision log) and `project.godot` is flipped to Forward+.
 
 **Phase 2 — World & WorldGen.** ✅ 2026-07-14 (Chris) — `scenes/game3d/game3d.tscn` shell
 (ground, environment, sun, GlowTower3D with heart + OmniLight) and `world_gen_3d.gd`: same
@@ -77,9 +78,15 @@ StaticBody3D; BuildMenu3D/controller are parallel ports (2D menu is 2D-typed, sa
 HUD). The glow tower moved to (0, 0, -1) so the 2D TOWER_CELLS/heart-cell contract holds.
 `--auto-build` and `--auto-block-test` green solo AND host+client, zero errors/warnings.
 
-**Phase 6 — Enemies & waves.** CharacterBody3D + billboard sprite, XZ waypoint following,
-WaveDirector logic unchanged, tower HP, `--auto-fight` and `--hurt-test` green. Abilities:
-projectile as Area3D, snare as ground decal + Area3D.
+**Phase 6 — Enemies & waves.** ✅ 2026-07-14 (Craig) — the full threat layer:
+Enemy3D/WaveDirector3D with the 2D scheduling verbatim (geometry in cells), abilities as
+planned (projectile Area3D at chest height, snare as ground decal + trigger), Player3D
+combat + survival, tower damage/defeat/victory/run-end, night join refusal (pulled
+forward from 7 — the night exists now). `DayNightCycle` and `RunEndScreen` instanced
+UNCHANGED — the first 2D scenes reused as-is. `--auto-fight` and `--hurt-test` green solo
+AND host+client. One parity trap found and fixed: the tower NODE must sit at the origin
+like the 2D one (children carry the -1 z offset) or verbatim distance checks put the
+heart outside enemy attack range — see the decision log.
 
 **Phase 7 — Light as gameplay.** DayNightCycle drives sun rotation/energy/ambient (replaces
 the CanvasModulate `WorldLight`), sprite tint system from the prototype (billboards warm by
