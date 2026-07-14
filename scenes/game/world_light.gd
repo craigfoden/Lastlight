@@ -121,10 +121,11 @@ func _process(_delta: float) -> void:
 
 	# Billboards: gloom outside the light's reach, the time-of-day look inside,
 	# warmed toward the glow deep in the pool — the billboard twin of what the
-	# real light does to the meshes.
+	# real light does to the meshes. "billboards" is the opt-in group for any
+	# other sprite in the world (essence wisps join it in ResourceNode).
 	var base_tint := tint_noon.lerp(tint_horizon, 1.0 - arc).lerp(tint_night, mix)
 	var glow_strength := lerpf(glow_strength_day, glow_strength_night, mix)
-	for group in [&"players", &"enemies"]:
+	for group in [&"players", &"enemies", &"billboards"]:
 		for node in get_tree().get_nodes_in_group(group):
 			var reach: float = clampf(
 					1.0 - node.global_position.length() / _tower.light_range(),

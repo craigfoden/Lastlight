@@ -33,6 +33,7 @@ var amount := 0:
 			depleted.emit()
 
 var _visual: Node3D
+var _sprite: Sprite3D
 
 @onready var _collision: CollisionShape3D = $CollisionShape3D
 
@@ -42,7 +43,20 @@ func _ready() -> void:
 	if visual_scene != null:
 		_visual = visual_scene.instantiate() as Node3D
 		add_child(_visual)
+		# A billboard look (the essence wisp) doesn't react to real lights, so
+		# it joins the hand-tinted set WorldLight drives each frame — otherwise
+		# it would glow full-bright out in the dark wilds.
+		_sprite = _visual.get_node_or_null("Sprite3D") as Sprite3D
+		if _sprite != null:
+			add_to_group("billboards")
 	amount = starting_amount
+
+
+## Called by WorldLight every frame (billboard visuals only — meshes are lit
+## by the real lights).
+func set_light_tint(tint: Color) -> void:
+	if _sprite != null:
+		_sprite.modulate = tint
 
 
 ## Called by players via rpc_id(1, ...); executes on the host.
