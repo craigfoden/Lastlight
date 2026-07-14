@@ -8,7 +8,9 @@ shader_type spatial;
 // one past the 15-cell safe radius.
 
 uniform vec3 village_color : source_color = vec3(0.24, 0.29, 0.2);
-uniform vec3 wilds_color : source_color = vec3(0.12, 0.15, 0.11);
+// Darker than the 2D base green (0.12, 0.15, 0.11): under a real sun the lit
+// floor reads brighter than the 2D flat color did, so the albedo compensates.
+uniform vec3 wilds_color : source_color = vec3(0.055, 0.075, 0.05);
 // Fully bright inside this distance from the tower...
 uniform float glow_radius = 4.0;
 // ...fully dark beyond this one.

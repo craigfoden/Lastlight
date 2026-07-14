@@ -11,7 +11,7 @@ extends Node3D
 ## --auto-harvest (teleport-harvest loop, exercises the RPC chain),
 ## --auto-build / --auto-block-test / --grant-materials=... / --auto-fight /
 ## --hurt-test / --tower-hp=N / --fast-cycle / --cycle=day:night /
-## --final-day=N.
+## --final-day=N / --spawn-at=x,z (start the local player out in the wilds).
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
 const PlayerScene := preload("res://scenes/player/player.tscn")
@@ -43,6 +43,7 @@ const HEART_CELL := Vector2i(0, 0)
 
 var run_over := false
 var _auto_walk := false
+var _spawn_at_override := Vector3.ZERO
 
 @onready var players: Node3D = $Players
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
@@ -210,6 +211,10 @@ func _build_player(data: Dictionary) -> Node:
 	# The node name doubles as the owner's peer id (see player.gd).
 	player.name = str(data.peer_id)
 	player.position = data.position
+	if _spawn_at_override != Vector3.ZERO and data.peer_id == multiplayer.get_unique_id():
+		# Dev cheat (--spawn-at): only the owner overrides — position is
+		# client-authority, so the synchronizer pushes it to everyone else.
+		player.position = _spawn_at_override
 	player.auto_walk = _auto_walk and data.peer_id == multiplayer.get_unique_id()
 	return player
 
@@ -250,6 +255,12 @@ func _parse_dev_args() -> void:
 					func() -> void: get_tree().quit())
 		elif arg == "--auto-walk":
 			_auto_walk = true
+		elif arg.begins_with("--spawn-at="):
+			# Dev cheat: start the local player at cell x,z (e.g. --spawn-at=30,0)
+			# — playtest distance-based things (glow edge, roamers) without the walk.
+			_spawn_at_override = Vector3(
+					float(arg.get_slice("=", 1).get_slice(",", 0)), 0.0,
+					float(arg.get_slice("=", 1).get_slice(",", 1)))
 		elif arg == "--auto-harvest":
 			_start_auto_harvest()
 		elif arg == "--auto-build":

@@ -80,6 +80,8 @@ and cast the kit), `--hurt-test` (host chips every player's hp on a timer — ex
 downed/revive/respawn), `--auto-walk` (the local player strolls in a circle when idle),
 `--log-players-after-sec=a,b` (print every player's position at those times — assert a
 remote player's position changed between stamps to prove replication),
+`--spawn-at=x,z` (start the local player at that cell — playtest distance-based things
+like the glow edge and roamers without the walk),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
 windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
