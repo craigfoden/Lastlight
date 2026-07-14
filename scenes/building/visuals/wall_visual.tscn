@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="wall_mat"]
+albedo_color = Color(0.552941, 0.552941, 0.6, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="wall_mesh"]
+material = SubResource("wall_mat")
+size = Vector3(1, 0.9, 1)
+
+[node name="WallVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.45, 0)
+mesh = SubResource("wall_mesh")

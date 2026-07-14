@@ -1,37 +1,39 @@
-[gd_scene load_steps=36 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
-[ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="2_daynight"]
-[ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="3_teammat"]
-[ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="4_tower"]
-[ext_resource type="PackedScene" path="res://scenes/hud/hud.tscn" id="6_hud"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rock.svg" id="7_rock"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/essence_wisp.svg" id="8_wisp"]
-[ext_resource type="Resource" path="res://data/materials/stone.tres" id="9_stone"]
-[ext_resource type="Resource" path="res://data/materials/essence_faint.tres" id="10_essence"]
-[ext_resource type="Script" path="res://scenes/game/wave_director.gd" id="19_wavedir"]
-[ext_resource type="Script" path="res://data/enemies/enemy_type.gd" id="20_enemytype"]
-[ext_resource type="Resource" path="res://data/enemies/shambler.tres" id="21_shambler"]
-[ext_resource type="Resource" path="res://data/enemies/wretch.tres" id="22_wretch"]
-[ext_resource type="PackedScene" path="res://scenes/game/run_end_screen.tscn" id="23_runend"]
-[ext_resource type="Script" path="res://scenes/building/build_manager.gd" id="12_buildmgr"]
-[ext_resource type="Script" path="res://scenes/building/build_controller.gd" id="13_buildctl"]
-[ext_resource type="PackedScene" path="res://scenes/building/build_menu.tscn" id="14_buildmenu"]
-[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="15_buildingtype"]
-[ext_resource type="Resource" path="res://data/buildings/wall.tres" id="16_wall"]
-[ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="17_sentry"]
-[ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="18_turret"]
-[ext_resource type="Script" path="res://scenes/world/world_gen.gd" id="24_worldgen"]
-[ext_resource type="Resource" path="res://data/materials/wood.tres" id="25_wood"]
-[ext_resource type="Resource" path="res://data/materials/essence_bright.tres" id="26_ebright"]
-[ext_resource type="Resource" path="res://data/materials/essence_radiant.tres" id="27_eradiant"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/tree.svg" id="28_tree"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/boulder.svg" id="29_boulder"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/dead_tree.svg" id="30_deadtree"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/ruined_pillar.svg" id="31_pillar"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/grass_tuft.svg" id="32_grass"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/bones.svg" id="33_bones"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rubble.svg" id="34_rubble"]
+[ext_resource type="Shader" path="res://scenes/world/ground.gdshader" id="34_groundshader"]
+[ext_resource type="Script" path="res://scenes/game/world_light.gd" id="33_worldlight"]
+[ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="27_daynight"]
+[ext_resource type="Script" path="res://scenes/game/wave_director.gd" id="28_wavedir"]
+[ext_resource type="Script" path="res://data/enemies/enemy_type.gd" id="29_enemytype"]
+[ext_resource type="Resource" path="res://data/enemies/shambler.tres" id="30_shambler"]
+[ext_resource type="Resource" path="res://data/enemies/wretch.tres" id="31_wretch"]
+[ext_resource type="PackedScene" path="res://scenes/game/run_end_screen.tscn" id="32_runend"]
+[ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="18_teammat"]
+[ext_resource type="PackedScene" path="res://scenes/hud/hud.tscn" id="19_hud"]
+[ext_resource type="Script" path="res://scenes/building/build_manager.gd" id="20_buildmgr"]
+[ext_resource type="Script" path="res://scenes/building/build_controller.gd" id="21_buildctl"]
+[ext_resource type="PackedScene" path="res://scenes/building/build_menu.tscn" id="22_buildmenu"]
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="23_buildingtype"]
+[ext_resource type="Resource" path="res://data/buildings/wall.tres" id="24_wall"]
+[ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="25_sentry"]
+[ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="26_turret"]
+[ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="2_tower"]
+[ext_resource type="Script" path="res://scenes/world/world_gen.gd" id="3_worldgen"]
+[ext_resource type="Resource" path="res://data/materials/wood.tres" id="4_wood"]
+[ext_resource type="Resource" path="res://data/materials/stone.tres" id="5_stone"]
+[ext_resource type="Resource" path="res://data/materials/essence_faint.tres" id="6_efaint"]
+[ext_resource type="Resource" path="res://data/materials/essence_bright.tres" id="7_ebright"]
+[ext_resource type="Resource" path="res://data/materials/essence_radiant.tres" id="8_eradiant"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/tree_visual.tscn" id="9_tree"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/rock_visual.tscn" id="10_rock"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/wisp_visual.tscn" id="11_wisp"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/boulder_visual.tscn" id="12_boulder"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/dead_tree_visual.tscn" id="13_deadtree"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/pillar_visual.tscn" id="14_pillar"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/grass_tuft.svg" id="15_grass"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/bones.svg" id="16_bones"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rubble.svg" id="17_rubble"]
 
 [sub_resource type="SceneReplicationConfig" id="daynight_replication"]
 properties/0/path = NodePath(".:day_number")
@@ -44,67 +46,70 @@ properties/2/path = NodePath(".:time_in_phase")
 properties/2/spawn = true
 properties/2/replication_mode = 1
 
-[sub_resource type="Gradient" id="village_gradient"]
-offsets = PackedFloat32Array(0, 0.7, 1)
-colors = PackedColorArray(0.24, 0.29, 0.2, 1, 0.24, 0.29, 0.2, 0.55, 0.24, 0.29, 0.2, 0)
+[sub_resource type="Environment" id="world_env"]
+background_mode = 1
+background_color = Color(0.188235, 0.25098, 0.164706, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.419608, 0.478431, 0.368627, 1)
+ambient_light_energy = 0.5
 
-[sub_resource type="GradientTexture2D" id="village_texture"]
-gradient = SubResource("village_gradient")
-width = 512
-height = 512
-fill = 1
-fill_from = Vector2(0.5, 0.5)
-fill_to = Vector2(0.5, 0)
+[sub_resource type="ShaderMaterial" id="ground_mat"]
+shader = ExtResource("34_groundshader")
 
-[node name="Game" type="Node2D"]
-y_sort_enabled = true
+[sub_resource type="PlaneMesh" id="ground_mesh"]
+material = SubResource("ground_mat")
+size = Vector2(210, 210)
+
+[node name="Game" type="Node3D"]
 script = ExtResource("1_game")
 
-[node name="World" type="Node2D" parent="."]
-y_sort_enabled = true
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("world_env")
 
-[node name="Ground" type="Polygon2D" parent="World"]
-z_index = -10
-color = Color(0.12, 0.15, 0.11, 1)
-polygon = PackedVector2Array(-3300, -3300, 3300, -3300, 3300, 3300, -3300, 3300)
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.959931, -0.523599, 0)
+light_color = Color(1, 0.95, 0.87, 1)
+light_energy = 1.1
+shadow_enabled = true
 
-[node name="VillageGlow" type="Sprite2D" parent="World"]
-z_index = -9
-scale = Vector2(2, 2)
-texture = SubResource("village_texture")
+[node name="World" type="Node3D" parent="."]
 
-[node name="GlowTower" parent="World" instance=ExtResource("4_tower")]
+[node name="Ground" type="MeshInstance3D" parent="World"]
+mesh = SubResource("ground_mesh")
 
-[node name="WorldGen" type="Node2D" parent="World"]
-y_sort_enabled = true
-script = ExtResource("24_worldgen")
-wood = ExtResource("25_wood")
-stone = ExtResource("9_stone")
-essence_faint = ExtResource("10_essence")
-essence_bright = ExtResource("26_ebright")
-essence_radiant = ExtResource("27_eradiant")
-tree_texture = ExtResource("28_tree")
-rock_texture = ExtResource("7_rock")
-wisp_texture = ExtResource("8_wisp")
-solid_textures = Array[Texture2D]([ExtResource("29_boulder"), ExtResource("30_deadtree"), ExtResource("31_pillar")])
-decor_textures = Array[Texture2D]([ExtResource("32_grass"), ExtResource("33_bones"), ExtResource("34_rubble")])
+[node name="GlowTower" parent="World" instance=ExtResource("2_tower")]
 
-[node name="SpawnOpenings" type="Node2D" parent="World"]
+[node name="WorldGen" type="Node3D" parent="World"]
+script = ExtResource("3_worldgen")
+wood = ExtResource("4_wood")
+stone = ExtResource("5_stone")
+essence_faint = ExtResource("6_efaint")
+essence_bright = ExtResource("7_ebright")
+essence_radiant = ExtResource("8_eradiant")
+tree_scene = ExtResource("9_tree")
+rock_scene = ExtResource("10_rock")
+wisp_scene = ExtResource("11_wisp")
+solid_scenes = Array[PackedScene]([ExtResource("12_boulder"), ExtResource("13_deadtree"), ExtResource("14_pillar")])
+decor_textures = Array[Texture2D]([ExtResource("15_grass"), ExtResource("16_bones"), ExtResource("17_rubble")])
 
-[node name="WestOpening" type="Marker2D" parent="World/SpawnOpenings"]
-position = Vector2(-1584, 16)
+[node name="SpawnOpenings" type="Node3D" parent="World"]
 
-[node name="EastOpening" type="Marker2D" parent="World/SpawnOpenings"]
-position = Vector2(1584, 16)
+[node name="WestOpening" type="Marker3D" parent="World/SpawnOpenings"]
+position = Vector3(-49.5, 0, 0.5)
 
-[node name="Players" type="Node2D" parent="."]
-y_sort_enabled = true
+[node name="EastOpening" type="Marker3D" parent="World/SpawnOpenings"]
+position = Vector3(49.5, 0, 0.5)
+
+[node name="Players" type="Node3D" parent="."]
 
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
 spawn_path = NodePath("../Players")
 
 [node name="DayNight" type="Node" parent="."]
-script = ExtResource("2_daynight")
+script = ExtResource("27_daynight")
+
+[node name="WorldLight" type="Node" parent="."]
+script = ExtResource("33_worldlight")
 
 [node name="Sync" type="MultiplayerSynchronizer" parent="DayNight"]
 root_path = NodePath("..")
@@ -112,43 +117,43 @@ replication_interval = 0.25
 replication_config = SubResource("daynight_replication")
 
 [node name="TeamMaterials" type="Node" parent="."]
-script = ExtResource("3_teammat")
+script = ExtResource("18_teammat")
 
-[node name="WorldLight" type="CanvasModulate" parent="."]
+[node name="WaveDirector" type="Node3D" parent="."]
+script = ExtResource("28_wavedir")
+enemy_types = Array[ExtResource("29_enemytype")]([ExtResource("30_shambler"), ExtResource("31_wretch")])
 
-[node name="BuildManager" type="Node2D" parent="."]
-y_sort_enabled = true
-script = ExtResource("12_buildmgr")
-buildable_types = Array[ExtResource("15_buildingtype")]([ExtResource("16_wall"), ExtResource("17_sentry"), ExtResource("18_turret")])
-
-[node name="Buildings" type="Node2D" parent="BuildManager"]
-y_sort_enabled = true
-
-[node name="BuildingSpawner" type="MultiplayerSpawner" parent="BuildManager"]
-spawn_path = NodePath("../Buildings")
-
-[node name="WaveDirector" type="Node2D" parent="."]
-y_sort_enabled = true
-script = ExtResource("19_wavedir")
-enemy_types = Array[ExtResource("20_enemytype")]([ExtResource("21_shambler"), ExtResource("22_wretch")])
-
-[node name="Enemies" type="Node2D" parent="WaveDirector"]
-y_sort_enabled = true
+[node name="Enemies" type="Node3D" parent="WaveDirector"]
 
 [node name="EnemySpawner" type="MultiplayerSpawner" parent="WaveDirector"]
 spawn_path = NodePath("../Enemies")
 
 [node name="SpawnTimer" type="Timer" parent="WaveDirector"]
 
-[node name="BuildController" type="Node2D" parent="."]
-script = ExtResource("13_buildctl")
+[node name="BuildManager" type="Node3D" parent="."]
+script = ExtResource("20_buildmgr")
+buildable_types = Array[ExtResource("23_buildingtype")]([ExtResource("24_wall"), ExtResource("25_sentry"), ExtResource("26_turret")])
 
-[node name="Ghost" type="Sprite2D" parent="BuildController"]
-z_index = 25
-visible = false
+[node name="Buildings" type="Node3D" parent="BuildManager"]
 
-[node name="HUD" parent="." instance=ExtResource("6_hud")]
+[node name="BuildingSpawner" type="MultiplayerSpawner" parent="BuildManager"]
+spawn_path = NodePath("../Buildings")
 
-[node name="BuildMenu" parent="." instance=ExtResource("14_buildmenu")]
+[node name="BuildController" type="Node3D" parent="."]
+script = ExtResource("21_buildctl")
 
-[node name="RunEndScreen" parent="." instance=ExtResource("23_runend")]
+[node name="HUD" parent="." instance=ExtResource("19_hud")]
+
+[node name="BuildMenu" parent="." instance=ExtResource("22_buildmenu")]
+
+[node name="RunEndScreen" parent="." instance=ExtResource("32_runend")]
+
+[node name="FallbackRig" type="Node3D" parent="."]
+rotation = Vector3(-0.575959, 0.785398, 0)
+
+[node name="FallbackCamera" type="Camera3D" parent="FallbackRig"]
+position = Vector3(0, 0, 60)
+projection = 1
+current = true
+size = 30.0
+far = 160.0

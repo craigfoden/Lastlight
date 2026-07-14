@@ -1,13 +1,17 @@
 class_name Minimap
 extends Control
-## A corner radar centred on the local player. Shows nearby resource nodes in
-## their material colour, monsters in red, teammates in cyan, and the direction
-## home to the tower in gold (pinned to the rim when it is off-radar). Pure
-## local rendering from the shared groups — reads state every peer already has,
-## so it needs no networking of its own.
+## A corner radar centred on the local player — the 2D Minimap with a new
+## world→radar transform: positions live on the XZ plane in cells, and the
+## whole picture is rotated by the camera's fixed 45° yaw so up on the radar
+## is up on the screen (in 2D the camera was axis-aligned and no rotation was
+## needed). Shows nearby resource nodes in their material colour, monsters in
+## red, teammates in cyan, and the direction home to the tower in gold (pinned
+## to the rim when it is off-radar). Pure local rendering from the shared
+## groups — reads state every peer already has, so it needs no networking.
 
-## World-space radius (pixels) the radar covers from centre to rim.
-@export var world_range := 1000.0
+## World-space radius the radar covers from centre to rim, in cells
+## (2D: 1000 px).
+@export var world_range := 31.25
 @export var node_dot := 2.5
 @export var enemy_dot := 3.0
 @export var player_dot := 3.5
@@ -39,13 +43,21 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
+# World offset from the local player -> radar offset from the radar centre:
+# take the ground-plane components and rotate by the camera yaw so the radar
+# matches what the screen shows.
+func _to_radar(world_pos: Vector3, radar_scale: float) -> Vector2:
+	var offset := world_pos - _player.global_position
+	return Vector2(offset.x, offset.z) \
+			.rotated(deg_to_rad(Player.CAMERA_YAW)) * radar_scale
+
+
 func _draw() -> void:
 	if _player == null:
 		return
 	var center := size / 2.0
 	var radius := minf(size.x, size.y) / 2.0
-	var scale := radius / world_range
-	var origin := _player.global_position
+	var radar_scale := radius / world_range
 
 	draw_circle(center, radius, _BACKING)
 
@@ -53,28 +65,28 @@ func _draw() -> void:
 		var res := node as ResourceNode
 		if res == null or res.amount <= 0 or res.material_type == null:
 			continue
-		var rel: Vector2 = (res.global_position - origin) * scale
+		var rel := _to_radar(res.global_position, radar_scale)
 		if rel.length() <= radius:
 			draw_circle(center + rel, node_dot, res.material_type.hud_color)
 
 	for node in get_tree().get_nodes_in_group("enemies"):
 		if node.hp <= 0:
 			continue
-		var rel: Vector2 = (node.global_position - origin) * scale
+		var rel := _to_radar(node.global_position, radar_scale)
 		if rel.length() <= radius:
 			draw_circle(center + rel, enemy_dot, _ENEMY)
 
 	for node in get_tree().get_nodes_in_group("players"):
 		if node == _player:
 			continue
-		var rel: Vector2 = (node.global_position - origin) * scale
+		var rel := _to_radar(node.global_position, radar_scale)
 		if rel.length() <= radius:
 			draw_circle(center + rel, player_dot, _MATE)
 
 	# Home marker: pin the tower to the rim when it is off-radar so you can
 	# always find your way back to the village.
 	if _tower != null and is_instance_valid(_tower):
-		var home: Vector2 = (_tower.global_position - origin) * scale
+		var home := _to_radar(_tower.global_position, radar_scale)
 		if home.length() > radius:
 			home = home.normalized() * radius
 		draw_rect(Rect2(center + home - Vector2(3, 3), Vector2(6, 6)), _TOWER)

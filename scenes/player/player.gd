@@ -1,27 +1,40 @@
 class_name Player
-extends CharacterBody2D
-## One player character. The node is named after the owning peer's id, and that
-## peer is the multiplayer authority: each player simulates their own movement
-## locally and the MultiplayerSynchronizer replicates position to everyone else.
-## This is a deliberate exception to host authority, for responsive movement —
-## see "Authority model" in docs/ARCHITECTURE.md.
+extends CharacterBody3D
+## One player character in the 3D world. The node is named after the owning
+## peer's id, and that peer is the multiplayer authority: each player simulates
+## its own movement locally and the MultiplayerSynchronizer replicates position
+## to everyone else — the same deliberate exception to host authority as the 2D
+## Player (see "Authority model" in docs/ARCHITECTURE.md).
+##
+## Phase-6 port: movement, camera rig, name tag, sync, harvesting, plus the 2D
+## Player's combat (aim/cast/dodge) and host-authoritative survival
+## (hp/downed/revive/respawn). Tint-by-light arrives with phase 7.
 
 const ProjectileScene := preload("res://scenes/abilities/projectile.tscn")
 const SnareTrapScene := preload("res://scenes/abilities/snare_trap.tscn")
 
+## 2D data resources carry over untouched; speeds there are px/s on 32 px
+## cells, so 3D consumers convert to world units at the boundary.
+const PX_PER_UNIT := 32.0
+
+## Camera yaw: screen-up is world 45 degrees (the prototype's trick). Movement,
+## stick aim, and dodge directions all rotate through this.
+const CAMERA_YAW := 45.0
+
 @export var class_type: ClassType
 
 @export_group("Survival")
-## A downed teammate is revived when a living one stands this close...
-@export var revive_range := 64.0
+## A downed teammate is revived when a living one stands this close... (2D: 64 px)
+@export var revive_range := 2.0
 ## ...for this long.
 @export var revive_time := 2.0
 ## No teammate in reach? The village calls you back after this long.
 @export var respawn_time := 8.0
 ## Fraction of max hp restored on revive vs a full village respawn.
 @export var revive_hp_fraction := 0.5
-## Where a village respawn drops you (relative to the tower at the origin).
-@export var respawn_offset := Vector2(0, 120)
+## Where a village respawn drops you (relative to the tower at the origin;
+## 2D: (0, 120) px).
+@export var respawn_offset := Vector3(0, 0, 3.75)
 ## Host-side floor between damage instances, so a swarm can't instantly melt you.
 @export var hurt_cooldown := 0.4
 
@@ -41,6 +54,13 @@ var downed := false:
 		downed = value
 		_update_survival_appearance()
 
+## Dev hook (--auto-walk): with no input held, the local player strolls in a
+## circle so movement replication can be asserted from headless smoke runs.
+var auto_walk := false
+var _walk_phase := 0.0
+
+var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight
+
 var _hurt_cd := 0.0        # host-only: time until damage can land again
 var _down_time := 0.0      # host-only: seconds spent downed
 var _revive_progress := 0.0  # host-only: seconds a teammate has been reviving
@@ -48,14 +68,14 @@ var _revive_progress := 0.0  # host-only: seconds a teammate has been reviving
 var _cooldowns := {}  # ability id -> seconds remaining
 var _dodge_cooldown := 0.0
 var _dodge_time := 0.0
-var _dodge_direction := Vector2.ZERO
-var _aim := Vector2.RIGHT
+var _dodge_direction := Vector3.ZERO
+var _aim := Vector3.RIGHT
 var _deploy_seq := 0  # host-side counter for deterministic deployable names
 
-@onready var sprite: Sprite2D = $Sprite2D
-@onready var camera: Camera2D = $Camera2D
-@onready var name_label: Label = $NameLabel
-@onready var interact_range: Area2D = $InteractRange
+@onready var sprite: Sprite3D = $Sprite3D
+@onready var camera: Camera3D = $CameraRig/Camera3D
+@onready var name_label: Label3D = $NameLabel
+@onready var interact_range: Area3D = $InteractRange
 
 
 func _enter_tree() -> void:
@@ -66,13 +86,12 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	sprite.texture = class_type.sprite
-	SpriteAnchor.apply(sprite)
 	var is_local := is_multiplayer_authority()
 	if is_local:
 		# Talents come from MY profile and only affect the character I
 		# simulate — meta-progression needs no networking at all.
 		move_speed_mult = Profile.modifiers_for(class_type.id).get(&"move_speed_mult", 1.0)
-	camera.enabled = is_local
+	camera.current = is_local
 	max_hp = class_type.max_hp
 	hp = max_hp
 	# Remote players are moved by the synchronizer, not by physics.
@@ -93,30 +112,48 @@ func _physics_process(delta: float) -> void:
 	_update_aim()
 	if downed:
 		# Downed: no walking, no rolling — wait for a revive or the village call.
-		velocity = Vector2.ZERO
+		velocity = Vector3.ZERO
 		move_and_slide()
 		return
 	if _dodge_time > 0.0:
 		# Mid-roll: locked direction, burst speed, no steering.
 		_dodge_time -= delta
-		velocity = _dodge_direction * class_type.dodge_speed
+		velocity = _dodge_direction * (class_type.dodge_speed / PX_PER_UNIT)
 		move_and_slide()
 		return
-	var move_input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	velocity = move_input * class_type.move_speed * move_speed_mult
+	# Camera-relative WASD on the ground plane. No gravity — the game is
+	# top-down and the body floats pinned to y = 0 (motion_mode is FLOATING).
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var direction := _camera_relative(Vector3(input.x, 0.0, input.y))
+	if auto_walk and direction == Vector3.ZERO:
+		_walk_phase += delta
+		direction = Vector3(cos(_walk_phase * 0.8), 0.0, sin(_walk_phase * 0.8))
+	velocity = direction * (class_type.move_speed / PX_PER_UNIT) * move_speed_mult
 	move_and_slide()
 
 
+func _camera_relative(direction: Vector3) -> Vector3:
+	return Basis(Vector3.UP, deg_to_rad(CAMERA_YAW)) * direction
+
+
 func _update_aim() -> void:
-	# Right stick wins when it is deflected; otherwise aim at the mouse.
-	var stick := Vector2(
+	# Right stick wins when it is deflected; otherwise aim at the mouse's
+	# point on the ground plane — the 3D twin of the 2D mouse aim.
+	var stick := Vector3(
 			Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
+			0.0,
 			Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
 	if stick.length() > 0.3:
-		_aim = stick.normalized()
+		_aim = _camera_relative(stick.normalized())
 		return
-	var to_mouse := get_global_mouse_position() - global_position
-	if to_mouse.length() > 4.0:
+	var mouse := get_viewport().get_mouse_position()
+	var hit = Plane(Vector3.UP, 0.0).intersects_ray(
+			camera.project_ray_origin(mouse), camera.project_ray_normal(mouse))
+	if hit == null:
+		return
+	var to_mouse: Vector3 = hit - global_position
+	to_mouse.y = 0.0
+	if to_mouse.length() > 0.125:
 		_aim = to_mouse.normalized()
 
 
@@ -145,10 +182,10 @@ func dodge_cooldown_remaining() -> float:
 
 ## Local authority only. Cooldown is enforced here (client side); the host
 ## only checks ownership — an accepted friends-co-op trade-off (see docs).
-func try_cast_toward(ability: AbilityType, direction: Vector2) -> void:
+func try_cast_toward(ability: AbilityType, direction: Vector3) -> void:
 	if ability == null or cooldown_remaining(ability) > 0.0:
 		return
-	_aim = direction.normalized() if direction != Vector2.ZERO else _aim
+	_aim = direction.normalized() if direction != Vector3.ZERO else _aim
 	_cooldowns[ability.id] = ability.cooldown
 	request_cast.rpc_id(1, ability.id, _aim)
 
@@ -158,12 +195,13 @@ func _try_dodge() -> void:
 		return
 	_dodge_cooldown = class_type.dodge_cooldown
 	_dodge_time = class_type.dodge_duration
-	var move_input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	_dodge_direction = move_input.normalized() if move_input != Vector2.ZERO else _aim
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_dodge_direction = _camera_relative(Vector3(input.x, 0.0, input.y)).normalized() \
+			if input != Vector2.ZERO else _aim
 
 
 @rpc("any_peer", "call_local", "reliable")
-func request_cast(ability_id: StringName, aim: Vector2) -> void:
+func request_cast(ability_id: StringName, aim: Vector3) -> void:
 	if not multiplayer.is_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
@@ -174,7 +212,7 @@ func request_cast(ability_id: StringName, aim: Vector2) -> void:
 	var ability := _ability_by_id(ability_id)
 	if ability == null:
 		return
-	aim = aim.normalized() if aim != Vector2.ZERO else Vector2.RIGHT
+	aim = aim.normalized() if aim != Vector3.ZERO else Vector3.RIGHT
 	match ability.kind:
 		AbilityType.Kind.PROJECTILE:
 			_spawn_projectile.rpc(global_position, aim, ability_id)
@@ -187,7 +225,7 @@ func request_cast(ability_id: StringName, aim: Vector2) -> void:
 # NOTE "any_peer" + sender guard, NOT "authority": this node's authority is
 # the owning CLIENT, so a host broadcast would be rejected (see GOTCHAS).
 @rpc("any_peer", "call_local", "reliable")
-func _spawn_projectile(from: Vector2, direction: Vector2, ability_id: StringName) -> void:
+func _spawn_projectile(from: Vector3, direction: Vector3, ability_id: StringName) -> void:
 	if not _sender_is_host():
 		return
 	var shot: Projectile = ProjectileScene.instantiate()
@@ -196,7 +234,7 @@ func _spawn_projectile(from: Vector2, direction: Vector2, ability_id: StringName
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _spawn_deployable(at: Vector2, ability_id: StringName, seq: int) -> void:
+func _spawn_deployable(at: Vector3, ability_id: StringName, seq: int) -> void:
 	if not _sender_is_host():
 		return
 	var trap: SnareTrap = SnareTrapScene.instantiate()
@@ -263,7 +301,7 @@ func _host_recover(hp_fraction: float, to_village: bool) -> void:
 	_sync_downed.rpc(false)
 	_sync_hp.rpc(maxi(int(round(max_hp * hp_fraction)), 1))
 	if to_village:
-		var jitter := Vector2(0, 12).rotated(randf() * TAU)
+		var jitter := Vector3(0, 0, 0.375).rotated(Vector3.UP, randf() * TAU)
 		_respawn_at.rpc_id(get_multiplayer_authority(), respawn_offset + jitter)
 
 
@@ -279,12 +317,12 @@ func _living_teammate_near() -> Player:
 
 # Broadcast by the host; only the owning peer (position authority) may move.
 @rpc("any_peer", "call_local", "reliable")
-func _respawn_at(point: Vector2) -> void:
+func _respawn_at(point: Vector3) -> void:
 	if not _sender_is_host() or not is_multiplayer_authority():
 		return
 	global_position = point
 	_dodge_time = 0.0
-	velocity = Vector2.ZERO
+	velocity = Vector3.ZERO
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -301,17 +339,24 @@ func _sync_downed(is_downed: bool) -> void:
 	downed = is_downed
 
 
+## Called by WorldLight every frame — unshaded billboards don't react to
+## lights, so the day/night tint is handed to us and composed with the
+## survival tint below.
+func set_light_tint(tint: Color) -> void:
+	_light_tint = tint
+	_update_survival_appearance()
+
+
 func _update_survival_appearance() -> void:
 	if sprite == null:
 		return
 	if downed:
-		# Slumped and greyed-out while you wait for help.
-		sprite.modulate = Color(0.5, 0.5, 0.6, 0.7)
-		sprite.rotation = PI / 2.0
+		# Greyed-out while you wait for help (the 2D slump rotation reads
+		# wrong on a Y-billboard, so the tint carries the state alone).
+		sprite.modulate = _light_tint * Color(0.5, 0.5, 0.6, 0.7)
 	else:
 		var fraction := float(hp) / float(maxi(max_hp, 1))
-		sprite.modulate = Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
-		sprite.rotation = 0.0
+		sprite.modulate = _light_tint * Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
 
 
 func _ability_by_id(ability_id: StringName) -> AbilityType:
@@ -328,11 +373,6 @@ func try_harvest() -> void:
 		target.request_harvest.rpc_id(1)
 
 
-func _refresh_name() -> void:
-	var info: Dictionary = Network.players.get(get_multiplayer_authority(), {})
-	name_label.text = info.get("name", "...")
-
-
 func _nearest_harvestable() -> ResourceNode:
 	var best: ResourceNode = null
 	var best_dist := INF
@@ -345,3 +385,8 @@ func _nearest_harvestable() -> ResourceNode:
 			best_dist = dist
 			best = node
 	return best
+
+
+func _refresh_name() -> void:
+	var info: Dictionary = Network.players.get(get_multiplayer_authority(), {})
+	name_label.text = info.get("name", "...")

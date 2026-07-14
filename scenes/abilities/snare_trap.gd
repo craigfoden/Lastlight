@@ -1,21 +1,22 @@
 class_name SnareTrap
-extends Area2D
-## A Ranger deployable: roots every enemy on it when triggered, then is
-## consumed. Spawned on all peers with a deterministic name so the host can
-## broadcast the trigger; only the host detects and applies the root.
+extends Area3D
+## A Ranger deployable in the 3D world: roots every enemy on it when
+## triggered, then is consumed. Spawned on all peers with a deterministic name
+## so the host can broadcast the trigger; only the host detects and applies
+## the root. Same contract as the 2D SnareTrap; the look is a flat ground
+## decal (the world3d decor idiom), the trigger a squat cylinder over the cell.
 
 var ability: AbilityType
 
 @onready var _lifetime_timer: Timer = $LifetimeTimer
 
 
-func setup(new_ability: AbilityType, at: Vector2) -> void:
+func setup(new_ability: AbilityType, at: Vector3) -> void:
 	ability = new_ability
-	position = at
+	position = Vector3(at.x, 0.0, at.z)
 
 
 func _ready() -> void:
-	$Sprite2D.texture = preload("res://assets/sprites/placeholder/snare_trap.svg")
 	# Only the host detects. Polling (not body_entered) also catches enemies
 	# that spawn or get pushed inside the zone without "entering" it.
 	set_physics_process(multiplayer.is_server())

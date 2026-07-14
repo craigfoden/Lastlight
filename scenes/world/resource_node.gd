@@ -1,9 +1,10 @@
 class_name ResourceNode
-extends StaticBody2D
-## A harvestable world object (tree, rock, essence wisp). Host-authoritative:
-## players *request* a harvest; the host validates it and broadcasts the result.
-## The node never touches the material pool itself — it announces the harvest
-## with a signal and the Game scene routes it (signals up, calls down).
+extends StaticBody3D
+## A harvestable world object (tree, rock, essence wisp) in the 3D world.
+## Host-authoritative, same RPC lane as the 2D ResourceNode: players *request*
+## a harvest; the host validates it and broadcasts the result. The node never
+## touches the material pool itself — it announces the harvest with a signal
+## and the game scene routes it (signals up, calls down).
 
 signal harvested(material_type: MaterialType, count: int)
 
@@ -11,13 +12,17 @@ signal harvested(material_type: MaterialType, count: int)
 ## derived state — like the build grid freeing this cell — stays in lockstep.
 signal depleted
 
-## How close the harvesting player must be, in pixels. Checked on the host —
-## never trust the client's own overlap test.
-const HARVEST_RANGE := 64.0
+## How close the harvesting player must be, in world units (1 unit = 1 cell;
+## this is the 2D game's 64 px). Checked on the host — never trust the
+## client's own overlap test.
+const HARVEST_RANGE := 2.0
 
 @export var material_type: MaterialType
 @export var starting_amount := 5
 @export var yield_per_harvest := 1
+## The node's look, instantiated in _ready — WorldGen picks it to match the
+## material (tree mesh, rock mesh, wisp billboard) before add_child.
+@export var visual_scene: PackedScene
 
 var amount := 0:
 	set(value):
@@ -27,15 +32,31 @@ var amount := 0:
 		if previous > 0 and amount <= 0:
 			depleted.emit()
 
-@onready var _sprite: Sprite2D = $Sprite2D
-@onready var _collision: CollisionShape2D = $CollisionShape2D
+var _visual: Node3D
+var _sprite: Sprite3D
+
+@onready var _collision: CollisionShape3D = $CollisionShape3D
 
 
 func _ready() -> void:
 	# Group membership ("resource_nodes") is declared in the scene file.
-	# WorldGen assigns the texture before add_child, so the anchor sees it.
-	SpriteAnchor.apply(_sprite)
+	if visual_scene != null:
+		_visual = visual_scene.instantiate() as Node3D
+		add_child(_visual)
+		# A billboard look (the essence wisp) doesn't react to real lights, so
+		# it joins the hand-tinted set WorldLight drives each frame — otherwise
+		# it would glow full-bright out in the dark wilds.
+		_sprite = _visual.get_node_or_null("Sprite3D") as Sprite3D
+		if _sprite != null:
+			add_to_group("billboards")
 	amount = starting_amount
+
+
+## Called by WorldLight every frame (billboard visuals only — meshes are lit
+## by the real lights).
+func set_light_tint(tint: Color) -> void:
+	if _sprite != null:
+		_sprite.modulate = tint
 
 
 ## Called by players via rpc_id(1, ...); executes on the host.
@@ -70,15 +91,17 @@ func _sync_amount(remaining: int) -> void:
 	amount = remaining
 
 
-func _find_player(peer_id: int) -> Player:
+## The 3D player (phase 3) keeps the 2D contract: group "players", node named
+## after its peer id.
+func _find_player(peer_id: int) -> Node3D:
 	for node in get_tree().get_nodes_in_group("players"):
-		if node.name == str(peer_id):
+		if node is Node3D and node.name == str(peer_id):
 			return node
 	return null
 
 
 func _update_appearance() -> void:
-	if _sprite == null:
+	if _collision == null:
 		return
 	if amount <= 0:
 		# Depleted: vanish and stop blocking movement.
@@ -87,6 +110,8 @@ func _update_appearance() -> void:
 		return
 	visible = true
 	_collision.set_deferred("disabled", false)
-	# Fade a little as it runs out, so players can read remaining stock.
-	var fraction := float(amount) / float(maxi(starting_amount, 1))
-	_sprite.modulate.a = lerpf(0.45, 1.0, fraction)
+	# Shrink a little as it runs out so players can read remaining stock (the
+	# 2D game fades sprite alpha; meshes read better scaled).
+	if _visual != null:
+		var fraction := float(amount) / float(maxi(starting_amount, 1))
+		_visual.scale = Vector3.ONE * lerpf(0.55, 1.0, fraction)

@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingType" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/wall.svg" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/wall_visual.tscn" id="3"]
 
 [resource]
 script = ExtResource("1")
@@ -11,3 +12,4 @@ cost = {
 &"wood": 1
 }
 texture = ExtResource("2")
+visual_3d = ExtResource("3")

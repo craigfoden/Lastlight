@@ -1,8 +1,10 @@
 class_name BuildMenu
 extends CanvasLayer
-## Bottom hotbar: one slot per buildable type showing hotkey, name, and cost.
-## Purely a view over BuildController/TeamMaterials — clicking a slot is the
-## same as pressing its hotkey.
+## Bottom hotbar for the 3D game: one slot per buildable type showing hotkey,
+## name, and cost. Purely a view over BuildController/TeamMaterials —
+## clicking a slot is the same as pressing its hotkey. A parallel port of the
+## 2D BuildMenu (which is typed to the 2D build classes); it retires with the
+## rest of the 2D scenes at phase 8.
 
 var _build_controller: BuildController
 var _team_materials: TeamMaterials

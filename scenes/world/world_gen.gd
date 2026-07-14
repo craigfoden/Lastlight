@@ -1,35 +1,30 @@
 class_name WorldGen
-extends Node2D
-## Deterministic world populator. From a fixed seed it scatters harvestable
-## resource nodes (common wood/stone near the village, rarer essence further
-## out) and scenery (solid obstacles + flat decor) so the map stops feeling
-## empty. The layout is DERIVED from the seed and runs identically on every
-## peer — never synced, same principle as the build grid. Resource *stock*
-## still syncs through ResourceNode's own RPC lane.
+extends Node3D
+## Deterministic 3D world populator — the port of the 2D WorldGen. From the
+## same fixed seed it scatters the same layout: the rng call sequence is
+## identical and every distance is the 2D pixel value divided by the 32 px
+## cell exactly, so the 3D map is cell-for-cell the 2D map. Runs identically
+## on every peer and is never synced; resource *stock* still syncs through
+## ResourceNode's own RPC lane, which resolves by NodePath — the
+## `Res_%d`/`Prop_%d` names below are that contract (see GOTCHAS).
 ##
-## Distances encode the design rule "near = safe & common, far = rare": the
-## safe zone (no monsters, see WaveDirector) sits inside `safe_radius`, and the
-## row of cells at y = 0 is left clear so a path from the spawn openings to the
-## tower heart always exists before anyone builds a thing.
+## The row of cells at y == 0 (grid terms; world z in [0, 1)) stays clear so a
+## path from the spawn openings to the tower heart always exists.
 
 const ResourceNodeScene := preload("res://scenes/world/resource_node.tscn")
 const SceneryPropScene := preload("res://scenes/world/scenery_prop.tscn")
-const CELL_SIZE := 32
 
 ## Baked constant, not randomised per run: every peer must generate the same
 ## world. A per-run seed would have to be synced before generation — a later
 ## map-generation step (see ROADMAP), not this one.
 @export var world_seed := 20260713
 
-## A clear plaza right around the tower — nothing spawns inside it.
-@export var plaza_radius := 150.0
-## Monsters never enter within this radius (WorldGen reads it too, to keep
-## solid obstacles out of the safe gathering ring). The visual "safe zone".
-@export var safe_radius := 480.0
-## Boundary between the common near band and the essence-bearing mid band.
-@export var mid_radius := 2000.0
-## Nothing spawns beyond this from the origin (kept inside the ground + grid).
-@export var world_extent := 3000.0
+## All radii are the 2D pixel radii / 32 — exact binary divisions, which keeps
+## the float math (and therefore every cell choice) identical to the 2D game.
+@export var plaza_radius := 4.6875
+@export var safe_radius := 15.0
+@export var mid_radius := 62.5
+@export var world_extent := 93.75
 
 @export_group("Resources")
 @export var wood: MaterialType
@@ -37,34 +32,37 @@ const CELL_SIZE := 32
 @export var essence_faint: MaterialType
 @export var essence_bright: MaterialType
 @export var essence_radiant: MaterialType
-@export var tree_texture: Texture2D
-@export var rock_texture: Texture2D
-@export var wisp_texture: Texture2D
-## How many resource nodes to scatter. High on purpose — materials are common,
-## and the world is now ~4× the area, so the count rose to keep density up.
+@export var tree_scene: PackedScene
+@export var rock_scene: PackedScene
+@export var wisp_scene: PackedScene
+## How many resource nodes to scatter (some rolls land on blocked cells and
+## are skipped, same as 2D).
 @export var resource_count := 380
 ## Stock on the closest nodes vs the furthest (lerped by distance).
 @export var near_amount := 14
 @export var far_amount := 5
 
 @export_group("Scenery")
-@export var solid_textures: Array[Texture2D] = []
+@export var solid_scenes: Array[PackedScene] = []
 @export var decor_textures: Array[Texture2D] = []
 @export var scenery_count := 460
 ## Share of scenery that is solid cover (the rest is flat decor).
 @export var solid_share := 0.45
 
 var _used := {}  # cell (Vector2i) -> true; resources + solid props (one per cell)
+var _layout := PackedStringArray()  # per-node summary; hashed for the determinism smoke
 
 
 func _ready() -> void:
-	# Runs on host and clients alike; identical seed -> identical world.
+	# Runs on host and clients alike; identical seed -> identical world. The
+	# layout hash printed below must match on every peer — the smoke tests'
+	# cheap cross-peer determinism check.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = world_seed
 	_scatter_resources(rng)
 	_scatter_scenery(rng)
-	print("[WorldGen] Populated: %d resources, %d scenery props (seed %d)"
-			% [resource_count, scenery_count, world_seed])
+	print("[WorldGen] Populated: %d resources, %d scenery props (seed %d, layout hash %d)"
+			% [resource_count, scenery_count, world_seed, hash("|".join(_layout))])
 
 
 func _scatter_resources(rng: RandomNumberGenerator) -> void:
@@ -78,13 +76,12 @@ func _scatter_resources(rng: RandomNumberGenerator) -> void:
 		var material := _material_for(dist, rng)
 		var node := ResourceNodeScene.instantiate() as ResourceNode
 		node.name = "Res_%d" % i
-		node.position = _snap(pos)
+		node.position = _snap(cell)
 		node.material_type = material
 		node.starting_amount = _amount_for(dist)
-		# Texture before add_child: _ready anchors the sprite to the baseline
-		# and needs the real texture's height, not the scene default's.
-		node.get_node("Sprite2D").texture = _texture_for(material)
+		node.visual_scene = _visual_for(material)
 		add_child(node)
+		_layout.append("%s:%s:%s" % [node.name, material.id, cell])
 
 
 func _scatter_scenery(rng: RandomNumberGenerator) -> void:
@@ -93,25 +90,30 @@ func _scatter_scenery(rng: RandomNumberGenerator) -> void:
 		# Solids stay out of the safe ring; decor may dress it (grass etc.).
 		var inner := safe_radius if solid else plaza_radius
 		var pos := _ring_point(rng, inner, world_extent)
-		var textures := solid_textures if solid else decor_textures
-		if textures.is_empty():
+		if solid and solid_scenes.is_empty():
 			continue
-		var texture: Texture2D = textures[rng.randi() % textures.size()]
+		if not solid and decor_textures.is_empty():
+			continue
+		var pick := rng.randi()
+		var cell := _cell(pos)
 		if solid:
-			var cell := _cell(pos)
 			if _blocked(cell):
 				continue
 			_used[cell] = true
 		var prop := SceneryPropScene.instantiate() as SceneryProp
 		prop.name = "Prop_%d" % i
-		prop.position = _snap(pos)
-		prop.texture = texture
+		prop.position = _snap(cell)
 		prop.solid = solid
+		if solid:
+			prop.visual_scene = solid_scenes[pick % solid_scenes.size()]
+		else:
+			prop.decal_texture = decor_textures[pick % decor_textures.size()]
 		add_child(prop)
+		_layout.append("%s:%s:%d" % [prop.name, cell, int(solid)])
 
 
 # Uniform-in-annulus sampling so props spread evenly instead of clumping
-# toward the centre.
+# toward the centre. Identical math to the 2D WorldGen, in cell units.
 func _ring_point(rng: RandomNumberGenerator, r_min: float, r_max: float) -> Vector2:
 	var radius := sqrt(rng.randf() * (r_max * r_max - r_min * r_min) + r_min * r_min)
 	var angle := rng.randf() * TAU
@@ -138,24 +140,24 @@ func _amount_for(dist: float) -> int:
 	return int(roundf(lerpf(float(near_amount), float(far_amount), t)))
 
 
-func _texture_for(material: MaterialType) -> Texture2D:
+func _visual_for(material: MaterialType) -> PackedScene:
 	match material.id:
 		&"wood":
-			return tree_texture
+			return tree_scene
 		&"stone":
-			return rock_texture
+			return rock_scene
 		_:
-			return wisp_texture
+			return wisp_scene
 
 
-# Snap to a cell centre so a node and its grid cell line up exactly.
-func _snap(pos: Vector2) -> Vector2:
-	var cell := _cell(pos)
-	return Vector2(cell) * CELL_SIZE + Vector2(CELL_SIZE, CELL_SIZE) / 2.0
+# Cell centre on the ground plane — the 3D twin of the 2D `cell * 32 + 16` snap.
+func _snap(cell: Vector2i) -> Vector3:
+	return Vector3(cell.x + 0.5, 0.0, cell.y + 0.5)
 
 
+# Positions are already in cell units, so a cell is just the floor.
 func _cell(pos: Vector2) -> Vector2i:
-	return Vector2i((pos / CELL_SIZE).floor())
+	return Vector2i(pos.floor())
 
 
 # y == 0 is the guaranteed clear corridor from the spawn openings to the tower

@@ -1,15 +1,16 @@
 # 3D Port Plan — branch `3d-ortho-prototype`
 
-**Status (2026-07-13):** Craig picked the hybrid direction — 3D world under a fixed
-orthographic camera, 2D billboard sprites for characters — and handed continuation to Chris.
-Main stays 2D and shippable until phase 8 flips the switch. Read the session-8 entry in
-`ARCHITECTURE.md` (on this branch) before starting: it records the driver gotchas the
-prototype already paid for.
+**Status (2026-07-14): ALL PHASES DONE — this document is history.** Chris ran 1–5,
+Craig 6–8. The 3D game IS the game: the menu routes into it, the prototype and the whole
+2D layer are deleted, and the 3D classes/folders took over the plain names (`Player`,
+`scenes/game/game.tscn`, …). Merged to main 2026-07-14 (Craig's call, ahead of
+the playtest); the **2-player human playtest** (docs/PLAYTEST.md, updated for port
+acceptance) is still owed and now runs against main. Post-mortem: the phase-8 entry in
+ARCHITECTURE.md.
 
-**Try the slice first** (10 minutes, judge the night): launch normally and press
-"3D Prototype (session 8 evaluation)" on the menu, or `godot --path . -- --proto3d`, or open
-`scenes/proto3d/proto3d.tscn` and F6. WASD moves, mouse ghost snaps to cells, LMB places
-walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted shots.
+(The "try the slice" prototype this section used to describe was deleted with phase 8 —
+`git checkout e04d994~2 -- scenes/proto3d` resurrects it if a renderer probe is ever
+needed again; its `--omni-shadows` flag was the phase-1 test harness.)
 
 ## Ground rules
 
@@ -34,43 +35,76 @@ walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for s
 
 ## What gets rewritten (the phases)
 
-**Phase 1 — Renderer decision + conventions.** Test Forward+ vs Compatibility on BOTH
-machines (known: omni shadows render their lit region black on Compatibility/ANGLE — the
-prototype ships with them off). Decide, log it, and set the 3D conventions in CLAUDE.md:
-1 unit = 1 cell, ground plane y = 0, sprite `pixel_size 0.036`, unshaded billboards with
-hand-driven tint (see prototype), collision layer scheme (proposal: 1 world, 2 players,
-4 enemies, 8 hitboxes — mirror the 2D layers).
+**Phase 1 — Renderer decision + conventions.** ✅ 2026-07-13 (Chris) — **Forward+**, see
+the decision log entry. The black-omni-shadow bug reproduced on Chris's ANGLE stack too;
+Forward+ rendered them correctly AND ran ~75% faster on the same old GPU. Conventions
+landed in CLAUDE.md (1 unit = 1 cell, ground y = 0, `pixel_size 0.036` unshaded billboards
+with hand-driven tint, collision layers 1/2/4/8 mirroring 2D). The owed matrix on Craig's
+machine ran 2026-07-14 (now a Mac: Metal / M3 Pro — Forward+ correct and fast, see the
+phase-1 addendum in the decision log) and `project.godot` is flipped to Forward+.
 
-**Phase 2 — World & WorldGen.** `game3d.tscn` shell: ground, WorldEnvironment, sun, glow
-tower scene (mesh + OmniLight + heart). Port WorldGen: same seed, same `Res_%d`/`Prop_%d`
-naming (the RPC-by-NodePath contract from the GOTCHAS still applies!), StaticBody3D
-collision on solids, meshes for trees/rocks, billboard wisps. Resource nodes keep their
-harvest RPC lane unchanged.
+**Phase 2 — World & WorldGen.** ✅ 2026-07-14 (Chris) — `scenes/game3d/game3d.tscn` shell
+(ground, environment, sun, GlowTower3D with heart + OmniLight) and `world_gen_3d.gd`: same
+seed, same rng sequence, radii = 2D px / 32 exactly → cell-for-cell the 2D layout, with
+`Res_%d`/`Prop_%d` names intact and a printed **layout hash** as the cross-peer
+determinism smoke (identical across processes and renderers). Harvest/hp RPC lanes ported
+verbatim; solids join group `"obstacles"` (open question #2: contract kept). New finding,
+logged: omni shadows also misrender in *daylight* on Vulkan/Vega M (over-darkened range
+box) — tower-light shadows are now night-only via `GlowTower3D.set_light_shadows()`,
+which phase 7 wires to DayNightCycle.
 
-**Phase 3 — Player + multiplayer smoke. The risk-killer.** CharacterBody3D, camera rig and
-camera-relative input from the prototype, Label3D name tags, synchronizer replicating
-Vector3. Then the standard two-instance loopback smoke — if replication of 3D transforms
-works here, the port is downhill; if something fights us, we learn it in session 3 not 7.
+**Phase 3 — Player + multiplayer smoke. The risk-killer.** ✅ 2026-07-14 (Chris) — the
+risk is dead: Player3D (CharacterBody3D, owner authority, capsule on layer 2, FLOATING
+motion, no gravity) with the prototype's camera rig and a Label3D name tag; synchronizer
+replicates Vector3 position/velocity through the unchanged `spawn_function` pattern. The
+two-instance loopback smoke passed first run — identical layout hashes, client observed
+the host's `--auto-walk` player moving live, clean join/leave, zero errors/warnings.
+`--game3d` (menu script flag) routes host/join into the 3D scene. Player drop shadows
+deferred to phase 7 (unshaded billboards cast none).
 
-**Phase 4 — Harvest & materials.** Area3D interact range, harvest RPC chain end-to-end,
-`--auto-harvest` re-enabled and asserted host+client. HUD pool display should Just Work.
+**Phase 4 — Harvest & materials.** ✅ 2026-07-14 (Chris) — Area3D interact range on the
+player, harvest RPC chain green end-to-end (`--auto-harvest` asserted solo AND
+host+client, incl. the pool snapshot to a late joiner). One correction to this plan: the
+HUD did NOT Just Work — `hud.gd` is statically typed to the 2D Player/GlowTower classes,
+so the port grows a slim parallel `Hud3D` instead (pool + players + connecting curtain
+now; clock/tower/abilities/minimap arrive with phases 6-7). TeamMaterials + the Materials
+registry did carry over with zero changes.
 
-**Phase 5 — Building.** Ray-plane picking + ghost from the prototype, building scene =
-mesh + StaticBody3D, BuildManager logic unchanged on the XZ grid, path validation and
-`--auto-build` / `--auto-block-test` green.
+**Phase 5 — Building.** ✅ 2026-07-14 (Chris) — BuildManager3D carries the 2D grid logic
+verbatim (AStarGrid2D, cell_size 1 → paths return world XZ directly); ray-plane picking +
+box ghost; Building3D = mesh scene (new additive `BuildingType.visual_3d`) +
+StaticBody3D; BuildMenu3D/controller are parallel ports (2D menu is 2D-typed, same as the
+HUD). The glow tower moved to (0, 0, -1) so the 2D TOWER_CELLS/heart-cell contract holds.
+`--auto-build` and `--auto-block-test` green solo AND host+client, zero errors/warnings.
 
-**Phase 6 — Enemies & waves.** CharacterBody3D + billboard sprite, XZ waypoint following,
-WaveDirector logic unchanged, tower HP, `--auto-fight` and `--hurt-test` green. Abilities:
-projectile as Area3D, snare as ground decal + Area3D.
+**Phase 6 — Enemies & waves.** ✅ 2026-07-14 (Craig) — the full threat layer:
+Enemy3D/WaveDirector3D with the 2D scheduling verbatim (geometry in cells), abilities as
+planned (projectile Area3D at chest height, snare as ground decal + trigger), Player3D
+combat + survival, tower damage/defeat/victory/run-end, night join refusal (pulled
+forward from 7 — the night exists now). `DayNightCycle` and `RunEndScreen` instanced
+UNCHANGED — the first 2D scenes reused as-is. `--auto-fight` and `--hurt-test` green solo
+AND host+client. One parity trap found and fixed: the tower NODE must sit at the origin
+like the 2D one (children carry the -1 z offset) or verbatim distance checks put the
+heart outside enemy attack range — see the decision log.
 
-**Phase 7 — Light as gameplay.** DayNightCycle drives sun rotation/energy/ambient (replaces
-the CanvasModulate `WorldLight`), sprite tint system from the prototype (billboards warm by
-distance to light), roamers respect the light edge visually, minimap gets its new
-world→radar transform. This phase is the payoff — budget time to tune it.
+**Phase 7 — Light as gameplay.** ✅ 2026-07-14 (Craig) — WorldLight3D drives sun
+arc/energy/color, sky, ambient, the tower pool (pulsing, night-shadowed where the stack
+allows), and the per-frame billboard tint (warm by distance into the pool, composed with
+the survival tints by multiplication); dusk/dawn crossfade over the cycle's
+`transition_time`; Minimap3D with the world→radar transform (XZ in cells, rotated by the
+45° camera yaw so radar-up = screen-up); character drop-shadow decals. All curves are
+exports at prototype defaults. Finding: shadowed omnis over-darken their range box on
+macOS/Metal too — Metal joined the `set_light_shadows()` refusal list, and the phase-6
+matrix claim was corrected in the decision log.
 
-**Phase 8 — Flip & retire.** 3D game becomes the main scene; proto button/flag and
-`scenes/proto3d/` removed; PLAYTEST.md checklist re-run; full smoke suite; a real 2-player
-human playtest; merge to main. Session recap doubles as the port post-mortem.
+**Phase 8 — Flip & retire.** ✅ 2026-07-14 (Craig) — three commits: (a) the flip — menu
+routes host/join into the 3D game, `--game3d`/`--proto3d` flags and the proto button gone,
+`scenes/proto3d/` deleted; (b) the 2D layer deleted (game/player/enemy/building/hud/
+abilities/world scenes — `day_night_cycle.gd`, `team_materials.gd`, `run_end_screen`
+survive, the 3D game instances them); (c) the takeover rename — every `*3D` class and
+`*3d` folder/file takes the plain name, data `.tres` paths updated, CLAUDE.md conventions/
+recipes/args rewritten for the single game. Full smoke suite green after each commit.
+Outstanding: the human 2-player playtest (PLAYTEST.md) → merge to main.
 
 ## Known rough edges in the slice (fix in phases, not up front)
 
@@ -81,7 +115,9 @@ the gem is a placeholder sphere.
 
 ## Open questions for whoever runs phase 1
 
-- Forward+ or Compatibility? (Weigh: omni shadows + glow/bloom vs. lowest-spec machines.)
+- ~~Forward+ or Compatibility?~~ **Forward+** (phase 1, 2026-07-13): omni shadows correct
+  and faster even on our lowest-spec machine; Godot ≥4.4 auto-falls-back to Compatibility
+  so nobody is stranded — gate omni shadows off at runtime on the fallback.
 - Do scenery obstacles keep the group-`"obstacles"` build-grid contract, or does the 3D
   WorldGen register cells directly?
 - Billboards forever, or billboards-now-meshes-later for characters? (Billboards preserve

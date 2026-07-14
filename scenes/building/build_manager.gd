@@ -1,11 +1,9 @@
 class_name BuildManager
-extends Node2D
-## Owns the build grid: occupancy, the never-block-the-path rule, and the
-## host-authoritative place/sell RPCs.
-##
-## Node2D (not Node) so the Y-sort chain from Game reaches the Buildings
-## container — a CanvasItem under a plain Node is "topmost" and would escape
-## the world's depth sorting (see the 3/4-view entry in ARCHITECTURE.md).
+extends Node3D
+## Owns the 3D build grid: occupancy, the never-block-the-path rule, and the
+## host-authoritative place/sell RPCs. The grid logic is the 2D BuildManager's,
+## verbatim — AStarGrid2D never knew about rendering; only the world<->cell
+## boundary changed (1 world unit = 1 cell, the grid plane is XZ).
 ##
 ## Buildings replicate through a MultiplayerSpawner; occupancy and the
 ## pathfinding grid are *derived* from the spawned nodes locally on every
@@ -13,7 +11,6 @@ extends Node2D
 ## clients can tint the placement ghost with the exact same rules the host
 ## enforces.
 
-const CELL_SIZE := 32
 const BuildingScene := preload("res://scenes/building/building.tscn")
 
 ## The walkable grid changed (building placed/sold, scenery cleared) —
@@ -23,8 +20,8 @@ signal grid_changed
 ## Everything placeable this run, in hotbar order.
 @export var buildable_types: Array[BuildingType] = []
 
-## Grid half-extent in cells; the region spans [-half, half). At 32 px/cell a
-## half-extent of 100 is a 200×200-cell, 6400×6400 px world.
+## Grid half-extent in cells; the region spans [-half, half). Matches the 2D
+## grid (200x200 cells) and comfortably contains WorldGen's 93.75-cell extent.
 @export var grid_half_extent := 100
 
 var _astar := AStarGrid2D.new()
@@ -41,7 +38,7 @@ var _opening_cells: Array[Vector2i] = []
 var _heart_cell := Vector2i.ZERO
 
 @onready var _spawner: MultiplayerSpawner = $BuildingSpawner
-@onready var _buildings: Node2D = $Buildings
+@onready var _buildings: Node3D = $Buildings
 
 
 func _ready() -> void:
@@ -62,9 +59,10 @@ func setup(
 
 	var extent := grid_half_extent
 	_astar.region = Rect2i(-extent, -extent, extent * 2, extent * 2)
-	_astar.cell_size = Vector2(CELL_SIZE, CELL_SIZE)
-	# Point paths should return cell centers, not top-left corners.
-	_astar.offset = Vector2(CELL_SIZE, CELL_SIZE) / 2.0
+	# 1 unit = 1 cell; point paths return cell centers (x.5, y.5) which ARE
+	# world XZ coordinates in the 3D scene.
+	_astar.cell_size = Vector2.ONE
+	_astar.offset = Vector2(0.5, 0.5)
 	# Orthogonal movement only: corridors and mazes behave predictably.
 	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	_astar.update()
@@ -87,13 +85,13 @@ func setup(
 		node.depleted.connect(_on_scenery_cleared.bind(cell))
 
 
-func world_to_cell(pos: Vector2) -> Vector2i:
-	return Vector2i((pos / CELL_SIZE).floor())
+func world_to_cell(pos: Vector3) -> Vector2i:
+	return Vector2i(Vector2(pos.x, pos.z).floor())
 
 
-## Center of a cell in world space.
-func cell_to_world(cell: Vector2i) -> Vector2:
-	return Vector2(cell) * CELL_SIZE + Vector2(CELL_SIZE, CELL_SIZE) / 2.0
+## Center of a cell on the ground plane.
+func cell_to_world(cell: Vector2i) -> Vector3:
+	return Vector3(cell.x + 0.5, 0.0, cell.y + 0.5)
 
 
 func type_by_id(type_id: StringName) -> BuildingType:
@@ -107,16 +105,17 @@ func building_at(cell: Vector2i) -> Building:
 	return _occupied.get(cell)
 
 
-## World-space waypoints from a position to the tower's heart cell. The
+## Grid-plane waypoints (x = world x, y = world z) from a position to the
+## tower's heart cell. Consumers lift them onto the ground as (x, 0, y). The
 ## never-block rule guarantees a path exists from any open cell; partial
 ## paths cover the moment something is placed mid-walk (repath follows).
-func path_to_heart(from: Vector2) -> PackedVector2Array:
+func path_to_heart(from: Vector3) -> PackedVector2Array:
 	return _astar.get_point_path(_walkable_cell(world_to_cell(from)), _heart_cell, true)
 
 
-## World-space path between two arbitrary points — roaming monsters chasing a
+## Grid-plane path between two arbitrary points — roaming monsters chasing a
 ## player. Both endpoints are nudged onto the nearest walkable cell first.
-func path_to(from: Vector2, to: Vector2) -> PackedVector2Array:
+func path_to(from: Vector3, to: Vector3) -> PackedVector2Array:
 	return _astar.get_point_path(
 			_walkable_cell(world_to_cell(from)),
 			_walkable_cell(world_to_cell(to)), true)

@@ -1,15 +1,19 @@
 class_name Hud
 extends CanvasLayer
-## In-game overlay: day/phase clock, shared material counts, player count,
-## and the "connecting" curtain a joining client sees.
+## In-game overlay: day/phase clock, tower hp, shared material counts, player
+## count, the local player's health + ability bar, the downed banner, the
+## corner minimap, and the "connecting" curtain a joining client sees.
 ##
-## The Game scene injects its DayNightCycle and TeamMaterials via setup() —
-## the HUD never reaches into the tree to find them (dependency injection).
+## The Game scene injects its nodes via setup() — the HUD never reaches into
+## the tree to find them (dependency injection).
 
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
 var _glow_tower: GlowTower
 var _material_labels := {}  # material id -> Label
+var _local_player: Player
+
+@onready var minimap: Minimap = %Minimap
 
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
@@ -21,13 +25,10 @@ var _material_labels := {}  # material id -> Label
 @onready var ability_bar: Control = %AbilityBar
 @onready var health_label: Label = %HealthLabel
 @onready var downed_banner: Label = %DownedBanner
-@onready var minimap: Minimap = %Minimap
 @onready var attack_label: Label = %AttackLabel
 @onready var ability_1_label: Label = %Ability1Label
 @onready var ability_2_label: Label = %Ability2Label
 @onready var dodge_label: Label = %DodgeLabel
-
-var _local_player: Player
 
 
 func _ready() -> void:

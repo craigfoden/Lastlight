@@ -1,8 +1,8 @@
 class_name WaveDirector
-extends Node2D
-## Threat scheduler (host-only logic). Node2D only so the Y-sort chain from
-## Game reaches the Enemies container (see the 3/4-view entry in
-## ARCHITECTURE.md). Two jobs:
+extends Node3D
+## Threat scheduler for the 3D world (host-only logic) — the 2D WaveDirector's
+## scheduling verbatim; only the spawn geometry became 3D (ring points and
+## jitter on the XZ plane, radii in cells). Two jobs:
 ##  * Night: pour a CONTINUOUS stream of ASSAULT monsters through the map
 ##    openings until dawn — the spawn rate ramps up as the night wears on and
 ##    a rising living-cap keeps steady pressure on the tower. Dawn burns any
@@ -41,6 +41,8 @@ const EnemyScene := preload("res://scenes/enemy/enemy.tscn")
 ## Share of fast enemies (index 1) rises each night up to the cap.
 @export var fast_share_per_night := 0.1
 @export var fast_share_max := 0.5
+## Spawn-point jitter along the opening's row, in cells (2D: 24 px).
+@export var spawn_jitter := 0.75
 
 @export_group("Daytime threats")
 ## Roamers kept alive during the day (solo baseline + per extra player).
@@ -48,20 +50,21 @@ const EnemyScene := preload("res://scenes/enemy/enemy.tscn")
 @export var day_roamer_per_player := 1
 ## How often the day loop tops the roamer population back up.
 @export var day_spawn_interval := 3.0
-## Roamers spawn on a ring between the safe zone and this radius.
-@export var roamer_spawn_max_radius := 2400.0
+## Roamers spawn on a ring between the safe zone and this radius, in cells
+## (2D: 2400 px).
+@export var roamer_spawn_max_radius := 75.0
 
 var _day_night: DayNightCycle
 var _build_manager: BuildManager
 var _tower: GlowTower
-var _spawn_positions: Array[Vector2] = []
+var _spawn_positions: Array[Vector3] = []
 var _safe_radius := 0.0
 var _night_number := 0
 var _spawn_seq := 0
 var _stopped := false
 
 @onready var _spawner: MultiplayerSpawner = $EnemySpawner
-@onready var _enemies: Node2D = $Enemies
+@onready var _enemies: Node3D = $Enemies
 @onready var _spawn_timer: Timer = $SpawnTimer
 @onready var _day_timer := Timer.new()
 
@@ -85,7 +88,7 @@ func setup(
 		day_night: DayNightCycle,
 		build_manager: BuildManager,
 		tower: GlowTower,
-		spawn_positions: Array[Vector2],
+		spawn_positions: Array[Vector3],
 		safe_radius: float) -> void:
 	_day_night = day_night
 	_build_manager = build_manager
@@ -175,7 +178,7 @@ func _spawn_one_assault() -> void:
 	if enemy_types.size() > 1 and randf() < fast_share:
 		type = enemy_types[1]
 	var spawn_position := _spawn_positions[_spawn_seq % _spawn_positions.size()]
-	spawn_position += Vector2(0, randf_range(-24.0, 24.0))
+	spawn_position += Vector3(0, 0, randf_range(-spawn_jitter, spawn_jitter))
 	_spawner.spawn({"type_id": type.id, "position": spawn_position, "seq": _spawn_seq})
 
 
@@ -192,8 +195,8 @@ func _day_tick() -> void:
 		return
 	_spawn_seq += 1
 	var type := enemy_types[_spawn_seq % enemy_types.size()]
-	var radius := randf_range(_safe_radius + 80.0, roamer_spawn_max_radius)
-	var spawn_position := Vector2(radius, 0).rotated(randf() * TAU)
+	var radius := randf_range(_safe_radius + 2.5, roamer_spawn_max_radius)
+	var spawn_position := Vector3(radius, 0, 0).rotated(Vector3.UP, randf() * TAU)
 	_spawner.spawn({
 		"type_id": type.id,
 		"position": spawn_position,

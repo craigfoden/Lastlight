@@ -60,3 +60,4 @@ text = "Join Game"
 unique_name_in_owner = true
 modulate = Color(1, 0.6, 0.6, 1)
 horizontal_alignment = 1
+

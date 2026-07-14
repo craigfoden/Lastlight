@@ -1,17 +1,26 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/abilities/projectile.gd" id="1_script"]
 
-[sub_resource type="CircleShape2D" id="hit_shape"]
-radius = 5.0
+[sub_resource type="SphereShape3D" id="hit_shape"]
+radius = 0.16
 
-[node name="Projectile" type="Area2D"]
-z_index = 1
+[sub_resource type="StandardMaterial3D" id="shot_mat"]
+albedo_color = Color(1, 0.9, 0.55, 1)
+emission_enabled = true
+emission = Color(1, 0.9, 0.55, 1)
+
+[sub_resource type="BoxMesh" id="shot_mesh"]
+material = SubResource("shot_mat")
+size = Vector3(0.08, 0.08, 0.4)
+
+[node name="Projectile" type="Area3D"]
 collision_layer = 8
 collision_mask = 4
 script = ExtResource("1_script")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("shot_mesh")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("hit_shape")

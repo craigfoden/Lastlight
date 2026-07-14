@@ -1,0 +1,27 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="StandardMaterial3D" id="stone_mat"]
+albedo_color = Color(0.815686, 0.792157, 0.733333, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="column_mesh"]
+material = SubResource("stone_mat")
+size = Vector3(0.7, 1.6, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="top_mat"]
+albedo_color = Color(0.65098, 0.627451, 0.568627, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="top_mesh"]
+material = SubResource("top_mat")
+size = Vector3(0.9, 0.25, 0.9)
+
+[node name="SentryVisual" type="Node3D"]
+
+[node name="Column" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("column_mesh")
+
+[node name="Top" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.72, 0)
+mesh = SubResource("top_mesh")

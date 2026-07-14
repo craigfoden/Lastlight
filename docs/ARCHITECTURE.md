@@ -313,6 +313,361 @@ nothing in this pass forecloses it.
   windowed CLI run — visual passes can now be eyeballed from scripted runs (headless renders no
   frames, so pair it with a normal windowed launch).
 
+## 3D-ortho hybrid prototype (2026-07-13, session 8, branch `3d-ortho-prototype`)
+
+**Decision: evaluate the "3D world + 2D billboard sprites" direction with a look-and-feel
+slice before committing to any port. Main stays 2D and playable.** The slice lives in
+`scenes/proto3d/` and is launched directly
+(`godot --path . res://scenes/proto3d/proto3d.tscn -- --screenshot-at=4,17`).
+**Why:** the hybrid keeps hand-drawn character art (3 facings, fast iteration) while the
+renderer provides what 2D fakes: a real sun with cast shadows, the glow tower as an actual
+light source, and night as absence-of-light instead of a modulate tint.
+
+- **Scale: 1 world unit = 1 grid cell** (= 32 px of 2D art). Sprites at
+  `pixel_size ≈ 0.036` so 48 px characters hold their own against meshed trees.
+- **Billboards are `shaded = false` + hand-tinted** via `modulate` each frame (a 3D
+  CanvasModulate). `shaded` billboards vary by driver — full-bright on some Compatibility
+  stacks, double-dimmed on others — so the tint is the single deterministic light path for
+  sprites. Sprites near the tower lerp toward its warmth by distance.
+- **OmniLight shadows stay OFF on the Compatibility renderer** — with them on, the entire
+  lit region renders black (seen on an ANGLE/D3D11 fallback; do not trust omni shadows on
+  Compatibility). Directional (sun) shadows work fine and carry the look.
+- **Input ports cleanly:** WASD is rotated by the camera yaw (screen-up = world 45°), and
+  mouse→cell is `project_ray_origin/normal` intersected with the ground plane, then
+  `floori` — the 3D equivalents of the 2D grid math, each ~3 lines.
+- **What a real port would keep:** the entire multiplayer architecture (RPCs, host
+  authority, sync lanes are node-type-agnostic), `AStarGrid2D` as the logical grid, all
+  data-driven `.tres` content. What it replaces: scenes, physics bodies, camera, WorldGen's
+  node types, and the HUD's minimap math.
+- **Go/no-go:** play the slice (walk the light edge at night, place walls by mouse) and
+  decide. If go: port lands as sessions on this branch with the same
+  definition-of-done; if no-go: the branch stays as reference and main's 3/4 view remains
+  the shipped look.
+
+---
+
+## 3D port phase 1 — renderer decision: Forward+ (2026-07-13, session 9, branch `3d-ortho-prototype`)
+
+**Decision: the 3D port targets the Forward+ renderer (Vulkan). Compatibility remains only
+as Godot's automatic fallback, never the target.** Verified on Chris's machine (Radeon RX
+Vega M GH + Intel HD 630, 2020-era drivers, tested over an RDP session) with a 4-way matrix
+on the prototype scene — {Compatibility/ANGLE, Forward+} × {omni shadows off, on} — using
+`--screenshot-at=4,17` (day/night frames) and the new `--omni-shadows` dev flag in
+`proto3d.gd`.
+
+**Why:**
+- **Omni shadows — the tower light, the heart of phase 7 — are broken on Compatibility and
+  correct on Forward+.** On ANGLE/D3D11 the entire lit pool renders solid black, exactly
+  Craig's session-8 bug, now reproduced on a second machine and GPU vendor. On Forward+ the
+  same frame is the intended look: a warm graded pool with props casting radial shadows
+  away from the tower.
+- **Forward+ was ~75% faster here**: 55–59 fps vs 32 fps on the identical scene and
+  machine — and this is a 2018 iGPU-class GPU on a Vulkan 1.2.131 driver from 2020. The
+  "Compatibility is kinder to low-spec machines" assumption failed on our actual
+  low-spec machine.
+- **Choosing Forward+ strands nobody**: since Godot 4.4, Forward+ falls back
+  Vulkan → D3D12 → Compatibility automatically (godot-docs
+  `tutorials/rendering/renderers.rst`). Worst case a machine gets today's Compatibility
+  look. Consequence: **omni-light shadows must be gated at runtime** — check the active
+  rendering method and keep `shadow_enabled = false` when it is `gl_compatibility` —
+  never assumed on.
+- **Baseline parity confirmed**: with omni shadows off, ANGLE and Forward+ frames are
+  near-identical at day and night, so fallback machines regress nothing; they only miss
+  the tower-light shadows (and, later, glow/bloom on the gem).
+
+**Still owed:** the same matrix on Craig's machine before phase 2 flips
+`renderer/rendering_method` in `project.godot` (merge-sensitive — call it out in the
+commit). Repro:
+`$godot --rendering-method forward_plus --path . res://scenes/proto3d/proto3d.tscn -- --screenshot-at=4,17 --quit-after-sec=20 --omni-shadows`
+vs the same with `--rendering-driver opengl3_angle` instead of the method override; shots
+land in `user://proto_shot_*.png`. Driver fact found on the way: native OpenGL
+(Compatibility's first-choice driver) hard-crashes at context creation over RDP on this
+machine — see GOTCHAS in CLAUDE.md.
+
+---
+
+## 3D port phase 2 — world shell & WorldGen3D (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**Decision: the 3D world lives in parallel scenes (`scenes/game3d/`, `scenes/world3d/`)
+with the 2D WorldGen's logic deliberately duplicated, not shared.** A common base class
+would touch 2D files main still ships from; the 2D copy retires wholesale in phase 8.
+
+- **Cell-for-cell layout parity with the 2D map, by construction.** WorldGen3D runs the
+  identical rng call sequence, and every radius is the 2D pixel value / 32 — an exact
+  binary scaling that commutes with float rounding (multiply-by-2^k, sqrt, and floor all
+  preserve it), so every scatter lands in the same grid cell as 2D. Same seed → the map
+  players know.
+- **Determinism smoke: the layout hash.** `[WorldGen3D] ... layout hash N` digests every
+  spawned node (name:material:cell). Identical hash across peers ⇒ the NodePath RPC
+  contract (GOTCHAS) holds. Verified identical across three separate processes and both
+  renderers. (True host+client join lands with phase 3's player port — the hash is the
+  world-side half of that smoke.)
+- **The `"obstacles"` group contract is kept** (PORT_PLAN open question #2): solid
+  SceneryProp3D joins group `"obstacles"`; the phase-5 build-grid port reads it unchanged.
+- **Omni-shadow daylight finding — amends phase 1:** with `shadow_enabled` on, the tower
+  OmniLight's *entire range box* renders over-darkened in daylight on the Vega M Vulkan
+  driver (a dark world-space square; physically impossible — shadowed-from-omni ground
+  must equal ground outside the range). It is in the phase-1 `fwd_on` day shot too; phase
+  1 eyeballed the night frame, where the artifact has nothing to subtract and the look is
+  correct. **Policy: tower-light shadows are night-only**, driven through
+  `GlowTower3D.set_light_shadows()` (phase 7 wires it to DayNightCycle), and always off on
+  the Compatibility fallback (black-pool bug). Re-evaluate when Craig's machine matrix
+  lands. Forward+ remains the right renderer — day and night both render correctly with
+  the policy applied.
+- Ground plane is visual-only (no collision): the game is top-down, players stay pinned to
+  y = 0 — phase 3 either confirms no-gravity movement or adds a floor body then.
+- Decor props are flat `PlaneMesh` decals with alpha-scissor materials, lifted 0.01 above
+  the ground (the 3D twin of the 2D decal's `z_index = -1`).
+- Harvest/hp RPC lanes ported verbatim (`request_harvest`, `_sync_amount`, `_sync_hp`,
+  `host_send_snapshot`); ResourceNode3D reads meshes' remaining stock as scale (2D used
+  sprite alpha). `game3d.gd` carries a local dev-args parser (screenshot/quit) until the
+  real game args port over — same rough edge proto3d has.
+
+---
+
+## 3D port phase 3 — player + multiplayer smoke: the risk is dead (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**Verdict: the entire multiplayer architecture ports to 3D unchanged.** Player3D is a
+CharacterBody3D with the same owner-authority exception, the same `spawn_function`
+explicit-spawn-data pattern, and a MultiplayerSynchronizer replicating `position`/`velocity`
+as Vector3 — and the two-instance loopback smoke passed first run: identical layout hash on
+both peers, client watched the host's auto-walking player move live
+(t=8 → t=14 positions differ on the *client*), clean join/leave, zero errors/warnings.
+
+- **2D data stays px-denominated; 3D consumers convert.** `.tres` resources carry over
+  untouched (the plan's rule); speeds divide by `PX_PER_UNIT := 32.0` at the consumer
+  (`player_3d.gd`). Phase 8 can re-bake the data to units if the 2D game retires cleanly.
+- **`--game3d` CLI flag** (main_menu.gd only — no scene edit): routes a scripted host/join
+  into `game3d.tscn`; the menu buttons stay on the 2D game until phase 8 flips the default.
+- **FallbackCamera** in game3d.tscn covers the pre-spawn/joining window; the local player's
+  rig takes over via `camera.current = true` on spawn. Same rig angles as the prototype.
+- Player body: capsule, layer 2 / mask 1 (mirrors 2D), `MOTION_MODE_FLOATING`, velocity
+  stays on XZ — no gravity, so the collisionless ground plane from phase 2 is confirmed.
+- Unshaded billboards cast no sun shadows — players have no drop shadow yet; that joins the
+  phase-7 visual pass (2D used a decal sprite; same trick works as a flat quad).
+- Replication-assertion pattern for smokes: host runs `--auto-walk` (local player strolls
+  when idle), client runs `--log-players-after-sec=a,b` and the test asserts the remote
+  player's position changed between stamps.
+
+---
+
+## 3D port phase 4 — harvest & materials; the HUD "carries over" caveat (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**The harvest lane runs end-to-end in 3D with zero logic changes**: Player3D gained the
+Area3D interact range (2D's 52 px → a 1.63 u sphere) and `try_harvest`; ResourceNode3D's
+ported RPCs did the rest. Smoke evidence, solo and host+client: the host validated a
+*client's* harvest using the client player's replicated position (two systems meeting
+correctly), stock counted down, the pool broadcast stayed in lockstep on both peers, and
+the join-time snapshot delivered the pool to a late joiner. `--auto-harvest` re-enabled
+for the 3D scene.
+
+- **TeamMaterials and the Materials registry ported with literally zero changes** — plain
+  Node + RefCounted namespace, exactly as the plan promised for the data/logic layer.
+- **PORT_PLAN's "HUD CanvasLayers carry over untouched" turned out wrong**: `hud.gd` is
+  statically typed to the 2D `Player`/`GlowTower` classes (`_local_player: Player`,
+  `setup(..., GlowTower)`), so instancing it in the 3D scene type-errors at runtime, and
+  loosening its types would edit the 2D game the plan says not to touch. **Decision: a
+  slim parallel `Hud3D`** (same injection style) carrying what phase 4 owns — material
+  pool, player count, connecting curtain. Day clock/tower hp/ability bar/minimap join it
+  with their systems in phases 6–7; at the phase-8 flip the 2D Hud retires and Hud3D
+  becomes just "Hud".
+- CLAUDE.md's material recipe pointed at a `TRACKED_MATERIALS` list in hud.gd that no
+  longer exists (the registry moved to `Materials.ALL`); fixed in the same commit.
+
+---
+
+## 3D port phase 5 — building on the XZ grid (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**BuildManager's grid logic ported verbatim** — AStarGrid2D never knew about rendering.
+With `cell_size = 1` and `offset = 0.5`, point paths return cell centers that ARE world XZ
+coordinates; consumers lift `(x, y)` → `(x, 0, y)`. `--auto-build` and `--auto-block-test`
+are green solo AND host+client: placements validated and spawner-replicated to both peers,
+costs/refunds in lockstep, occupied-cell rejection, and the never-block-the-path rule
+rejected the sealing wall.
+
+- **BuildingType gains an additive `visual_3d: PackedScene`** (the 2D game ignores it) —
+  buildings stay data-driven in 3D: a .tres + a mesh scene under
+  `scenes/building3d/visuals/`. Recipe updated in CLAUDE.md, same commit. `attack_range`
+  and shot speed stay px-denominated in data; Building3D divides by 32 at the boundary
+  (the phase-3 `PX_PER_UNIT` rule).
+- **The glow tower moved to world (0, 0, -1)** so its 2×2 base covers the 2D game's
+  `TOWER_CELLS` ((-1,-2)…(0,-1)) and the heart cell (0,0) stays walkable at its base —
+  the grid contract (and `--auto-block-test` geometry) now matches 2D exactly. Phase 2
+  had it centered on the origin, which would have put the heart *inside* the tower.
+- BuildController3D picks cells with the prototype's ray-plane trick; a missed ray maps to
+  `CELL_NOWHERE` (far outside the region → "Out of bounds"), never to cell (0,0). The
+  ghost is a translucent one-cell box for now (placeholder until an art pass).
+- BuildMenu3D is a parallel port for the same reason as Hud3D (the 2D menu is typed to the
+  2D build classes). Building3D keeps the enemy-targeting contract (group `"enemies"`,
+  `hp`, `host_take_damage`) — it dry-fires until phase 6 delivers targets.
+
+---
+
+## 3D port phase 1 addendum — the matrix on Craig's machine, now a Mac (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The pending phase-1 matrix ran on Craig's new machine (macOS, Apple M3 Pro, Metal) and
+Forward+ passed: `project.godot` is flipped to `forward_plus`** (mobile fallback
+`"mobile"`). The 4-way probe — {Compatibility, Forward+} × {omni shadows off, on},
+day/night screenshots — ran at 115–145 fps windowed with correct day/dusk/night baseline
+rendering on both methods. ~~Forward+ rendered the shadowed-omni night correctly~~
+**CORRECTED same day (phase 7): the shadowed-omni night frame was misread** — the "warm
+pool with radial shadows" was tree canopies catching light at the range-box rim; the
+ground inside the box was the same over-darkened black as every other broken stack. On
+Metal, shadowed omnis over-darken their range box below ambient in BOTH cube and
+dual-paraboloid modes. Forward+ remains the right target (everything else is correct and
+fast); Metal simply joins the omni-shadow refusal list — see the phase-7 entry.
+
+- **macOS suspends rendering for fully-occluded windows**, which broke the probe twice
+  before it ran clean: scripted windowed runs launched from a shell can sit behind other
+  windows, the engine stops presenting frames, and the screenshot hook silently saved a
+  stale early frame (two shots 13 s apart, byte-identical). Two fixes, both landed:
+  the three `--screenshot-*` hooks now `await RenderingServer.frame_post_draw` before
+  `get_image()` (the documented capture idiom — a stalled await is now a *visible* miss
+  instead of a silently wrong frame), and scripted visual runs on macOS pass Godot's
+  `--always-on-top` so the window keeps rendering. GOTCHAS entry added.
+
+---
+
+## 3D port phase 6 — enemies, waves, combat, survival (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The whole threat layer is parallel ports with the 2D scheduling and RPC lanes verbatim**:
+WaveDirector3D (continuous night stream + day roamers, same tunables, geometry in cells),
+Enemy3D (CharacterBody3D FLOATING at y = 0, billboard sprite, XZ waypoints lifted from the
+grid paths), Projectile3D / SnareTrap3D (Area3D at chest height / ground-decal + squat
+cylinder trigger), Player3D combat + survival (aim/cast/dodge, hp/downed/revive/respawn),
+and the run-end flow. `RunEndScreen` and `DayNightCycle` instanced **unchanged** — the
+first 2D scene files reused as-is in the 3D game. Smokes green solo AND host+client:
+kit kills, trap roots, tower battered, defeat, victory, downed→respawn, late-join
+snapshots (players/enemies/tower), and night join refusal.
+
+- **GlowTower3D's node moved back to the origin; its column/gem/light/collision children
+  carry the z = -1 offset instead.** Phase 5 moved the *node* to (0, 0, -1) for the
+  footprint, but verbatim enemy/safe-zone ports measure `tower.global_position` — the 2D
+  tower node sits at the origin, and with the node at (0, 0, -1) an enemy at the heart
+  cell is 1.58 u away, outside its 1.5 u (48 px) attack range: enemies would path
+  perfectly and never swing. Node at origin restores 2D distance parity everywhere;
+  children at z = -1 keep the footprint/heart geometry phase 5 fixed.
+- **Night join refusal came forward from phase 7 to 6** — the rule guards the *night
+  assault*, which exists as soon as waves do. Same app-layer kick as 2D.
+- Enemy billboards skip `alpha_cut` (players use DISCARD): the hp fade needs alpha blend.
+  Player survival tinting reuses the 2D modulate scheme minus the downed slump rotation
+  (meaningless on a Y-billboard); phase 7's tint-by-light must compose with it.
+- `--fast-cycle`'s 6 s night is too short for enemies to cross ~46 cells to the tower —
+  combat smokes use `--cycle=8:60`-style pacing instead. Same math as 2D (the map is the
+  same 50-cell crossing); noted here because the first smoke "passed" with zero combat.
+
+---
+
+## 3D port phase 7 — light as gameplay (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**WorldLight3D turns the replicated DayNightCycle into the world's light** — the port of
+the 2D CanvasModulate `WorldLight`, grown into the prototype's full system: the sun arcs
+low-east → noon → low-west with warming/cooling color, the environment's sky and ambient
+follow, night hands the world to the tower's pulsing pool, and every billboard is
+hand-tinted per frame (base tint by time of day, warmed by distance into the pool). All
+curve constants are exports with the prototype's values as defaults. Runs identically on
+every peer — everything derives from the replicated cycle. Verified solo + host/client,
+zero errors/warnings; day/dusk/night screenshot triptych eyeballed.
+
+- **Dusk and dawn crossfade over the cycle's `transition_time`** (the prototype snapped at
+  the boundary — tolerable in an 8 s night, jarring in a 180 s one). The blend factor has
+  the same shape as the 2D `ambient_color()` fade; the sun additionally parks at its
+  sunrise yaw during pre-dawn so daybreak brightens in place instead of snapping shadows
+  across the sky. The tower pulse runs on a fixed period (4 s) instead of the prototype's
+  3-per-night, which at real night lengths was a 60 s swell.
+- **Survival tint composes with the light tint by multiplication**
+  (`sprite.modulate = light_tint * survival_color`) — `set_light_tint()` on
+  Player3D/Enemy3D re-applies the composed color, so hurt-red/downed-grey survive the
+  day/night grade.
+- **Metal joins the omni-shadow refusal list** in `GlowTower3D.set_light_shadows()`
+  (alongside `gl_compatibility`): on Apple/Metal a shadowed omni over-darkens its entire
+  range box below ambient — a hard-edged black diamond — in cube AND dual-paraboloid
+  modes, with the gem occluder removed, and regardless of whether shadows were enabled at
+  _ready or toggled at runtime (all four bisected). Phase 6's matrix read of this frame
+  was wrong (corrected above). Windows/Vulkan Forward+ keeps night shadows per Chris's
+  phase-1 verification; the Metal night pool is the shadowless warm gradient — the look
+  every phase so far actually shipped with.
+- **Minimap3D is the 2D radar with one new transform**: positions are XZ in cells
+  (`world_range` 31.25 = 1000 px / 32) and the offset rotates by the fixed 45° camera yaw
+  so radar-up = screen-up (the 2D camera was axis-aligned and needed no rotation).
+- Character drop shadows are flat unshaded decal quads (the 2D `shadow.svg` at the feet,
+  `cast_shadow` off) — unshaded billboards cast no real shadows, same trick as the world
+  decor decals.
+
+---
+
+## 3D port phase 8 — flip & retire, and the port post-mortem (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The 3D game is the game.** Three commits, each independently revertable and each
+smoke-verified: the flip (menu routes into the 3D scene; `--game3d`/`--proto3d` and the
+proto button removed; `scenes/proto3d/` deleted), the 2D-layer deletion (everything the
+flip made unreachable; `day_night_cycle.gd`, `team_materials.gd`, `run_end_screen` survive
+untouched as the 3D game's own), and the takeover rename (every `*3D` class and `*3d`
+folder/file takes the plain name — `Player`, `Hud`, `scenes/game/game.tscn` — with data
+`.tres` paths and CLAUDE.md rewritten for the single game). Full suite green: fight,
+build + path rule, defeat/victory, downed/respawn, host+client harvest sync, night join
+refusal. **Merge to main waits on the human 2-player playtest** (PLAYTEST.md, updated as
+the port-acceptance checklist, with a Vulkan-only omni-shadow check for Chris).
+
+**Post-mortem — what the port taught:**
+- **The plan's central bet paid out**: the multiplayer layer (RPC lanes, host authority,
+  spawn_function pattern, snapshot-on-join) and AStarGrid2D crossed to 3D with zero
+  changes; data-driven `.tres` content needed one additive field (`visual_3d`). The
+  expensive parts were exactly the rendering-adjacent ones the plan flagged: the HUD
+  (statically typed to 2D classes → parallel port), and everything involving lights.
+- **Driver reality beat every assumption about omni shadows.** Broken on ANGLE/D3D11,
+  broken in daylight on Vulkan/Vega M, broken day-and-night on Metal — each discovered on
+  a different machine, one behind a misread screenshot. The architecture that survived:
+  a single runtime gate (`GlowTower.set_light_shadows`) defaulting to OFF, allowlisting
+  verified stacks. Presentation-layer features need per-stack verification with eyes on
+  actual frames; logs can't catch a black floor.
+- **Small distance conventions are load-bearing**: the tower node's position (origin vs
+  (0,0,-1)) silently decided whether enemies could ever land a swing, because verbatim
+  ports measure to `global_position`. Anything a port keeps "verbatim" keeps its implicit
+  coordinate assumptions too — parity means auditing those, not just the code.
+- **Scripted-screenshot verification has sharp edges** (macOS occlusion suspension, stale
+  `get_image()` without `frame_post_draw`) — both now fenced in GOTCHAS; `--always-on-top`
+  is part of the visual-test recipe.
+- Net cost: 8 phases across 3 sessions and two machines, ~zero gameplay-logic rewrites.
+  The 2D game is one `git revert` away if the playtest wants it back.
+
+---
+
+### The village glow returns to the ground (2026-07-14)
+
+The port dropped the 2D game's `VillageGlow` — a radial gradient sprite over a dark ground
+polygon that made the wilds visibly darker than the village by day (the visual that sells
+"daytime roamers lurk in the dark"). Restored as `scenes/world/ground.gdshader` on the
+ground plane: albedo blends village-bright → wilds-dark by per-fragment distance from the
+tower (the 210×210 plane has only corner vertices, so per-vertex won't interpolate), fully
+bright inside `glow_radius` (4), fully dark past `dark_radius` (16 — one cell past the
+15-cell safe radius, the 2D ratio).
+**Why a lit shader, not an unshaded overlay quad:** the 2D CanvasModulate multiplied the
+glow with day/night; keeping the shader lit gets that for free — the sun, night ambient,
+and the tower pool all land on top — and avoids transparency sorting against the decal
+quads at y ≈ 0.01–0.02.
+
+---
+
+### Daylight is the tower's bubble (2026-07-14)
+
+The painted ground gradient wasn't enough — by day, props and characters out in the wilds
+still rendered fully sun-lit, so "the darkness around the town" didn't read. **Decision:
+the village's light IS the daylight.** By day the tower's OmniLight becomes a wide
+daylight bubble (`tower_range_day` 44, energy 2.4) while the global sun and ambient sit at
+gloom levels (sun peaks at 0.45 — it carries direction and shadows, not brightness); at
+dusk WorldLight lerps the bubble down into the 16-cell night pool, so nightfall is
+literally the light contracting. Billboards mirror it via a `tint_gloom` outside the
+light's reach.
+**Why a light and not materials:** one light darkens *everything* — ground, props,
+enemies, buildings, future content — with zero per-material work, and it puts the game's
+fiction (venture out = leave the light) into the actual renderer. The ground shader keeps
+a dark-by-18-cells gradient purely so the night floor beyond the safe zone stays black
+under ambient. Shadow gating tightened to full night only (`mix > 0.995`) — never while
+the bubble is expanded, so the Vulkan daylight over-darkening can't catch a mid-dusk
+frame. All radii/energies/tints are exports; `--spawn-at=x,z` exists to judge them from
+the wilds without the walk.
+
 ---
 
 ## Template for new entries
