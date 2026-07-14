@@ -3,9 +3,10 @@
 **Status (2026-07-14): ALL PHASES DONE — this document is history.** Chris ran 1–5,
 Craig 6–8. The 3D game IS the game: the menu routes into it, the prototype and the whole
 2D layer are deleted, and the 3D classes/folders took over the plain names (`Player`,
-`scenes/game/game.tscn`, …). The only piece of phase 8 still open when this was written:
-the **2-player human playtest** (docs/PLAYTEST.md, updated for port acceptance) and the
-**merge to main**, which waits on it. Post-mortem: the phase-8 entry in ARCHITECTURE.md.
+`scenes/game/game.tscn`, …). Merged to main 2026-07-14 (Craig's call, ahead of
+the playtest); the **2-player human playtest** (docs/PLAYTEST.md, updated for port
+acceptance) is still owed and now runs against main. Post-mortem: the phase-8 entry in
+ARCHITECTURE.md.
 
 (The "try the slice" prototype this section used to describe was deleted with phase 8 —
 `git checkout e04d994~2 -- scenes/proto3d` resurrects it if a renderer probe is ever
