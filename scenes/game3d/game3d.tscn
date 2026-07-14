@@ -73,10 +73,15 @@ position = Vector3(-49.5, 0, 0.5)
 [node name="EastOpening" type="Marker3D" parent="World/SpawnOpenings"]
 position = Vector3(49.5, 0, 0.5)
 
-[node name="CameraRig" type="Node3D" parent="."]
+[node name="Players" type="Node3D" parent="."]
+
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Players")
+
+[node name="FallbackRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)
 
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+[node name="FallbackCamera" type="Camera3D" parent="FallbackRig"]
 position = Vector3(0, 0, 60)
 projection = 1
 current = true

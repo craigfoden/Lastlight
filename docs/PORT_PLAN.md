@@ -53,10 +53,14 @@ logged: omni shadows also misrender in *daylight* on Vulkan/Vega M (over-darkene
 box) — tower-light shadows are now night-only via `GlowTower3D.set_light_shadows()`,
 which phase 7 wires to DayNightCycle.
 
-**Phase 3 — Player + multiplayer smoke. The risk-killer.** CharacterBody3D, camera rig and
-camera-relative input from the prototype, Label3D name tags, synchronizer replicating
-Vector3. Then the standard two-instance loopback smoke — if replication of 3D transforms
-works here, the port is downhill; if something fights us, we learn it in session 3 not 7.
+**Phase 3 — Player + multiplayer smoke. The risk-killer.** ✅ 2026-07-14 (Chris) — the
+risk is dead: Player3D (CharacterBody3D, owner authority, capsule on layer 2, FLOATING
+motion, no gravity) with the prototype's camera rig and a Label3D name tag; synchronizer
+replicates Vector3 position/velocity through the unchanged `spawn_function` pattern. The
+two-instance loopback smoke passed first run — identical layout hashes, client observed
+the host's `--auto-walk` player moving live, clean join/leave, zero errors/warnings.
+`--game3d` (menu script flag) routes host/join into the 3D scene. Player drop shadows
+deferred to phase 7 (unshaded billboards cast none).
 
 **Phase 4 — Harvest & materials.** Area3D interact range, harvest RPC chain end-to-end,
 `--auto-harvest` re-enabled and asserted host+client. HUD pool display should Just Work.

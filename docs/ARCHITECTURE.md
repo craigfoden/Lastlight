@@ -425,6 +425,32 @@ would touch 2D files main still ships from; the 2D copy retires wholesale in pha
 
 ---
 
+## 3D port phase 3 — player + multiplayer smoke: the risk is dead (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**Verdict: the entire multiplayer architecture ports to 3D unchanged.** Player3D is a
+CharacterBody3D with the same owner-authority exception, the same `spawn_function`
+explicit-spawn-data pattern, and a MultiplayerSynchronizer replicating `position`/`velocity`
+as Vector3 — and the two-instance loopback smoke passed first run: identical layout hash on
+both peers, client watched the host's auto-walking player move live
+(t=8 → t=14 positions differ on the *client*), clean join/leave, zero errors/warnings.
+
+- **2D data stays px-denominated; 3D consumers convert.** `.tres` resources carry over
+  untouched (the plan's rule); speeds divide by `PX_PER_UNIT := 32.0` at the consumer
+  (`player_3d.gd`). Phase 8 can re-bake the data to units if the 2D game retires cleanly.
+- **`--game3d` CLI flag** (main_menu.gd only — no scene edit): routes a scripted host/join
+  into `game3d.tscn`; the menu buttons stay on the 2D game until phase 8 flips the default.
+- **FallbackCamera** in game3d.tscn covers the pre-spawn/joining window; the local player's
+  rig takes over via `camera.current = true` on spawn. Same rig angles as the prototype.
+- Player body: capsule, layer 2 / mask 1 (mirrors 2D), `MOTION_MODE_FLOATING`, velocity
+  stays on XZ — no gravity, so the collisionless ground plane from phase 2 is confirmed.
+- Unshaded billboards cast no sun shadows — players have no drop shadow yet; that joins the
+  phase-7 visual pass (2D used a decal sprite; same trick works as a flat quad).
+- Replication-assertion pattern for smokes: host runs `--auto-walk` (local player strolls
+  when idle), client runs `--log-players-after-sec=a,b` and the test asserts the remote
+  player's position changed between stamps.
+
+---
+
 ## Template for new entries
 
 ```

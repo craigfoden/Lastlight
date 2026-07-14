@@ -1,35 +1,117 @@
 extends Node3D
-## Phase-2 shell of the 3D game world (docs/PORT_PLAN.md): ground plane,
-## environment, sun, the glow tower as a real light, and the deterministic
-## WorldGen3D scatter. No players, building, or waves yet — later phases add
-## them, and phase 7 drives the sun/environment from DayNightCycle. Launch it
-## directly:
+## Session root for the 3D game (docs/PORT_PLAN.md phases 2-3): owns the world
+## shell (ground, sun, glow tower, WorldGen3D scatter) and the multiplayer
+## skeleton — spawns/despawns players with the same connect-after-load flow as
+## the 2D game.gd. Still to port: harvest routing (phase 4), building (5),
+## waves/combat (6), day/night light + join refusal at night (7). Launch:
+##   godot -- --game3d --host          (or --game3d --join=<ip>)
 ##   godot --rendering-method forward_plus --path . res://scenes/game3d/game3d.tscn
-## Dev args (after --): --quit-after-sec=N, --screenshot-at=a,b (windowed).
+## Dev args (after --): --quit-after-sec=N, --screenshot-at=a,b (windowed),
+## --auto-walk (local player strolls), --log-players-after-sec=a,b.
 
-## Debug fly-camera pan speed, world units per second (phase 3 replaces this
-## rig with the player camera).
-@export var pan_speed := 14.0
+const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
+const PlayerScene := preload("res://scenes/player3d/player_3d.tscn")
 
-@onready var _camera_rig: Node3D = $CameraRig
+## Players spawn on a ring around the glowing tower (the 2D game's 96 px), in cells.
+@export var spawn_radius := 3.0
+
+## Seconds a joining client waits before giving up. ENet itself can take 30+
+## seconds to admit failure, which reads as a hang — we enforce our own limit.
+@export var join_timeout := 10.0
+
+var _auto_walk := false
+
+@onready var players: Node3D = $Players
+@onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
 
 
 func _ready() -> void:
+	# Custom spawn: the host decides spawn data, every peer (host included)
+	# builds the node from it identically — position and name are guaranteed
+	# correct before the node enters the tree, no sync race.
+	player_spawner.spawn_function = _build_player
 	_parse_dev_args()
+	Network.connection_failed.connect(_return_to_menu.bind("Could not reach the host."))
+	Network.server_ended.connect(_return_to_menu.bind("The host ended the game."))
+	match Network.start_mode:
+		Network.StartMode.JOIN:
+			Network.join_game(Network.pending_address)
+			_start_join_timeout()
+		_:
+			# HOST from the menu, or NONE when running this scene directly
+			# from the CLI or editor (F6) — both mean: be the host, even solo.
+			var err := Network.host_game()
+			if err != OK:
+				_return_to_menu.call_deferred("Could not host (is the port already in use?)")
+				return
+			multiplayer.peer_connected.connect(_on_peer_connected)
+			multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+			_spawn_player(1)
 	print("[Game3D] World shell ready (%s / %s)" % [
 			RenderingServer.get_current_rendering_method(),
 			RenderingServer.get_current_rendering_driver_name()])
 
 
-func _process(delta: float) -> void:
-	# Camera-relative WASD pan, same yaw trick as the prototype: screen-up is
-	# world 45 degrees on the ground plane.
-	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	var yaw := Basis(Vector3.UP, deg_to_rad(45.0))
-	_camera_rig.position += yaw * Vector3(input.x, 0.0, input.y) * pan_speed * delta
+# Host only. The joiner's scene is already loaded (clients connect from inside
+# it), so it is safe to spawn their player and push them the state that is not
+# covered by synchronizers. (Night-phase join refusal returns with phase 7 —
+# there is no night here yet.)
+func _on_peer_connected(peer_id: int) -> void:
+	_spawn_player(peer_id)
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		node.host_send_snapshot(peer_id)
 
 
-# --- dev harness (mirrors proto3d.gd until the real game args port over) -----
+func _on_peer_disconnected(peer_id: int) -> void:
+	if players.has_node(str(peer_id)):
+		# Freeing on the host makes the MultiplayerSpawner despawn it everywhere.
+		players.get_node(str(peer_id)).queue_free()
+
+
+# Host only: pick spawn data and tell the spawner to build it everywhere.
+func _spawn_player(peer_id: int) -> void:
+	var angle := players.get_child_count() * TAU / float(Network.MAX_PLAYERS)
+	player_spawner.spawn({
+		"peer_id": peer_id,
+		"position": Vector3(spawn_radius, 0, 0).rotated(Vector3.UP, angle),
+	})
+
+
+# Runs on every peer when the spawner (re)creates a player.
+func _build_player(data: Dictionary) -> Node:
+	var player := PlayerScene.instantiate() as Player3D
+	# The node name doubles as the owner's peer id (see player_3d.gd).
+	player.name = str(data.peer_id)
+	player.position = data.position
+	player.auto_walk = _auto_walk and data.peer_id == multiplayer.get_unique_id()
+	return player
+
+
+# A child Timer (not a SceneTreeTimer) so it is freed with the scene and can
+# never fire into a dead context after we've already left for the menu.
+func _start_join_timeout() -> void:
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = join_timeout
+	timer.timeout.connect(_on_join_timeout)
+	add_child(timer)
+	timer.start()
+
+
+func _on_join_timeout() -> void:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		_return_to_menu("Could not reach the host (timed out).")
+
+
+func _return_to_menu(reason: String) -> void:
+	print("[Game3D] Returning to menu: %s" % reason)
+	Network.last_error = reason
+	Network.leave_game()
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+
+# --- dev harness (mirrors game.gd's hooks) -----------------------------------
 
 func _parse_dev_args() -> void:
 	for arg in OS.get_cmdline_user_args():
@@ -39,6 +121,19 @@ func _parse_dev_args() -> void:
 		elif arg.begins_with("--quit-after-sec="):
 			get_tree().create_timer(float(arg.get_slice("=", 1))).timeout.connect(
 					func() -> void: get_tree().quit())
+		elif arg == "--auto-walk":
+			_auto_walk = true
+		elif arg.begins_with("--log-players-after-sec="):
+			for stamp in arg.get_slice("=", 1).split(","):
+				_log_players_after(float(stamp))
+
+
+# Dev hook: print every player's position, so headless smoke runs can assert
+# that a remote player's replicated position actually changes over time.
+func _log_players_after(delay_sec: float) -> void:
+	await get_tree().create_timer(delay_sec).timeout
+	for player in players.get_children():
+		print("[Game3D] t=%d player %s at %v" % [int(delay_sec), player.name, player.position])
 
 
 func _save_screenshot_after(delay_sec: float) -> void:

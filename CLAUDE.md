@@ -65,6 +65,12 @@ sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N
 `--screenshot-after-sec=N` (save the viewport to `user://screenshot.png`; windowed runs only —
 lets visual passes be eyeballed from scripted launches).
 
+3D-branch extras: `--game3d` (host/join loads the 3D port scene instead of the 2D game),
+`--auto-walk` (the local 3D player strolls in a circle when idle), `--log-players-after-sec=a,b`
+(print every player's position at those times — assert a remote player's position changed
+between stamps to prove replication), `--screenshot-at=a,b` (3D scenes' screenshot hook,
+saves `user://game3d_shot_<t>.png`).
+
 ## Definition of done
 
 A system is done when ALL of:
@@ -108,7 +114,8 @@ A system is done when ALL of:
   Characters are `Sprite3D` billboards: `pixel_size = 0.036`, `BILLBOARD_FIXED_Y`,
   `shaded = false`, day/night lighting hand-driven via `modulate` each frame (the 3D
   CanvasModulate — `shaded` billboards vary by driver). Collision layers mirror the 2D
-  scheme exactly: 1 world/solids, 2 players, 4 enemies, 8 hitboxes.
+  scheme exactly: 1 world/solids, 2 players, 4 enemies, 8 hitboxes. 2D `.tres` data stays
+  px-denominated — 3D consumers divide by 32 (`PX_PER_UNIT`) at the boundary.
 
 ## Recipes
 
