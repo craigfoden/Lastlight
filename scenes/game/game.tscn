@@ -1,6 +1,7 @@
-[gd_scene load_steps=38 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
+[ext_resource type="Shader" path="res://scenes/world/ground.gdshader" id="34_groundshader"]
 [ext_resource type="Script" path="res://scenes/game/world_light.gd" id="33_worldlight"]
 [ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="27_daynight"]
 [ext_resource type="Script" path="res://scenes/game/wave_director.gd" id="28_wavedir"]
@@ -52,9 +53,8 @@ ambient_light_source = 2
 ambient_light_color = Color(0.419608, 0.478431, 0.368627, 1)
 ambient_light_energy = 0.5
 
-[sub_resource type="StandardMaterial3D" id="ground_mat"]
-albedo_color = Color(0.172549, 0.211765, 0.145098, 1)
-roughness = 1.0
+[sub_resource type="ShaderMaterial" id="ground_mat"]
+shader = ExtResource("34_groundshader")
 
 [sub_resource type="PlaneMesh" id="ground_mesh"]
 material = SubResource("ground_mat")

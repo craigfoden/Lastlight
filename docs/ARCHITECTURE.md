@@ -633,6 +633,22 @@ the port-acceptance checklist, with a Vulkan-only omni-shadow check for Chris).
 
 ---
 
+### The village glow returns to the ground (2026-07-14)
+
+The port dropped the 2D game's `VillageGlow` — a radial gradient sprite over a dark ground
+polygon that made the wilds visibly darker than the village by day (the visual that sells
+"daytime roamers lurk in the dark"). Restored as `scenes/world/ground.gdshader` on the
+ground plane: albedo blends village-bright → wilds-dark by per-fragment distance from the
+tower (the 210×210 plane has only corner vertices, so per-vertex won't interpolate), fully
+bright inside `glow_radius` (4), fully dark past `dark_radius` (16 — one cell past the
+15-cell safe radius, the 2D ratio).
+**Why a lit shader, not an unshaded overlay quad:** the 2D CanvasModulate multiplied the
+glow with day/night; keeping the shader lit gets that for free — the sun, night ambient,
+and the tower pool all land on top — and avoids transparency sorting against the decal
+quads at y ≈ 0.01–0.02.
+
+---
+
 ## Template for new entries
 
 ```
