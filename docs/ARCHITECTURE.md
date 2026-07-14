@@ -596,6 +596,43 @@ zero errors/warnings; day/dusk/night screenshot triptych eyeballed.
 
 ---
 
+## 3D port phase 8 — flip & retire, and the port post-mortem (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**The 3D game is the game.** Three commits, each independently revertable and each
+smoke-verified: the flip (menu routes into the 3D scene; `--game3d`/`--proto3d` and the
+proto button removed; `scenes/proto3d/` deleted), the 2D-layer deletion (everything the
+flip made unreachable; `day_night_cycle.gd`, `team_materials.gd`, `run_end_screen` survive
+untouched as the 3D game's own), and the takeover rename (every `*3D` class and `*3d`
+folder/file takes the plain name — `Player`, `Hud`, `scenes/game/game.tscn` — with data
+`.tres` paths and CLAUDE.md rewritten for the single game). Full suite green: fight,
+build + path rule, defeat/victory, downed/respawn, host+client harvest sync, night join
+refusal. **Merge to main waits on the human 2-player playtest** (PLAYTEST.md, updated as
+the port-acceptance checklist, with a Vulkan-only omni-shadow check for Chris).
+
+**Post-mortem — what the port taught:**
+- **The plan's central bet paid out**: the multiplayer layer (RPC lanes, host authority,
+  spawn_function pattern, snapshot-on-join) and AStarGrid2D crossed to 3D with zero
+  changes; data-driven `.tres` content needed one additive field (`visual_3d`). The
+  expensive parts were exactly the rendering-adjacent ones the plan flagged: the HUD
+  (statically typed to 2D classes → parallel port), and everything involving lights.
+- **Driver reality beat every assumption about omni shadows.** Broken on ANGLE/D3D11,
+  broken in daylight on Vulkan/Vega M, broken day-and-night on Metal — each discovered on
+  a different machine, one behind a misread screenshot. The architecture that survived:
+  a single runtime gate (`GlowTower.set_light_shadows`) defaulting to OFF, allowlisting
+  verified stacks. Presentation-layer features need per-stack verification with eyes on
+  actual frames; logs can't catch a black floor.
+- **Small distance conventions are load-bearing**: the tower node's position (origin vs
+  (0,0,-1)) silently decided whether enemies could ever land a swing, because verbatim
+  ports measure to `global_position`. Anything a port keeps "verbatim" keeps its implicit
+  coordinate assumptions too — parity means auditing those, not just the code.
+- **Scripted-screenshot verification has sharp edges** (macOS occlusion suspension, stale
+  `get_image()` without `frame_post_draw`) — both now fenced in GOTCHAS; `--always-on-top`
+  is part of the visual-test recipe.
+- Net cost: 8 phases across 3 sessions and two machines, ~zero gameplay-logic rewrites.
+  The 2D game is one `git revert` away if the playtest wants it back.
+
+---
+
 ## Template for new entries
 
 ```

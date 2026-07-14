@@ -47,7 +47,7 @@ GODOT=/Applications/Godot.app/Contents/MacOS/Godot
 PROJ=~/Documents/SourceControl/Lastlight
 "$GODOT" --headless --import --path "$PROJ"          # import
 "$GODOT" --path "$PROJ"                              # launch
-"$GODOT" --always-on-top --path "$PROJ" -- --game3d --host --screenshot-at=4,17
+"$GODOT" --always-on-top --path "$PROJ" -- --host --screenshot-at=4,17
 ```
 
 ### Testing multiplayer locally (two instances, one machine)
@@ -71,21 +71,17 @@ $p.WaitForExit(); Get-Content $hostLog
 
 Dev CLI args (after `--`): `--host`, `--join=<ip>`, `--name=<n>`, `--quit-after-sec=<s>`
 (wall-clock quit for headless runs), `--auto-harvest` (teleport-harvest loop, exercises the RPC
-chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance),
-`--grant-materials=wood:10,stone:10` (host cheat for testing builds), `--auto-build`
-(scripted place/reject/sell timeline), `--auto-block-test` (walls in the tower heart; the
-sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N` /
-`--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane and cast the kit),
-`--hurt-test` (host chips every player's hp on a timer — exercises downed/revive/respawn),
-`--screenshot-after-sec=N` (save the viewport to `user://screenshot.png`; windowed runs only —
-lets visual passes be eyeballed from scripted launches).
-
-3D-branch extras: `--game3d` (host/join loads the 3D port scene instead of the 2D game;
-`--auto-harvest` works there too), `--auto-walk` (the local 3D player strolls in a circle
-when idle), `--log-players-after-sec=a,b`
-(print every player's position at those times — assert a remote player's position changed
-between stamps to prove replication), `--screenshot-at=a,b` (3D scenes' screenshot hook,
-saves `user://game3d_shot_<t>.png`).
+chain), `--fast-cycle` (10 s days / 6 s nights — pass to *every* instance; too short for
+combat asserts, see GOTCHAS), `--grant-materials=wood:10,stone:10` (host cheat for testing
+builds), `--auto-build` (scripted place/reject/sell timeline), `--auto-block-test` (walls in
+the tower heart; the sealing wall must be rejected by the path rule), `--tower-hp=N` /
+`--final-day=N` / `--cycle=day:night` (short runs), `--auto-fight` (stand on the enemy lane
+and cast the kit), `--hurt-test` (host chips every player's hp on a timer — exercises
+downed/revive/respawn), `--auto-walk` (the local player strolls in a circle when idle),
+`--log-players-after-sec=a,b` (print every player's position at those times — assert a
+remote player's position changed between stamps to prove replication),
+`--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
+windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
 ## Definition of done
 
@@ -111,28 +107,26 @@ A system is done when ALL of:
   `host_*` (host-only plain funcs). See ARCHITECTURE.md for the full sync model.
 - Lifecycle events `print("[System] ...")` — the smoke tests assert on these logs.
 - Tunable numbers live in `@export` vars or `.tres` resources, never inline.
-- Placeholder art: SVGs at final sprite dimensions in `assets/sprites/placeholder/`, one file
-  per sprite. No packed spritesheets until real art. 3/4-view conventions (session 7): flat
-  ground decals 32×32; characters and standing props/towers 32×48; walls 32×40; standing art
-  shows a lit top + darker front face and reaches the bottom edge (the base line).
-- 3/4 depth: the world Y-sorts as one space. Standing sprites bottom-anchor via
-  `SpriteAnchor.apply(sprite)` **after** assigning the texture (baseline = origin.y + 16, the
-  cell's bottom edge). Flat decals skip the anchor and use `z_index = -1`. Don't hand-set
-  z_index to force draw order on world objects — fix the Y instead (the layer table lives in
-  ARCHITECTURE.md).
-- **3D port** (branch `3d-ortho-prototype`, phases in `docs/PORT_PLAN.md`): renderer is
-  **Forward+** (decision log 2026-07-13). Omni-light shadows are **night-only and gated**:
-  drive them through `GlowTower3D.set_light_shadows()`, which refuses them on the
-  Compatibility fallback (lit region renders black) AND on macOS/Metal (whole range box
-  over-darkens below ambient — phase 7) — and never leave them on in daylight, where the
-  same over-darkening hits some Vulkan drivers (decision log 2026-07-14). Only
-  Windows/Vulkan Forward+ has verified-good night omni shadows. Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
-  plane is y = 0; the 2D grid's XY maps to XZ (cell `(x, y)` → world `(x + 0.5, ·, y + 0.5)`).
+- Placeholder art: character/decal art is SVGs at final sprite dimensions in
+  `assets/sprites/placeholder/`, one file per sprite (characters 32×48, flat ground decals
+  32×32); world solids, buildings, and towers are small mesh scenes under
+  `scenes/world/visuals/` and `scenes/building/visuals/`. No packed spritesheets until
+  real art.
+- **World & rendering** (the 3D-ortho hybrid, ported sessions 9–11 — history in
+  `docs/PORT_PLAN.md`): renderer is **Forward+** (decision log 2026-07-13). Scale:
+  **1 world unit = 1 grid cell** (= 32 px of 2D-era art); ground plane is y = 0; the
+  logical grid's XY maps to XZ (cell `(x, y)` → world `(x + 0.5, ·, y + 0.5)`).
   Characters are `Sprite3D` billboards: `pixel_size = 0.036`, `BILLBOARD_FIXED_Y`,
-  `shaded = false`, day/night lighting hand-driven via `modulate` each frame (the 3D
-  CanvasModulate — `shaded` billboards vary by driver). Collision layers mirror the 2D
-  scheme exactly: 1 world/solids, 2 players, 4 enemies, 8 hitboxes. 2D `.tres` data stays
-  px-denominated — 3D consumers divide by 32 (`PX_PER_UNIT`) at the boundary.
+  `shaded = false` — billboards don't react to lights, so `WorldLight` hand-drives their
+  `modulate` every frame (compose with it, never overwrite it; survival tints multiply).
+  Collision layers: 1 world/solids, 2 players, 4 enemies, 8 hitboxes. `.tres` data stays
+  px-denominated — consumers divide by 32 (`PX_PER_UNIT`) at the boundary.
+- Omni-light shadows are **night-only and gated**: drive them through
+  `GlowTower.set_light_shadows()`, which refuses them on the Compatibility fallback (lit
+  region renders black) AND on macOS/Metal (whole range box over-darkens below ambient) —
+  and never leave them on in daylight, where the same over-darkening hits some Vulkan
+  drivers (decision log 2026-07-14). Only Windows/Vulkan Forward+ has verified-good night
+  omni shadows.
 
 ## Recipes
 
@@ -144,36 +138,31 @@ at it via WorldGen's material slots.
 **Populate the world (materials & scenery):** the map is scattered at load by `World/WorldGen`
 (`scenes/world/world_gen.gd`) from a fixed seed — identical on every peer, never synced. Tune
 its exports for density/rarity/amounts (`resource_count`, `near_amount`/`far_amount`, the ring
-radii, `plaza_radius`/`safe_radius`), or point its material/texture slots at new resources.
-Don't hand-place `ResourceNode`s in `game.tscn` anymore — WorldGen owns the layout. Keep grid-
-solid content off the `y == 0` row (the guaranteed opening→heart corridor).
-**3D branch:** `World/WorldGen` in `scenes/game3d/game3d.tscn` (`world_gen_3d.gd`) scatters
-the identical layout — same seed, same cells, radii in cells (2D px / 32 exactly; keep new
-radii binary-exact if parity should hold). Resource looks are the `tree_scene`/`rock_scene`/
-`wisp_scene` exports; solids are mesh scenes in `solid_scenes` (they join group
-`"obstacles"`), decor is flat 32×32 decal textures in `decor_textures` (scenes under
-`scenes/world3d/visuals/`).
+radii, `plaza_radius`/`safe_radius` — all in cells), or point its slots at new resources:
+resource looks are the `tree_scene`/`rock_scene`/`wisp_scene` exports, solids are mesh scenes
+in `solid_scenes` (they join group `"obstacles"`), decor is flat 32×32 decal textures in
+`decor_textures` (scenes under `scenes/world/visuals/`). Don't hand-place `ResourceNode`s in
+`game.tscn` — WorldGen owns the layout. Keep grid-solid content off the `y == 0` row (the
+guaranteed opening→heart corridor).
 
-**Add a scenery prop:** add an SVG to `assets/sprites/placeholder/` (solid/standing: 32×48
-with a front face, bottom-anchored automatically; decor: flat 32×32 decal), then add the
-texture to `solid_textures` (blocks movement + registers in the build grid via group
-`"obstacles"`) or `decor_textures` (visual only) on the `World/WorldGen` node.
+**Add a scenery prop:** solid props are small mesh scenes (add to `solid_scenes` on
+`World/WorldGen`; they block movement + register in the build grid via group `"obstacles"`);
+decor is a flat 32×32 SVG decal texture (add to `decor_textures`, visual only).
 `scenes/world/scenery_prop.tscn` is the shared body; solid vs decor is one export.
 
 **Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
-`id`, `display_name`, `cost` dict, `texture`, attack stats — walls just leave `attacks` false;
+`id`, `display_name`, `cost` dict, attack stats — walls just leave `attacks` false;
 set `class_id` for class exclusives; set `refund_fraction` for salvage-on-removal — defaults to
-1.0/full, towers use 0.5) → add its sprite SVG → add the resource to `buildable_types` on the
-BuildManager node in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and
-sync all follow from the data. **3D branch:** also set `visual_3d` to a small mesh scene
-(`scenes/building3d/visuals/`) and add the resource to `buildable_types` on the BuildManager
-node in `game3d.tscn` too.
+1.0/full, towers use 0.5; set `visual_3d` to a small mesh scene under
+`scenes/building/visuals/`) → add the resource to `buildable_types` on the BuildManager node
+in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and sync all follow
+from the data.
 
 **Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
-speed, attack stats) → add its 32×48 sprite SVG → add the resource to `enemy_types` on the
-WaveDirector node in `game.tscn`. Movement, pathing, targeting-by-towers, hp sync, and wave
-composition all follow. (Contract: group `"enemies"` + `hp` + `host_take_damage()` +
-`host_send_snapshot()`.)
+speed, attack stats — px-denominated) → add its 32×48 sprite SVG → add the resource to
+`enemy_types` on the WaveDirector node in `game.tscn`. Movement, pathing, targeting-by-towers,
+hp sync, and wave composition all follow. (Contract: group `"enemies"` + `hp` +
+`host_take_damage()` + `host_send_snapshot()`.)
 
 **Add an ability:** create `data/abilities/<id>.tres` (script `ability_type.gd`; `kind` =
 projectile or deployable + stats) and slot it into a class resource.
@@ -231,10 +220,6 @@ HUD, talents, and XP banking all key off the class id.
   survival logic runs on the host for every player via `set_process(is_server())`; movement
   still simulates only on the owner, so host respawns reposition by RPCing the owner to move
   *itself*.
-- A CanvasItem whose parent is a plain `Node` is a **"topmost" canvas item** — it silently
-  escapes every ancestor's Y-sort and transform. That's why BuildManager and WaveDirector are
-  Node2D despite being pure logic: their Buildings/Enemies containers must stay inside the
-  world's Y-sort chain. Any new manager that owns visible children must extend Node2D too.
 - PowerShell 5.1 `Get-Content` → `Set-Content`/`Add-Content` round-trips **corrupt UTF-8 repo
   docs** (em-dashes → mojibake, adds a BOM and CRLF): it reads BOM-less UTF-8 as ANSI. Edit
   repo text files with proper file tools; if a shell write is unavoidable, check `git diff`

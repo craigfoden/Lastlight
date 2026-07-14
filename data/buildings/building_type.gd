@@ -19,8 +19,8 @@ extends Resource
 @export var texture: Texture2D
 
 ## The 3D port's look for this building — a small mesh scene instantiated by
-## Building3D (the 2D game ignores this field). Placeholder meshes live in
-## scenes/building3d/visuals/.
+## Building (the 2D game ignores this field). Placeholder meshes live in
+## scenes/building/visuals/.
 @export var visual_3d: PackedScene
 
 ## Empty = shared with every class. Enforced when classes land (session 4);

@@ -6,7 +6,7 @@ extends Control
 ##   godot -- --join=127.0.0.1   join immediately
 ##   godot -- --name=Craig       set the player name
 
-const GAME_SCENE := "res://scenes/game3d/game3d.tscn"
+const GAME_SCENE := "res://scenes/game/game.tscn"
 
 ## Cmdline autostart must run once per launch, not every time we come back to
 ## the menu — otherwise a failed scripted --join retries in a loop forever.

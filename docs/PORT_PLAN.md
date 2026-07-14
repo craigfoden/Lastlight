@@ -1,16 +1,15 @@
 # 3D Port Plan — branch `3d-ortho-prototype`
 
-**Status (2026-07-14):** phases 1–7 done (Chris 1–5, Craig 6–7) — the port is
-feature-complete. Craig's machine is now a Mac; `project.godot` is flipped to Forward+.
-Note: omni shadows are refused on macOS/Metal too now (range-box over-darkening, phase 7
-decision-log entry — the phase-6 matrix read was corrected). Remaining: phase 8 (the
-flip). Main stays 2D and shippable until phase 8 flips the switch.
+**Status (2026-07-14): ALL PHASES DONE — this document is history.** Chris ran 1–5,
+Craig 6–8. The 3D game IS the game: the menu routes into it, the prototype and the whole
+2D layer are deleted, and the 3D classes/folders took over the plain names (`Player`,
+`scenes/game/game.tscn`, …). The only piece of phase 8 still open when this was written:
+the **2-player human playtest** (docs/PLAYTEST.md, updated for port acceptance) and the
+**merge to main**, which waits on it. Post-mortem: the phase-8 entry in ARCHITECTURE.md.
 
-**Try the slice first** (10 minutes, judge the night): launch normally and press
-"3D Prototype (session 8 evaluation)" on the menu, or `godot --path . -- --proto3d`, or open
-`scenes/proto3d/proto3d.tscn` and F6. WASD moves, mouse ghost snaps to cells, LMB places
-walls, night falls ~14 s in. `-- --screenshot-at=4,17 --quit-after-sec=20` for scripted
-shots; add `--omni-shadows` to turn tower-light shadows on (the phase-1 renderer probe).
+(The "try the slice" prototype this section used to describe was deleted with phase 8 —
+`git checkout e04d994~2 -- scenes/proto3d` resurrects it if a renderer probe is ever
+needed again; its `--omni-shadows` flag was the phase-1 test harness.)
 
 ## Ground rules
 
@@ -97,9 +96,14 @@ exports at prototype defaults. Finding: shadowed omnis over-darken their range b
 macOS/Metal too — Metal joined the `set_light_shadows()` refusal list, and the phase-6
 matrix claim was corrected in the decision log.
 
-**Phase 8 — Flip & retire.** 3D game becomes the main scene; proto button/flag and
-`scenes/proto3d/` removed; PLAYTEST.md checklist re-run; full smoke suite; a real 2-player
-human playtest; merge to main. Session recap doubles as the port post-mortem.
+**Phase 8 — Flip & retire.** ✅ 2026-07-14 (Craig) — three commits: (a) the flip — menu
+routes host/join into the 3D game, `--game3d`/`--proto3d` flags and the proto button gone,
+`scenes/proto3d/` deleted; (b) the 2D layer deleted (game/player/enemy/building/hud/
+abilities/world scenes — `day_night_cycle.gd`, `team_materials.gd`, `run_end_screen`
+survive, the 3D game instances them); (c) the takeover rename — every `*3D` class and
+`*3d` folder/file takes the plain name, data `.tres` paths updated, CLAUDE.md conventions/
+recipes/args rewritten for the single game. Full smoke suite green after each commit.
+Outstanding: the human 2-player playtest (PLAYTEST.md) → merge to main.
 
 ## Known rough edges in the slice (fix in phases, not up front)
 
