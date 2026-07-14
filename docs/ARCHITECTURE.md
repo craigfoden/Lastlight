@@ -649,6 +649,27 @@ quads at y ≈ 0.01–0.02.
 
 ---
 
+### Daylight is the tower's bubble (2026-07-14)
+
+The painted ground gradient wasn't enough — by day, props and characters out in the wilds
+still rendered fully sun-lit, so "the darkness around the town" didn't read. **Decision:
+the village's light IS the daylight.** By day the tower's OmniLight becomes a wide
+daylight bubble (`tower_range_day` 44, energy 2.4) while the global sun and ambient sit at
+gloom levels (sun peaks at 0.45 — it carries direction and shadows, not brightness); at
+dusk WorldLight lerps the bubble down into the 16-cell night pool, so nightfall is
+literally the light contracting. Billboards mirror it via a `tint_gloom` outside the
+light's reach.
+**Why a light and not materials:** one light darkens *everything* — ground, props,
+enemies, buildings, future content — with zero per-material work, and it puts the game's
+fiction (venture out = leave the light) into the actual renderer. The ground shader keeps
+a dark-by-18-cells gradient purely so the night floor beyond the safe zone stays black
+under ambient. Shadow gating tightened to full night only (`mix > 0.995`) — never while
+the bubble is expanded, so the Vulkan daylight over-darkening can't catch a mid-dusk
+frame. All radii/energies/tints are exports; `--spawn-at=x,z` exists to judge them from
+the wilds without the walk.
+
+---
+
 ## Template for new entries
 
 ```

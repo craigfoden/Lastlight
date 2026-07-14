@@ -8,13 +8,15 @@ shader_type spatial;
 // one past the 15-cell safe radius.
 
 uniform vec3 village_color : source_color = vec3(0.24, 0.29, 0.2);
-// Darker than the 2D base green (0.12, 0.15, 0.11): under a real sun the lit
-// floor reads brighter than the 2D flat color did, so the albedo compensates.
-uniform vec3 wilds_color : source_color = vec3(0.055, 0.075, 0.05);
+// The day-side brightening comes from the tower's daylight bubble (see
+// WorldLight); this painted gradient's job is the DARK side — keeping the
+// floor beyond the safe zone genuinely black at night, when the ambient
+// would otherwise lift a paler albedo.
+uniform vec3 wilds_color : source_color = vec3(0.06, 0.075, 0.055);
 // Fully bright inside this distance from the tower...
 uniform float glow_radius = 4.0;
 // ...fully dark beyond this one.
-uniform float dark_radius = 16.0;
+uniform float dark_radius = 18.0;
 
 void fragment() {
 	// The plane is 4 vertices, so the distance must be per-fragment:

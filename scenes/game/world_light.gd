@@ -1,9 +1,12 @@
 class_name WorldLight
 extends Node
 ## Drives the 3D world's light from the DayNightCycle — the port of the 2D
-## CanvasModulate `WorldLight`, grown into the prototype's full system: the
-## sun arcs and warms across the day, night hands the world to the glow
-## tower's pulsing pool, and every billboard sprite is hand-tinted each frame
+## CanvasModulate `WorldLight`, grown into "light as gameplay" proper: the
+## village's light IS the daylight. The tower projects a large bubble by day
+## (everything — props, enemies, ground — falls into gloom the further out you
+## venture, because the light literally doesn't reach) while the global sun
+## and ambient stay at gloom levels; at dusk the bubble visibly contracts into
+## the night pool. Billboard sprites are hand-tinted each frame to match
 ## (unshaded sprites don't react to lights — this IS their lighting; survival
 ## tints compose on top, see Player/Enemy.set_light_tint). Runs identically
 ## on every peer: the cycle is replicated, everything here derives from it.
@@ -11,11 +14,13 @@ extends Node
 ## Dusk and dawn crossfade over the cycle's `transition_time` (the prototype
 ## snapped at the boundary; at real night lengths the pop is jarring).
 
-## Day sun: arcs from low east to high noon to low west.
+## Day sun: arcs from low east to high noon to low west. Deliberately dim —
+## it carries direction and shadows, not brightness; the tower's daylight
+## bubble is what makes the village bright.
 @export var sun_elevation_low := 18.0
 @export var sun_elevation_high := 72.0
-@export var sun_energy_low := 0.35
-@export var sun_energy_high := 1.15
+@export var sun_energy_low := 0.15
+@export var sun_energy_high := 0.45
 @export var sun_color_noon := Color(1.0, 0.93, 0.82)
 @export var sun_color_horizon := Color(1.0, 0.72, 0.5)
 ## Sun never fully dies at night or shadows pop off; this is "moonlight".
@@ -30,13 +35,17 @@ extends Node
 @export var sky_night := Color("0a0e12")
 @export var ambient_day := Color("6b7a5e")
 @export var ambient_night := Color("2a3448")
-@export var ambient_energy_low := 0.25
-@export var ambient_energy_high := 0.6
+@export var ambient_energy_low := 0.12
+@export var ambient_energy_high := 0.3
 @export var ambient_energy_night := 0.2
 
 @export_group("Tower light")
-@export var tower_energy_day := 0.6
+## By day the tower light is the DAYLIGHT BUBBLE: bright across the village,
+## falling off continuously into the wilds. By night it contracts to the pool.
+@export var tower_energy_day := 2.4
 @export var tower_energy_night := 3.0
+@export var tower_range_day := 44.0
+@export var tower_range_night := 16.0
 ## The night pool breathes: +/- this energy on a fixed period (the prototype
 ## pulsed 3x per night, which at real night lengths is a 60 s swell — too slow
 ## to read as alive).
@@ -47,6 +56,9 @@ extends Node
 @export var tint_noon := Color(1, 1, 1)
 @export var tint_horizon := Color(1.0, 0.82, 0.68)
 @export var tint_night := Color(0.36, 0.4, 0.55)
+## What a sprite fades to outside the light's reach — the billboard twin of
+## the mesh world falling out of the bubble.
+@export var tint_gloom := Color(0.36, 0.4, 0.55)
 ## Standing in the tower's pool warms a sprite toward this, strongest at night.
 @export var tint_glow := Color(1.0, 0.9, 0.7)
 @export var glow_strength_day := 0.35
@@ -68,15 +80,6 @@ func setup(
 	_sun = sun
 	_env = world_environment.environment
 	_tower = tower
-	# The tower light casts shadows at night only: broken on the Compatibility
-	# fallback, and a shadowed omni over-darkens its range box in daylight on
-	# some Vulkan drivers (see the decision log).
-	day_night.phase_changed.connect(_on_phase_changed)
-	_on_phase_changed(day_night.phase)
-
-
-func _on_phase_changed(phase: DayNightCycle.Phase) -> void:
-	_tower.set_light_shadows(phase == DayNightCycle.Phase.NIGHT)
 
 
 func _process(_delta: float) -> void:
@@ -108,8 +111,17 @@ func _process(_delta: float) -> void:
 	var pulse := sin(_day_night.time_in_phase * TAU / tower_pulse_period) \
 			* tower_pulse_energy * mix
 	_tower.set_light_energy(lerpf(tower_energy_day, tower_energy_night, mix) + pulse)
+	# The daylight bubble contracts into the night pool as dusk falls.
+	_tower.set_light_range(lerpf(tower_range_day, tower_range_night, mix))
+	# Shadows only in FULL night: broken on the Compatibility fallback and on
+	# Metal (gated inside set_light_shadows), and a shadowed omni over-darkens
+	# its range box in daylight on some Vulkan drivers — so never while the
+	# bubble is expanded, not even partway through dawn/dusk (decision log).
+	_tower.set_light_shadows(mix > 0.995)
 
-	# Billboards: base tint by time of day, warmed by the tower pool.
+	# Billboards: gloom outside the light's reach, the time-of-day look inside,
+	# warmed toward the glow deep in the pool — the billboard twin of what the
+	# real light does to the meshes.
 	var base_tint := tint_noon.lerp(tint_horizon, 1.0 - arc).lerp(tint_night, mix)
 	var glow_strength := lerpf(glow_strength_day, glow_strength_night, mix)
 	for group in [&"players", &"enemies"]:
@@ -117,7 +129,8 @@ func _process(_delta: float) -> void:
 			var reach: float = clampf(
 					1.0 - node.global_position.length() / _tower.light_range(),
 					0.0, 1.0)
-			node.set_light_tint(base_tint.lerp(tint_glow, reach * glow_strength))
+			var tint := tint_gloom.lerp(base_tint, reach)
+			node.set_light_tint(tint.lerp(tint_glow, reach * glow_strength))
 
 
 # 0.0 (dawn) .. 1.0 (dusk) across the day; frozen at 1.0 all night.

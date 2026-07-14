@@ -48,7 +48,13 @@ func set_light_energy(energy: float) -> void:
 	_light.light_energy = energy
 
 
-## How far the pool reaches — sprites inside warm toward the light's color.
+## WorldLight resizes the light through the day cycle: the wide daylight
+## bubble by day contracts into the tight night pool at dusk.
+func set_light_range(range_cells: float) -> void:
+	_light.omni_range = range_cells
+
+
+## How far the light reaches right now — sprites inside warm toward its color.
 func light_range() -> float:
 	return _light.omni_range
 

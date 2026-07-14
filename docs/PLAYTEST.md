@@ -33,6 +33,10 @@ flag for real pacing (5 min / 3 min) once when judging pacing specifically. Othe
 
 - [ ] **Sun & dusk**: the sun arcs across the day, shadows move; dusk fades warm over ~12 s
       before night — does daybreak/nightfall read clearly enough to plan around?
+- [ ] **The daylight bubble**: by day the world gets continuously darker as you walk out
+      (`--spawn-at=30,0` to start out there) — everything darkens, not just the floor; at
+      dusk the bubble visibly contracts into the night pool. Too dark to forage out there,
+      or exactly the risk it should be?
 - [ ] **Night look**: the tower pool breathes; the world outside is cold and dark but the
       fight is still readable. **Chris/Vulkan only**: props inside the pool should cast
       radial shadows away from the tower with NO black region (if the pool floor goes black,
