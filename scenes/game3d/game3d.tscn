@@ -1,6 +1,8 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scenes/game3d/game3d.gd" id="1_game"]
+[ext_resource type="Script" path="res://scenes/game/team_materials.gd" id="18_teammat"]
+[ext_resource type="PackedScene" path="res://scenes/hud3d/hud_3d.tscn" id="19_hud"]
 [ext_resource type="PackedScene" path="res://scenes/world3d/glow_tower_3d.tscn" id="2_tower"]
 [ext_resource type="Script" path="res://scenes/world3d/world_gen_3d.gd" id="3_worldgen"]
 [ext_resource type="Resource" path="res://data/materials/wood.tres" id="4_wood"]
@@ -77,6 +79,11 @@ position = Vector3(49.5, 0, 0.5)
 
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
 spawn_path = NodePath("../Players")
+
+[node name="TeamMaterials" type="Node" parent="."]
+script = ExtResource("18_teammat")
+
+[node name="HUD" parent="." instance=ExtResource("19_hud")]
 
 [node name="FallbackRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)

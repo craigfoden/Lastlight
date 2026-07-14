@@ -451,6 +451,31 @@ both peers, client watched the host's auto-walking player move live
 
 ---
 
+## 3D port phase 4 — harvest & materials; the HUD "carries over" caveat (2026-07-14, session 10, branch `3d-ortho-prototype`)
+
+**The harvest lane runs end-to-end in 3D with zero logic changes**: Player3D gained the
+Area3D interact range (2D's 52 px → a 1.63 u sphere) and `try_harvest`; ResourceNode3D's
+ported RPCs did the rest. Smoke evidence, solo and host+client: the host validated a
+*client's* harvest using the client player's replicated position (two systems meeting
+correctly), stock counted down, the pool broadcast stayed in lockstep on both peers, and
+the join-time snapshot delivered the pool to a late joiner. `--auto-harvest` re-enabled
+for the 3D scene.
+
+- **TeamMaterials and the Materials registry ported with literally zero changes** — plain
+  Node + RefCounted namespace, exactly as the plan promised for the data/logic layer.
+- **PORT_PLAN's "HUD CanvasLayers carry over untouched" turned out wrong**: `hud.gd` is
+  statically typed to the 2D `Player`/`GlowTower` classes (`_local_player: Player`,
+  `setup(..., GlowTower)`), so instancing it in the 3D scene type-errors at runtime, and
+  loosening its types would edit the 2D game the plan says not to touch. **Decision: a
+  slim parallel `Hud3D`** (same injection style) carrying what phase 4 owns — material
+  pool, player count, connecting curtain. Day clock/tower hp/ability bar/minimap join it
+  with their systems in phases 6–7; at the phase-8 flip the 2D Hud retires and Hud3D
+  becomes just "Hud".
+- CLAUDE.md's material recipe pointed at a `TRACKED_MATERIALS` list in hud.gd that no
+  longer exists (the registry moved to `Materials.ALL`); fixed in the same commit.
+
+---
+
 ## Template for new entries
 
 ```

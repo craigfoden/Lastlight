@@ -6,8 +6,8 @@ extends CharacterBody3D
 ## to everyone else — the same deliberate exception to host authority as the 2D
 ## Player (see "Authority model" in docs/ARCHITECTURE.md).
 ##
-## Phase-3 slim port: movement, camera rig, name tag, sync. Harvesting arrives
-## with phase 4, combat and survival with phase 6, tint-by-light with phase 7.
+## Phase-3/4 slim port: movement, camera rig, name tag, sync, harvesting.
+## Combat and survival arrive with phase 6, tint-by-light with phase 7.
 
 ## 2D data resources carry over untouched; speeds there are px/s on 32 px
 ## cells, so 3D consumers convert to world units at the boundary.
@@ -26,6 +26,7 @@ var _walk_phase := 0.0
 @onready var sprite: Sprite3D = $Sprite3D
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var name_label: Label3D = $NameLabel
+@onready var interact_range: Area3D = $InteractRange
 
 
 func _enter_tree() -> void:
@@ -62,6 +63,34 @@ func _physics_process(delta: float) -> void:
 		direction = Vector3(cos(_walk_phase * 0.8), 0.0, sin(_walk_phase * 0.8))
 	velocity = direction * (class_type.move_speed / PX_PER_UNIT) * move_speed_mult
 	move_and_slide()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_multiplayer_authority():
+		return
+	if event.is_action_pressed("interact"):
+		try_harvest()
+
+
+func try_harvest() -> void:
+	var target := _nearest_harvestable()
+	if target != null:
+		# Ask the host: it validates range/amount and updates the pool.
+		target.request_harvest.rpc_id(1)
+
+
+func _nearest_harvestable() -> ResourceNode3D:
+	var best: ResourceNode3D = null
+	var best_dist := INF
+	for body in interact_range.get_overlapping_bodies():
+		var node := body as ResourceNode3D
+		if node == null or node.amount <= 0:
+			continue
+		var dist := global_position.distance_squared_to(node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = node
+	return best
 
 
 func _refresh_name() -> void:

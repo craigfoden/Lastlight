@@ -62,8 +62,13 @@ the host's `--auto-walk` player moving live, clean join/leave, zero errors/warni
 `--game3d` (menu script flag) routes host/join into the 3D scene. Player drop shadows
 deferred to phase 7 (unshaded billboards cast none).
 
-**Phase 4 — Harvest & materials.** Area3D interact range, harvest RPC chain end-to-end,
-`--auto-harvest` re-enabled and asserted host+client. HUD pool display should Just Work.
+**Phase 4 — Harvest & materials.** ✅ 2026-07-14 (Chris) — Area3D interact range on the
+player, harvest RPC chain green end-to-end (`--auto-harvest` asserted solo AND
+host+client, incl. the pool snapshot to a late joiner). One correction to this plan: the
+HUD did NOT Just Work — `hud.gd` is statically typed to the 2D Player/GlowTower classes,
+so the port grows a slim parallel `Hud3D` instead (pool + players + connecting curtain
+now; clock/tower/abilities/minimap arrive with phases 6-7). TeamMaterials + the Materials
+registry did carry over with zero changes.
 
 **Phase 5 — Building.** Ray-plane picking + ghost from the prototype, building scene =
 mesh + StaticBody3D, BuildManager logic unchanged on the XZ grid, path validation and

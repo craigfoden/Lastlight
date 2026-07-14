@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scenes/player3d/player_3d.gd" id="1_script"]
 [ext_resource type="Resource" path="res://data/classes/ranger.tres" id="2_ranger"]
@@ -6,6 +6,9 @@
 [sub_resource type="CapsuleShape3D" id="body_shape"]
 radius = 0.28
 height = 1.0
+
+[sub_resource type="SphereShape3D" id="interact_shape"]
+radius = 1.63
 
 [sub_resource type="SceneReplicationConfig" id="replication"]
 properties/0/path = NodePath(".:position")
@@ -41,6 +44,14 @@ modulate = Color(1, 1, 1, 1)
 outline_modulate = Color(0, 0, 0, 1)
 font_size = 36
 outline_size = 12
+
+[node name="InteractRange" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractRange"]
+position = Vector3(0, 0.5, 0)
+shape = SubResource("interact_shape")
 
 [node name="CameraRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)

@@ -65,8 +65,9 @@ sealing wall must be rejected by the path rule), `--tower-hp=N` / `--final-day=N
 `--screenshot-after-sec=N` (save the viewport to `user://screenshot.png`; windowed runs only —
 lets visual passes be eyeballed from scripted launches).
 
-3D-branch extras: `--game3d` (host/join loads the 3D port scene instead of the 2D game),
-`--auto-walk` (the local 3D player strolls in a circle when idle), `--log-players-after-sec=a,b`
+3D-branch extras: `--game3d` (host/join loads the 3D port scene instead of the 2D game;
+`--auto-harvest` works there too), `--auto-walk` (the local 3D player strolls in a circle
+when idle), `--log-players-after-sec=a,b`
 (print every player's position at those times — assert a remote player's position changed
 between stamps to prove replication), `--screenshot-at=a,b` (3D scenes' screenshot hook,
 saves `user://game3d_shot_<t>.png`).
@@ -120,8 +121,9 @@ A system is done when ALL of:
 ## Recipes
 
 **Add a material:** create `data/materials/<id>.tres` (script `material_type.gd`; set a
-never-to-change `id`, a `display_name`, `hud_color`) → add a `preload` to `TRACKED_MATERIALS`
-in `scenes/hud/hud.gd` → place `ResourceNode`s in the world with `material_type` pointing at it.
+never-to-change `id`, a `display_name`, `hud_color`) → add a `preload` to `Materials.ALL`
+in `data/materials/materials.gd` (both HUDs build their rows from it) → point `ResourceNode`s
+at it via WorldGen's material slots.
 
 **Populate the world (materials & scenery):** the map is scattered at load by `World/WorldGen`
 (`scenes/world/world_gen.gd`) from a fixed seed — identical on every peer, never synced. Tune

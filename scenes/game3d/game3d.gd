@@ -7,7 +7,8 @@ extends Node3D
 ##   godot -- --game3d --host          (or --game3d --join=<ip>)
 ##   godot --rendering-method forward_plus --path . res://scenes/game3d/game3d.tscn
 ## Dev args (after --): --quit-after-sec=N, --screenshot-at=a,b (windowed),
-## --auto-walk (local player strolls), --log-players-after-sec=a,b.
+## --auto-walk (local player strolls), --log-players-after-sec=a,b,
+## --auto-harvest (teleport-harvest loop, exercises the RPC chain).
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
 const PlayerScene := preload("res://scenes/player3d/player_3d.tscn")
@@ -23,6 +24,8 @@ var _auto_walk := false
 
 @onready var players: Node3D = $Players
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
+@onready var team_materials: TeamMaterials = $TeamMaterials
+@onready var hud: Hud3D = $HUD
 
 
 func _ready() -> void:
@@ -30,11 +33,18 @@ func _ready() -> void:
 	# builds the node from it identically — position and name are guaranteed
 	# correct before the node enters the tree, no sync race.
 	player_spawner.spawn_function = _build_player
+	hud.setup(team_materials)
 	_parse_dev_args()
+	# Harvests announce themselves; the game routes them to the shared pool
+	# (signals up, calls down). The signal only fires on the host.
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		node.harvested.connect(_on_resource_harvested)
 	Network.connection_failed.connect(_return_to_menu.bind("Could not reach the host."))
 	Network.server_ended.connect(_return_to_menu.bind("The host ended the game."))
 	match Network.start_mode:
 		Network.StartMode.JOIN:
+			hud.show_connecting(true)
+			multiplayer.connected_to_server.connect(hud.show_connecting.bind(false))
 			Network.join_game(Network.pending_address)
 			_start_join_timeout()
 		_:
@@ -58,8 +68,13 @@ func _ready() -> void:
 # there is no night here yet.)
 func _on_peer_connected(peer_id: int) -> void:
 	_spawn_player(peer_id)
+	team_materials.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
 		node.host_send_snapshot(peer_id)
+
+
+func _on_resource_harvested(material_type: MaterialType, count: int) -> void:
+	team_materials.host_add(material_type.id, count)
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -123,9 +138,41 @@ func _parse_dev_args() -> void:
 					func() -> void: get_tree().quit())
 		elif arg == "--auto-walk":
 			_auto_walk = true
+		elif arg == "--auto-harvest":
+			_start_auto_harvest()
 		elif arg.begins_with("--log-players-after-sec="):
 			for stamp in arg.get_slice("=", 1).split(","):
 				_log_players_after(float(stamp))
+
+
+# Smoke-test hook (godot -- --auto-harvest): every 2 s, teleport the local
+# player to the nearest stocked resource node and harvest it. Exercises
+# movement sync + the whole request -> validate -> broadcast chain headlessly.
+func _start_auto_harvest() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 2.0
+	timer.autostart = true
+	timer.timeout.connect(_auto_harvest_tick)
+	add_child(timer)
+
+
+func _auto_harvest_tick() -> void:
+	var me: Player3D = players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me == null or not me.is_multiplayer_authority():
+		return
+	var nearest: ResourceNode3D = null
+	var best := INF
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		if node.amount <= 0:
+			continue
+		var dist := me.global_position.distance_squared_to(node.global_position)
+		if dist < best:
+			best = dist
+			nearest = node
+	if nearest == null:
+		return
+	me.global_position = nearest.global_position + Vector3(0.625, 0, 0)
+	me.try_harvest()
 
 
 # Dev hook: print every player's position, so headless smoke runs can assert
