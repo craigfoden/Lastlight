@@ -7,13 +7,15 @@ extends CanvasLayer
 ## Player/GlowTower classes (see the decision log) — so this grows alongside
 ## the port instead: the minimap arrives with phase 7. Injection style matches
 ## the 2D Hud: the game scene hands us its nodes via setup(); we never reach
-## into the tree for them.
+## into the tree for them. The minimap arrived with phase 7.
 
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
 var _glow_tower: GlowTower3D
 var _material_labels := {}  # material id -> Label
 var _local_player: Player3D
+
+@onready var minimap: Minimap3D = %Minimap
 
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
@@ -50,6 +52,7 @@ func setup(
 	_team_materials = team_materials
 	_glow_tower = glow_tower
 	team_materials.pool_changed.connect(_refresh_materials)
+	minimap.setup(glow_tower)
 
 
 func show_connecting(showing: bool) -> void:

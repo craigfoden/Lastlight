@@ -508,10 +508,14 @@ rejected the sealing wall.
 **The pending phase-1 matrix ran on Craig's new machine (macOS, Apple M3 Pro, Metal) and
 Forward+ passed: `project.godot` is flipped to `forward_plus`** (mobile fallback
 `"mobile"`). The 4-way probe — {Compatibility, Forward+} × {omni shadows off, on},
-day/night screenshots — showed Forward+ rendering the intended night (dark world, warm
-tower pool, radial prop shadows) at 115–145 fps windowed. Compatibility also ran without
-the Windows black-pool bug (macOS ANGLE sits on Metal, not D3D11), but the target stays
-Forward+ per the phase-1 decision; omni shadows remain runtime-gated for fallback stacks.
+day/night screenshots — ran at 115–145 fps windowed with correct day/dusk/night baseline
+rendering on both methods. ~~Forward+ rendered the shadowed-omni night correctly~~
+**CORRECTED same day (phase 7): the shadowed-omni night frame was misread** — the "warm
+pool with radial shadows" was tree canopies catching light at the range-box rim; the
+ground inside the box was the same over-darkened black as every other broken stack. On
+Metal, shadowed omnis over-darken their range box below ambient in BOTH cube and
+dual-paraboloid modes. Forward+ remains the right target (everything else is correct and
+fast); Metal simply joins the omni-shadow refusal list — see the phase-7 entry.
 
 - **macOS suspends rendering for fully-occluded windows**, which broke the probe twice
   before it ran clean: scripted windowed runs launched from a shell can sit behind other
@@ -551,6 +555,44 @@ snapshots (players/enemies/tower), and night join refusal.
 - `--fast-cycle`'s 6 s night is too short for enemies to cross ~46 cells to the tower —
   combat smokes use `--cycle=8:60`-style pacing instead. Same math as 2D (the map is the
   same 50-cell crossing); noted here because the first smoke "passed" with zero combat.
+
+---
+
+## 3D port phase 7 — light as gameplay (2026-07-14, session 11, branch `3d-ortho-prototype`)
+
+**WorldLight3D turns the replicated DayNightCycle into the world's light** — the port of
+the 2D CanvasModulate `WorldLight`, grown into the prototype's full system: the sun arcs
+low-east → noon → low-west with warming/cooling color, the environment's sky and ambient
+follow, night hands the world to the tower's pulsing pool, and every billboard is
+hand-tinted per frame (base tint by time of day, warmed by distance into the pool). All
+curve constants are exports with the prototype's values as defaults. Runs identically on
+every peer — everything derives from the replicated cycle. Verified solo + host/client,
+zero errors/warnings; day/dusk/night screenshot triptych eyeballed.
+
+- **Dusk and dawn crossfade over the cycle's `transition_time`** (the prototype snapped at
+  the boundary — tolerable in an 8 s night, jarring in a 180 s one). The blend factor has
+  the same shape as the 2D `ambient_color()` fade; the sun additionally parks at its
+  sunrise yaw during pre-dawn so daybreak brightens in place instead of snapping shadows
+  across the sky. The tower pulse runs on a fixed period (4 s) instead of the prototype's
+  3-per-night, which at real night lengths was a 60 s swell.
+- **Survival tint composes with the light tint by multiplication**
+  (`sprite.modulate = light_tint * survival_color`) — `set_light_tint()` on
+  Player3D/Enemy3D re-applies the composed color, so hurt-red/downed-grey survive the
+  day/night grade.
+- **Metal joins the omni-shadow refusal list** in `GlowTower3D.set_light_shadows()`
+  (alongside `gl_compatibility`): on Apple/Metal a shadowed omni over-darkens its entire
+  range box below ambient — a hard-edged black diamond — in cube AND dual-paraboloid
+  modes, with the gem occluder removed, and regardless of whether shadows were enabled at
+  _ready or toggled at runtime (all four bisected). Phase 6's matrix read of this frame
+  was wrong (corrected above). Windows/Vulkan Forward+ keeps night shadows per Chris's
+  phase-1 verification; the Metal night pool is the shadowless warm gradient — the look
+  every phase so far actually shipped with.
+- **Minimap3D is the 2D radar with one new transform**: positions are XZ in cells
+  (`world_range` 31.25 = 1000 px / 32) and the offset rotates by the fixed 45° camera yaw
+  so radar-up = screen-up (the 2D camera was axis-aligned and needed no rotation).
+- Character drop shadows are flat unshaded decal quads (the 2D `shadow.svg` at the feet,
+  `cast_shadow` off) — unshaded billboards cast no real shadows, same trick as the world
+  decor decals.
 
 ---
 

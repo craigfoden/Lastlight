@@ -1,11 +1,10 @@
 # 3D Port Plan — branch `3d-ortho-prototype`
 
-**Status (2026-07-14):** phases 1–6 done (Chris 1–5, Craig 6). Craig's machine is now a
-Mac — the phase-1 matrix re-ran there and passed, so `project.godot` is flipped to
-Forward+. Remaining: phase 7 (light as gameplay) and phase 8 (the flip). Main stays 2D
-and shippable until phase 8 flips the switch. Read the session-8 entry in
-`ARCHITECTURE.md` (on this branch) before starting: it records the driver gotchas the
-prototype already paid for.
+**Status (2026-07-14):** phases 1–7 done (Chris 1–5, Craig 6–7) — the port is
+feature-complete. Craig's machine is now a Mac; `project.godot` is flipped to Forward+.
+Note: omni shadows are refused on macOS/Metal too now (range-box over-darkening, phase 7
+decision-log entry — the phase-6 matrix read was corrected). Remaining: phase 8 (the
+flip). Main stays 2D and shippable until phase 8 flips the switch.
 
 **Try the slice first** (10 minutes, judge the night): launch normally and press
 "3D Prototype (session 8 evaluation)" on the menu, or `godot --path . -- --proto3d`, or open
@@ -88,10 +87,15 @@ AND host+client. One parity trap found and fixed: the tower NODE must sit at the
 like the 2D one (children carry the -1 z offset) or verbatim distance checks put the
 heart outside enemy attack range — see the decision log.
 
-**Phase 7 — Light as gameplay.** DayNightCycle drives sun rotation/energy/ambient (replaces
-the CanvasModulate `WorldLight`), sprite tint system from the prototype (billboards warm by
-distance to light), roamers respect the light edge visually, minimap gets its new
-world→radar transform. This phase is the payoff — budget time to tune it.
+**Phase 7 — Light as gameplay.** ✅ 2026-07-14 (Craig) — WorldLight3D drives sun
+arc/energy/color, sky, ambient, the tower pool (pulsing, night-shadowed where the stack
+allows), and the per-frame billboard tint (warm by distance into the pool, composed with
+the survival tints by multiplication); dusk/dawn crossfade over the cycle's
+`transition_time`; Minimap3D with the world→radar transform (XZ in cells, rotated by the
+45° camera yaw so radar-up = screen-up); character drop-shadow decals. All curves are
+exports at prototype defaults. Finding: shadowed omnis over-darken their range box on
+macOS/Metal too — Metal joined the `set_light_shadows()` refusal list, and the phase-6
+matrix claim was corrected in the decision log.
 
 **Phase 8 — Flip & retire.** 3D game becomes the main scene; proto button/flag and
 `scenes/proto3d/` removed; PLAYTEST.md checklist re-run; full smoke suite; a real 2-player

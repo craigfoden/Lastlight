@@ -1,6 +1,16 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scenes/enemy3d/enemy_3d.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/shadow.svg" id="2_shadow"]
+
+[sub_resource type="StandardMaterial3D" id="shadow_mat"]
+transparency = 1
+shading_mode = 0
+albedo_texture = ExtResource("2_shadow")
+
+[sub_resource type="PlaneMesh" id="shadow_mesh"]
+material = SubResource("shadow_mat")
+size = Vector2(0.75, 0.32)
 
 [sub_resource type="CapsuleShape3D" id="body_shape"]
 radius = 0.25
@@ -19,6 +29,11 @@ collision_layer = 4
 collision_mask = 1
 motion_mode = 1
 script = ExtResource("1_script")
+
+[node name="Shadow" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.02, 0)
+cast_shadow = 0
+mesh = SubResource("shadow_mesh")
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 position = Vector3(0, 0.864, 0)

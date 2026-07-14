@@ -59,6 +59,8 @@ var downed := false:
 var auto_walk := false
 var _walk_phase := 0.0
 
+var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight3D
+
 var _hurt_cd := 0.0        # host-only: time until damage can land again
 var _down_time := 0.0      # host-only: seconds spent downed
 var _revive_progress := 0.0  # host-only: seconds a teammate has been reviving
@@ -337,16 +339,24 @@ func _sync_downed(is_downed: bool) -> void:
 	downed = is_downed
 
 
+## Called by WorldLight3D every frame — unshaded billboards don't react to
+## lights, so the day/night tint is handed to us and composed with the
+## survival tint below.
+func set_light_tint(tint: Color) -> void:
+	_light_tint = tint
+	_update_survival_appearance()
+
+
 func _update_survival_appearance() -> void:
 	if sprite == null:
 		return
 	if downed:
 		# Greyed-out while you wait for help (the 2D slump rotation reads
 		# wrong on a Y-billboard, so the tint carries the state alone).
-		sprite.modulate = Color(0.5, 0.5, 0.6, 0.7)
+		sprite.modulate = _light_tint * Color(0.5, 0.5, 0.6, 0.7)
 	else:
 		var fraction := float(hp) / float(maxi(max_hp, 1))
-		sprite.modulate = Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
+		sprite.modulate = _light_tint * Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
 
 
 func _ability_by_id(ability_id: StringName) -> AbilityType:

@@ -123,9 +123,10 @@ A system is done when ALL of:
 - **3D port** (branch `3d-ortho-prototype`, phases in `docs/PORT_PLAN.md`): renderer is
   **Forward+** (decision log 2026-07-13). Omni-light shadows are **night-only and gated**:
   drive them through `GlowTower3D.set_light_shadows()`, which refuses them on the
-  Compatibility fallback (lit region renders black) — and never leave them on in daylight,
-  where the light's whole range box over-darkens on some Vulkan drivers (decision log
-  2026-07-14). Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
+  Compatibility fallback (lit region renders black) AND on macOS/Metal (whole range box
+  over-darkens below ambient — phase 7) — and never leave them on in daylight, where the
+  same over-darkening hits some Vulkan drivers (decision log 2026-07-14). Only
+  Windows/Vulkan Forward+ has verified-good night omni shadows. Scale: **1 world unit = 1 grid cell** (= 32 px of 2D art); ground
   plane is y = 0; the 2D grid's XY maps to XZ (cell `(x, y)` → world `(x + 0.5, ·, y + 0.5)`).
   Characters are `Sprite3D` billboards: `pixel_size = 0.036`, `BILLBOARD_FIXED_Y`,
   `shaded = false`, day/night lighting hand-driven via `modulate` each frame (the 3D

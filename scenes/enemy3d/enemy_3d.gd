@@ -39,6 +39,7 @@ var _root_remaining := 0.0
 var _repath_cd := 0.0
 var _wander_target := Vector3.ZERO
 var _wander_pause := 0.0
+var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight3D
 
 @onready var _sprite: Sprite3D = $Sprite3D
 
@@ -240,7 +241,16 @@ func _sync_hp(new_hp: int) -> void:
 	hp = new_hp
 
 
+## Called by WorldLight3D every frame — unshaded billboards don't react to
+## lights, so the day/night tint is handed to us and composed with the hp fade.
+func set_light_tint(tint: Color) -> void:
+	_light_tint = tint
+	_update_appearance()
+
+
 func _update_appearance() -> void:
 	if _sprite == null:
 		return
-	_sprite.modulate.a = lerpf(0.4, 1.0, float(hp) / float(maxi(type.max_hp, 1)))
+	var color := _light_tint
+	color.a = lerpf(0.4, 1.0, float(hp) / float(maxi(type.max_hp, 1)))
+	_sprite.modulate = color

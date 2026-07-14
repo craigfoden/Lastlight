@@ -30,14 +30,27 @@ func _ready() -> void:
 	set_light_shadows(false)
 
 
-## Cast shadows from the tower light — phase 7 drives this by day phase,
-## night only. Off on the Compatibility fallback, where omni shadows render
-## their lit region black; off in daylight everywhere, because a shadowed omni
-## over-darkens its whole range box on some Vulkan drivers too (Vega M, seen
-## in phase 2 — the night look is correct on every tested stack).
+## Cast shadows from the tower light — WorldLight3D drives this by day phase,
+## night only, and ONLY on stacks where shadowed omnis are trustworthy.
+## Refused on the Compatibility fallback (lit region renders black) and on
+## macOS/Metal (the whole range box over-darkens below ambient — cube AND
+## dual-paraboloid modes, phase 7); off in daylight everywhere, because the
+## same over-darkening hits some Vulkan drivers by day too (Vega M, phase 2).
+## Verified good: Windows/Vulkan Forward+ at night (phase 1's matrix).
 func set_light_shadows(enabled: bool) -> void:
 	_light.shadow_enabled = (enabled
-			and RenderingServer.get_current_rendering_method() != "gl_compatibility")
+			and RenderingServer.get_current_rendering_method() != "gl_compatibility"
+			and not RenderingServer.get_current_rendering_driver_name().begins_with("metal"))
+
+
+## WorldLight3D breathes the pool's brightness through the day cycle.
+func set_light_energy(energy: float) -> void:
+	_light.light_energy = energy
+
+
+## How far the pool reaches — sprites inside warm toward the light's color.
+func light_range() -> float:
+	return _light.omni_range
 
 
 ## Host only: enemies swing at the tower through this.

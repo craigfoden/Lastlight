@@ -3,7 +3,8 @@ extends Node3D
 ## shell (ground, sun, glow tower, WorldGen3D scatter), the multiplayer
 ## skeleton — spawns/despawns players with the same connect-after-load flow as
 ## the 2D game.gd — and mediates between the day/night cycle, the waves, the
-## shared material pool, and the HUD. Still to port: day/night light (7). Launch:
+## shared material pool, and the HUD. WorldLight3D turns the cycle into light
+## (phase 7) — the port is feature-complete; phase 8 flips the main scene. Launch:
 ##   godot -- --game3d --host          (or --game3d --join=<ip>)
 ##   godot --rendering-method forward_plus --path . res://scenes/game3d/game3d.tscn
 ## Dev args (after --): --quit-after-sec=N, --screenshot-at=a,b (windowed),
@@ -47,6 +48,7 @@ var _auto_walk := false
 @onready var players: Node3D = $Players
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var day_night: DayNightCycle = $DayNight
+@onready var world_light: WorldLight3D = $WorldLight
 @onready var team_materials: TeamMaterials = $TeamMaterials
 @onready var hud: Hud3D = $HUD
 @onready var build_manager: BuildManager3D = $BuildManager
@@ -81,6 +83,7 @@ func _ready() -> void:
 	build_menu.setup(build_manager, build_controller, team_materials)
 	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
 			world_gen.safe_radius)
+	world_light.setup(day_night, $Sun, $WorldEnvironment, glow_tower)
 	wave_director.night_survived.connect(_on_night_survived)
 	glow_tower.destroyed.connect(_on_tower_destroyed)
 	run_end_screen.menu_requested.connect(_return_to_menu.bind(""))
