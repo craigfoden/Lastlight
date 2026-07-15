@@ -367,13 +367,15 @@ func _ability_by_id(ability_id: StringName) -> AbilityType:
 
 
 func try_harvest() -> void:
-	var target := _nearest_harvestable()
+	var target := nearest_harvestable()
 	if target != null:
 		# Ask the host: it validates range/amount and updates the pool.
 		target.request_harvest.rpc_id(1)
 
 
-func _nearest_harvestable() -> ResourceNode:
+## Public: the HUD reads this to show the "press E" prompt for whatever
+## harvest() would actually hit — one source of truth for both.
+func nearest_harvestable() -> ResourceNode:
 	var best: ResourceNode = null
 	var best_dist := INF
 	for body in interact_range.get_overlapping_bodies():

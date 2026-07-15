@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = &"piercing_arrow"
 display_name = "Piercing Arrow"
+description = "A powered shot that punches through every enemy in a line — save it for when they queue up in a corridor."
 cooldown = 6.0
 kind = 0
 damage = 6

@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = &"snare_trap"
 display_name = "Snare Trap"
+description = "Drops a trap at your feet. Enemies that step on it are rooted in place — plant it in their lane and pick them off."
 cooldown = 10.0
 kind = 1
 root_duration = 2.5

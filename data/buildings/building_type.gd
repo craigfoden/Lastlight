@@ -8,6 +8,10 @@ extends Resource
 
 @export var display_name: String
 
+## One or two sentences for the hotbar tooltip — what it does and why you'd
+## pick it. Stats are appended automatically; don't repeat numbers here.
+@export_multiline var description := ""
+
 ## material id -> amount.
 @export var cost: Dictionary
 
@@ -34,3 +38,16 @@ extends Resource
 @export var attack_range := 0.0
 ## Seconds between shots.
 @export var fire_interval := 1.0
+
+
+## What selling this returns: each cost line scaled by `refund_fraction` and
+## floored (no free rounding-up of an odd cost); zero lines drop out. The one
+## place the refund rule lives — the sell RPC and the sell-mode hint both ask
+## here, so what the UI promises is what the host pays.
+func refund() -> Dictionary:
+	var result := {}
+	for material_id in cost:
+		var amount := int(floor(cost[material_id] * refund_fraction))
+		if amount > 0:
+			result[material_id] = amount
+	return result

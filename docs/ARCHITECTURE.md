@@ -670,6 +670,52 @@ the wilds without the walk.
 
 ---
 
+### Refused joiners hear why before the kick (2026-07-15)
+
+A night-phase joiner used to be silently `disconnect_peer()`-ed, so their client could
+only report "The host ended the game." Now the host RPCs `_receive_join_refusal(reason)`
+(on the game root — its authority IS the server, so plain `"authority"` mode is correct
+there, unlike player nodes) and the client bounces itself to the menu with the real
+message; the kick still happens, but on a `refusal_kick_delay` grace timer and only if
+the peer is somehow still connected.
+**Why:** the "proper" fix on the roadmap was SceneMultiplayer's auth-stage handshake, but
+that's a whole authentication layer for one string. A reason-first-kick-later RPC gets
+the same player-facing result with ~20 lines and no new connection states. The backstop
+kick stays because a client that never processes the RPC (hung, hostile) must still be
+removed.
+
+---
+
+### Selling is a mode with a visible button (2026-07-15)
+
+X (or the new hotbar `[X] Sell` button) now toggles *sell mode* instead of instantly
+selling whatever the mouse happens to be over. In sell mode the shared ghost rides the
+hovered building as an orange highlight, a hint label promises the exact refund, LMB
+confirms, Esc/RMB (or X again) exits. Sell mode and build selection are mutually
+exclusive — entering either leaves the other. The refund math moved to
+`BuildingType.refund()` so the hint and the host's sell RPC can never disagree.
+**Why:** invisible-until-known controls kept failing playtests (the session-6 hint text
+wasn't enough), and instant-sell-on-hover-X had no confirmation step and no
+discoverability for mouse-first players. A toggled mode matches the build flow players
+already know (select → preview → LMB), gives removal a preview state like placement has,
+and the shared BuildController selection state keeps it one-input-owner clean.
+
+---
+
+### Tooltips are composed by the UI from data descriptions (2026-07-15)
+
+`BuildingType` and `AbilityType` grew an `@export_multiline description` (prose only —
+what it does, when to use it). BuildMenu/Hud compose hover tooltips as description +
+stats formatted from the same px-denominated fields the game already runs on (ranges
+shown in cells). Ability-bar Labels get `MOUSE_FILTER_PASS` — tooltips need mouse
+visibility, PASS grants it without swallowing clicks.
+**Why:** stats in prose go stale the moment a number is tuned; composing them from the
+resource fields means a `.tres` balance edit updates the tooltip for free. Descriptions
+stay in data (per the everything-is-a-resource convention) so future classes/towers get
+tooltips by filling one field.
+
+---
+
 ## Template for new entries
 
 ```

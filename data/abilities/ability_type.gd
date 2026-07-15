@@ -10,6 +10,10 @@ enum Kind { PROJECTILE, DEPLOYABLE }
 
 @export var display_name: String
 
+## One or two sentences for the ability-bar tooltip — what it does and when
+## to use it. Stats are appended automatically; don't repeat numbers here.
+@export_multiline var description := ""
+
 @export var cooldown := 1.0
 
 @export var kind := Kind.PROJECTILE

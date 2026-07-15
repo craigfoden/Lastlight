@@ -8,6 +8,7 @@
 script = ExtResource("1")
 id = &"arrow_turret"
 display_name = "Arrow Turret"
+description = "The Ranger's own turret — faster, harder-hitting arrows with longer reach than the Sentry."
 cost = {
 &"stone": 3,
 &"wood": 4

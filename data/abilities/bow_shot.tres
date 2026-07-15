@@ -6,6 +6,7 @@
 script = ExtResource("1")
 id = &"bow_shot"
 display_name = "Bow Shot"
+description = "Your basic attack: a quick arrow toward the cursor. Stops on the first enemy it hits."
 cooldown = 0.45
 kind = 0
 damage = 3

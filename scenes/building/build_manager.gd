@@ -214,19 +214,16 @@ func request_sell(cell: Vector2i) -> void:
 	var building := building_at(cell)
 	if building == null:
 		return
-	# Removal refunds each material by the building's own `refund_fraction`
-	# (walls 100 %, towers 50 % — see BuildingType). Fractions floor: no free
-	# rounding-up of an odd cost.
-	var fraction: float = building.type.refund_fraction
-	var refunded := {}
-	for material_id in building.type.cost:
-		var amount := int(floor(building.type.cost[material_id] * fraction))
-		if amount > 0:
-			_team_materials.host_add(material_id, amount)
-			refunded[material_id] = amount
+	# Removal refunds by the building's own `refund_fraction` (walls 100 %,
+	# towers 50 %) — BuildingType.refund() owns the rule, shared with the
+	# sell-mode hover hint.
+	var refunded := building.type.refund()
+	for material_id in refunded:
+		_team_materials.host_add(material_id, refunded[material_id])
 	building.queue_free()
 	print("[Build] Removed %s at %s (%d%% refund: %s)"
-			% [building.type.id, cell, int(roundf(fraction * 100.0)), refunded])
+			% [building.type.id, cell,
+			int(roundf(building.type.refund_fraction * 100.0)), refunded])
 
 
 # Spawn function: runs on every peer, builds the identical node.

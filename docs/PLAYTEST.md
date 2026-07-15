@@ -48,9 +48,11 @@ flag for real pacing (5 min / 3 min) once when judging pacing specifically. Othe
 - [ ] Real 2-machine test (not loopback): one hosts, the other joins by LAN IP.
 
 Controls: WASD/arrows move · mouse aims · **LMB** shoot · **Q** Piercing Arrow · **F** Snare
-Trap · **Space** dodge · **E** harvest · **1/2/3** build hotbar · **LMB** place · **RMB/Esc**
-cancel build · **X** sell (hover a building). Gamepad: left stick move, right stick aim,
-RT shoot, RB/LB abilities, B dodge, A interact.
+Trap · **Space** dodge · **E** harvest (a prompt appears in range) · **1/2/3** build hotbar ·
+**LMB** place · **RMB/Esc** cancel build · **X** (or the hotbar's Sell button) toggles sell
+mode — hovered buildings highlight orange with a refund preview, LMB sells. Hover any hotbar
+slot or ability for a tooltip. Gamepad: left stick move, right stick aim, RT shoot, RB/LB
+abilities, B dodge, A interact.
 
 ## The checklist
 
@@ -58,8 +60,9 @@ RT shoot, RB/LB abilities, B dodge, A interact.
 - [ ] Host from the menu; join by IP from the second window; names float over both heads.
 - [ ] Close the host window mid-game → client bounces to menu with a message.
 - [ ] Join with no host running → "Connecting…" curtain, then bounced after ~10 s.
-- [ ] Join during a night assault → refused back to menu (message wrongly says "host ended
-      the game" — known gap, just confirm the bounce works).
+- [ ] Join during a night assault → refused back to menu with "The gates are barred during
+      night assaults — try again at dawn." (fixed 2026-07-15 — shout if you still see
+      "host ended the game", that means the refusal RPC lost the race to the kick).
 - [ ] Join mid-run during the day → world state correct (materials, half-harvested nodes,
       placed buildings, tower HP).
 
@@ -80,7 +83,10 @@ RT shoot, RB/LB abilities, B dodge, A interact.
 
 ### 4. Building (5 min)
 - [ ] Hotbar keys and clicking slots both select; ghost follows grid, green/red tint honest.
-- [ ] Place walls/towers; sell with X; pool refunds; slots grey out when unaffordable.
+- [ ] Hover tooltips: hotbar slots (stats, cost, refund %) and the ability bar (damage,
+      cooldown) — do they answer the questions you actually had?
+- [ ] Sell mode: X or the [X] Sell button toggles it; hovered buildings highlight orange and
+      the hint shows the exact refund; LMB sells; pool refunds match the hint; Esc exits.
 - [ ] Try to seal the tower in — the sealing wall must show red and refuse.
 - [ ] Build a maze corridor, then watch night enemies actually walk it.
 - [ ] In build mode, LMB places (doesn't fire the bow); Esc puts the hammer away.

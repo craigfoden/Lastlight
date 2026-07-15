@@ -7,6 +7,9 @@ extends CanvasLayer
 ## The Game scene injects its nodes via setup() — the HUD never reaches into
 ## the tree to find them (dependency injection).
 
+## .tres stats are px-denominated; tooltips show cells (1 cell = 32 px of 2D-era art).
+const PX_PER_UNIT := 32.0
+
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
 var _glow_tower: GlowTower
@@ -29,6 +32,7 @@ var _local_player: Player
 @onready var ability_1_label: Label = %Ability1Label
 @onready var ability_2_label: Label = %Ability2Label
 @onready var dodge_label: Label = %DodgeLabel
+@onready var interact_hint: Label = %InteractHint
 
 
 func _ready() -> void:
@@ -82,11 +86,14 @@ func _refresh_ability_bar() -> void:
 		for node in get_tree().get_nodes_in_group("players"):
 			if node.is_multiplayer_authority():
 				_local_player = node
+				_configure_ability_tooltips()
 				break
 	ability_bar.visible = _local_player != null
 	if _local_player == null:
 		downed_banner.visible = false
+		interact_hint.visible = false
 		return
+	_refresh_interact_hint()
 	health_label.text = "HP %d/%d" % [_local_player.hp, _local_player.max_hp]
 	var low := _local_player.hp <= _local_player.max_hp * 0.3
 	health_label.self_modulate = Color(1, 0.45, 0.45) if low else Color.WHITE
@@ -103,6 +110,51 @@ func _refresh_ability_bar() -> void:
 	var dodge_cd := _local_player.dodge_cooldown_remaining()
 	dodge_label.text = "SPC Dodge Roll" if dodge_cd <= 0.0 \
 			else "SPC Dodge Roll  %.1f" % dodge_cd
+
+
+# Hover tooltips for the ability bar, set once the local player (and so their
+# class) is known. Labels ignore the mouse by default; PASS lets them show a
+# tooltip without swallowing clicks.
+func _configure_ability_tooltips() -> void:
+	var class_type := _local_player.class_type
+	for pair in [[attack_label, class_type.basic_attack],
+			[ability_1_label, class_type.ability_1], [ability_2_label, class_type.ability_2]]:
+		var label: Label = pair[0]
+		var ability: AbilityType = pair[1]
+		if ability == null:
+			continue
+		label.mouse_filter = Control.MOUSE_FILTER_PASS
+		label.tooltip_text = _ability_tooltip(ability)
+	dodge_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	var roll_cells := (class_type.dodge_speed / PX_PER_UNIT) * class_type.dodge_duration
+	dodge_label.tooltip_text = ("A quick burst in your movement direction "
+			+ "(aim direction when standing still).\n"
+			+ "Distance %.1f cells · Cooldown %.1f s"
+			% [roll_cells, class_type.dodge_cooldown])
+
+
+func _ability_tooltip(ability: AbilityType) -> String:
+	var lines: Array[String] = []
+	if ability.description != "":
+		lines.append(ability.description)
+	match ability.kind:
+		AbilityType.Kind.PROJECTILE:
+			lines.append("Damage %d · Range %.1f cells" % [
+					ability.damage, ability.projectile_range / PX_PER_UNIT])
+		AbilityType.Kind.DEPLOYABLE:
+			lines.append("Roots for %.1f s · Lasts %.0f s on the ground" % [
+					ability.root_duration, ability.lifetime])
+	lines.append("Cooldown %.2f s" % ability.cooldown)
+	return "\n".join(lines)
+
+
+# "E  Harvest Wood" over the hotbar whenever pressing E would actually land —
+# same nearest_harvestable() the harvest itself uses, so the prompt never lies.
+func _refresh_interact_hint() -> void:
+	var target := _local_player.nearest_harvestable() if not _local_player.downed else null
+	interact_hint.visible = target != null
+	if target != null:
+		interact_hint.text = "E  Harvest %s" % target.material_type.display_name
 
 
 func _set_slot(label: Label, key: String, ability: AbilityType, cd: float) -> void:

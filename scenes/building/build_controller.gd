@@ -1,21 +1,30 @@
 class_name BuildController
 extends Node3D
-## Local-only build input for the 3D world: hotbar selection, the snapped
-## ghost preview, and sending place/sell requests to the host. Never mutates
-## game state itself — every action goes through BuildManager's
+## Local-only build input for the 3D world: hotbar selection, sell mode, the
+## snapped ghost preview, and sending place/sell requests to the host. Never
+## mutates game state itself — every action goes through BuildManager's
 ## host-validated RPCs. Cell picking is the prototype's ray-plane trick:
 ## project the mouse ray onto the ground plane and floor it.
 
 signal selection_changed(type: BuildingType)
+## Sell mode toggled (X or the hotbar's Sell button). Mutually exclusive with
+## a building selection — entering either leaves the other.
+signal sell_mode_changed(active: bool)
+## In sell mode, the building under the mouse changed (null = open ground).
+signal sell_hover_changed(building: Building)
 
 const GHOST_VALID := Color(0.55, 1.0, 0.55, 0.45)
 const GHOST_INVALID := Color(1.0, 0.4, 0.4, 0.45)
+## Sell mode's hover highlight: "this one comes down if you click".
+const GHOST_SELL := Color(1.0, 0.55, 0.2, 0.5)
 ## A cell far outside the grid region — "the mouse ray missed the ground";
 ## placement_error reports it as out of bounds.
 const CELL_NOWHERE := Vector2i(1 << 20, 1 << 20)
 
 var _build_manager: BuildManager
 var _selected: BuildingType
+var _sell_mode := false
+var _sell_hover: Building
 var _ghost: MeshInstance3D
 var _ghost_material: StandardMaterial3D
 
@@ -47,9 +56,38 @@ func toggle(type: BuildingType) -> void:
 
 
 func select(type: BuildingType) -> void:
+	if _sell_mode:
+		_set_sell_mode(false)
 	_selected = type
 	_ghost.visible = type != null
 	selection_changed.emit(type)
+
+
+## X or the hotbar's Sell button. In sell mode the ghost rides the hovered
+## building as a red "this comes down" highlight and LMB sells it.
+func toggle_sell_mode() -> void:
+	_set_sell_mode(not _sell_mode)
+
+
+func _set_sell_mode(active: bool) -> void:
+	if _sell_mode == active:
+		return
+	_sell_mode = active
+	_ghost.visible = false
+	_set_sell_hover(null)
+	if active and _selected != null:
+		# The hammer replaces the blueprint — drop the selection quietly
+		# (calling select() here would immediately exit sell mode again).
+		_selected = null
+		selection_changed.emit(null)
+	sell_mode_changed.emit(active)
+
+
+func _set_sell_hover(building: Building) -> void:
+	if building == _sell_hover:
+		return
+	_sell_hover = building
+	sell_hover_changed.emit(building)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -59,6 +97,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("build_select_%d" % (i + 1)):
 			toggle(_build_manager.buildable_types[i])
 			return
+	if event.is_action_pressed("sell"):
+		toggle_sell_mode()
+		return
 	if _selected != null:
 		if event.is_action_pressed("build_cancel"):
 			select(null)
@@ -67,19 +108,34 @@ func _unhandled_input(event: InputEvent) -> void:
 			_build_manager.request_place.rpc_id(1, _selected.id, _mouse_cell())
 			# Consume the click so the player doesn't also fire their weapon.
 			get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("sell"):
-		if _build_manager.building_at(_mouse_cell()) != null:
-			_build_manager.request_sell.rpc_id(1, _mouse_cell())
+	elif _sell_mode:
+		if event.is_action_pressed("build_cancel"):
+			_set_sell_mode(false)
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("build_confirm"):
+			var cell := _mouse_cell()
+			if _build_manager.building_at(cell) != null:
+				_build_manager.request_sell.rpc_id(1, cell)
+			# Consume the click even on open ground — you're holding the
+			# hammer, not the bow.
+			get_viewport().set_input_as_handled()
 
 
 func _process(_delta: float) -> void:
-	if _selected == null:
-		return
-	var cell := _mouse_cell()
-	_ghost.position = _build_manager.cell_to_world(cell) + Vector3(0, 0.45, 0)
-	var error := _build_manager.placement_error(
-			_selected, cell, Network.local_player_class)
-	_ghost_material.albedo_color = GHOST_VALID if error == "" else GHOST_INVALID
+	if _selected != null:
+		var cell := _mouse_cell()
+		_ghost.position = _build_manager.cell_to_world(cell) + Vector3(0, 0.45, 0)
+		var error := _build_manager.placement_error(
+				_selected, cell, Network.local_player_class)
+		_ghost_material.albedo_color = GHOST_VALID if error == "" else GHOST_INVALID
+	elif _sell_mode:
+		var building := _build_manager.building_at(_mouse_cell())
+		_set_sell_hover(building)
+		_ghost.visible = building != null
+		if building != null:
+			_ghost.position = _build_manager.cell_to_world(building.cell) \
+					+ Vector3(0, 0.45, 0)
+			_ghost_material.albedo_color = GHOST_SELL
 
 
 func _mouse_cell() -> Vector2i:

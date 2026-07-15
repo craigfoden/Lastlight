@@ -8,6 +8,7 @@
 script = ExtResource("1")
 id = &"sentry_tower"
 display_name = "Sentry Tower"
+description = "A steady all-purpose tower anyone can build. Fires at the nearest enemy in range."
 cost = {
 &"stone": 2,
 &"wood": 3

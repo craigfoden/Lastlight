@@ -31,6 +31,11 @@ const HEART_CELL := Vector2i(0, 0)
 ## seconds to admit failure, which reads as a hang — we enforce our own limit.
 @export var join_timeout := 10.0
 
+## Grace period between telling a refused joiner *why* and kicking them. The
+## polite path is the refusal RPC (the client bounces itself to the menu with
+## the reason); the kick is only the backstop for a client that never acted.
+@export var refusal_kick_delay := 1.5
+
 ## Chest contents per player per survived night (v1: straight into the
 ## shared pool; per-player gear loot arrives with gear tiers).
 @export var chest_wood := 2
@@ -132,11 +137,16 @@ func _ready() -> void:
 # covered by synchronizers.
 func _on_peer_connected(peer_id: int) -> void:
 	if day_night.phase == DayNightCycle.Phase.NIGHT or run_over:
-		# Design rule: joining is day-phase only. Kicking here (app layer)
+		# Design rule: joining is day-phase only. Refusing at the app layer
 		# is deliberate — ENet's refuse_new_connections flag half-works and
-		# leaves the client in limbo instead (see GOTCHAS).
-		print("[Game] Refused join from peer %d (night assault in progress)" % peer_id)
-		(multiplayer as SceneMultiplayer).disconnect_peer(peer_id)
+		# leaves the client in limbo instead (see GOTCHAS). Tell them why
+		# first; the client leaves itself, and the delayed kick only catches
+		# one that never got the message.
+		var reason := "The run has already ended." if run_over \
+				else "The gates are barred during night assaults — try again at dawn."
+		print("[Game] Refused join from peer %d (%s)" % [peer_id, reason])
+		_receive_join_refusal.rpc_id(peer_id, reason)
+		_kick_after_grace(peer_id)
 		return
 	_spawn_player(peer_id)
 	team_materials.host_send_snapshot(peer_id)
@@ -148,6 +158,29 @@ func _on_peer_connected(peer_id: int) -> void:
 	for node in get_tree().get_nodes_in_group("players"):
 		node.host_send_snapshot(peer_id)
 	# Placed buildings need no snapshot: their spawner replays them.
+
+
+# Received by a refused joiner: bounce to the menu with the real reason
+# before the host's backstop kick turns it into "the host ended the game".
+# The game root's authority is the server, so plain "authority" mode is right
+# here (unlike player nodes — see GOTCHAS).
+@rpc("authority", "reliable")
+func _receive_join_refusal(reason: String) -> void:
+	_return_to_menu(reason)
+
+
+# Host only: the backstop kick behind the refusal RPC. A child Timer (not a
+# SceneTreeTimer) so it can never fire after the scene is gone.
+func _kick_after_grace(peer_id: int) -> void:
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = refusal_kick_delay
+	timer.timeout.connect(func() -> void:
+		if peer_id in multiplayer.get_peers():
+			(multiplayer as SceneMultiplayer).disconnect_peer(peer_id)
+		timer.queue_free())
+	add_child(timer)
+	timer.start()
 
 
 # Host only (WaveDirector emits at dawn on the host).
