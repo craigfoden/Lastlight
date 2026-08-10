@@ -10,8 +10,8 @@ id = &"sentry_tower"
 display_name = "Sentry Tower"
 description = "A steady all-purpose tower anyone can build. Fires at the nearest enemy in range."
 cost = {
-&"stone": 2,
-&"wood": 3
+&"stone": 3,
+&"wood": 4
 }
 texture = ExtResource("2")
 visual_3d = ExtResource("3")

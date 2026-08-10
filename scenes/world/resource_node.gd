@@ -6,6 +6,8 @@ extends StaticBody3D
 ## touches the material pool itself — it announces the harvest with a signal
 ## and the game scene routes it (signals up, calls down).
 
+## Fired on the host when the node is felled, carrying the WHOLE payout —
+## chopping is progress, not income (see `depleted_yield`).
 signal harvested(material_type: MaterialType, count: int)
 
 ## Fired on every peer when stock hits zero (amount is replicated), so
@@ -18,8 +20,15 @@ signal depleted
 const HARVEST_RANGE := 2.0
 
 @export var material_type: MaterialType
+## How many chops the node takes to fell. Stock is *work remaining*, not stock
+## of material — nothing is paid out until it reaches zero.
 @export var starting_amount := 5
+## Chops removed per harvest request.
 @export var yield_per_harvest := 1
+## What felling the node pays, awarded in one lump on the final chop. Flat
+## regardless of how many chops it took, so a fat near-village tree is quicker
+## income per chop than a scrawny far one.
+@export var depleted_yield := 4
 ## The node's look, instantiated in _ready — WorldGen picks it to match the
 ## material (tree mesh, rock mesh, wisp billboard) before add_child.
 @export var visual_scene: PackedScene
@@ -74,11 +83,17 @@ func request_harvest() -> void:
 		return
 	if player.global_position.distance_to(global_position) > HARVEST_RANGE:
 		return
-	var taken: int = mini(yield_per_harvest, amount)
-	_sync_amount.rpc(amount - taken)
-	harvested.emit(material_type, taken)
-	print("[ResourceNode] %s harvested %d %s (%d left)"
-			% [player.name, taken, material_type.id, amount])
+	var chopped: int = mini(yield_per_harvest, amount)
+	var remaining := amount - chopped
+	_sync_amount.rpc(remaining)
+	if remaining > 0:
+		print("[ResourceNode] %s chopped %s (%d to go)"
+				% [player.name, material_type.id, remaining])
+		return
+	# Felled: the whole node pays out at once.
+	harvested.emit(material_type, depleted_yield)
+	print("[ResourceNode] %s felled a %s node for %d"
+			% [player.name, material_type.id, depleted_yield])
 
 
 ## Host only: bring a late joiner up to date.

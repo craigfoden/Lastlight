@@ -745,6 +745,64 @@ evidence. Gate defaults belong at deny; entries earn their way in with a frame a
 
 ---
 
+### Balance & behaviour pass (2026-08-10)
+
+Playtest feedback, all of it tunable-first. The three with architectural weight:
+
+**Harvesting pays on felling, not per chop.** `ResourceNode.amount` was stock-of-material
+and each chop banked one unit; it is now **work remaining**, and the whole payout
+(`depleted_yield`, flat 4) lands in one lump when the node falls. `starting_amount` still
+lerps 14 (near) → 5 (far), so distance now buys *speed* rather than *volume* — a far tree
+is the same 4 wood for a third of the chops.
+**Why flat, not proportional:** proportional is what we had; the point of the change is that
+a felled tree is a felled tree, and the near/far gradient becomes a pacing dial instead of an
+income dial. **Consequence to watch:** partial chopping now yields nothing, so the HUD hint
+had to grow the chop count and payout (`E Chop Wood (3 left → 4)`) — without it a 14-chop
+tree reads as a broken button. Income is down sharply (a near tree was 14 wood, now 4);
+`yield_per_node` on WorldGen is the one dial if that overshot.
+
+**Daytime roamers are conscripted at nightfall, not burned off.** `WaveDirector` used to
+`_despawn_all()` when night fell; it now calls `Enemy.host_join_assault()` on every living
+roamer, flipping ROAM → ASSAULT and repathing to the heart. Dawn still burns everything.
+**Why no sync:** `behavior` is host-only state after spawn — clients disable
+`_physics_process` off-host and never read it — so the flip needs no RPC. That is the same
+reasoning as the rest of the enemy AI, recorded here because `behavior` *is* carried in spawn
+data and so looks like replicated state at a glance. Conscripts count against
+`_alive_assault()`, so a night you ignored the day's roamers starts with fewer fresh spawns
+but the same pressure.
+
+**Towers upgrade walls in place.** `placement_error` now permits a cell holding a
+non-attacking building when the incoming type attacks (`replaceable_at`), charges
+`net_cost` = cost − the wall's refund, and skips the never-block-the-path test (a solid cell
+replaced by a solid cell cannot change reachability — and `_would_block_path` assumes the
+cell starts non-solid). One way only: no wall over a tower, no tower over a tower.
+**Two traps this sprung, both worth remembering:**
+- *Node names.* `queue_free()` is deferred, so the wall is still in the tree when its tower
+  is added — Godot's auto-rename would resolve the collision differently per peer and break
+  the same-path-everywhere rule the buildings' RPCs depend on. Names now carry a monotonic
+  `_place_seq` from the host, in the spawn data.
+- *Derived occupancy.* `_on_building_removed` fired for the wall *after* the tower had
+  claimed the cell, erasing the tower's entry and marking an occupied cell walkable. It now
+  releases the cell only if the departing node is still the recorded occupant, which also
+  makes the client correct under either spawn/despawn packet order.
+
+**Roamers wander instead of loitering on the light edge.** The safe-zone guard in
+`_advance_path` zeroed velocity and dropped the path, and `_wander` answered that by pausing
+and re-picking around a fixed spawn anchor — often re-routing through the same light and
+standing there. Wander points are now sampled around the monster's *current* position,
+rejected unless they clear `_safe_radius + wander_light_margin`, leashed to the roamer ring,
+and biased outward when the light just turned it back. The guard also now refuses only steps
+that enter or go *deeper* into the light: outward steps are always legal, so anything that
+ends up inside (collision slide, future knockback) can walk out instead of freezing — every
+direction would otherwise read as "inside the safe zone" and pin it there permanently.
+**Verified by measurement, not eyeballing:** a screenshot pair 16 s apart appeared to show a
+frozen mob beside the player; a temporary per-roamer log of distance/velocity/path showed all
+three circulating continuously (63→42 cells over four samples) and never inside the zone. Two
+frames of a moving population are not evidence about any individual — the lesson is to
+instrument the thing you are actually claiming.
+
+---
+
 ## Template for new entries
 
 ```

@@ -8,8 +8,9 @@ extends Node3D
 ##    a rising living-cap keeps steady pressure on the tower. Dawn burns any
 ##    survivors, so nights stay self-contained.
 ##  * Day: keep a small population of ROAM monsters alive out in the dark
-##    (outside the safe zone) so venturing far is never risk-free. They are
-##    cleared when night falls and the assault takes over.
+##    (outside the safe zone) so venturing far is never risk-free. At nightfall
+##    the survivors are conscripted into the assault rather than cleared — what
+##    you failed to deal with by day arrives with the horde.
 ## Enemies replicate through the MultiplayerSpawner below; clients only ever
 ## see the results.
 
@@ -110,9 +111,12 @@ func _on_phase_changed(phase: DayNightCycle.Phase) -> void:
 	if not multiplayer.is_server() or _stopped:
 		return
 	if phase == DayNightCycle.Phase.NIGHT:
-		# The daytime roamers retreat as the assault masses at the openings.
-		_despawn_all()
+		# Nightfall doesn't save you from what was already out there: the day's
+		# survivors turn on the tower and join the assault.
+		var joined := _conscript_roamers()
 		_night_number = _day_night.day_number
+		if joined > 0:
+			print("[Waves] %d daytime roamer(s) joined the assault" % joined)
 		print("[Waves] Night %d: the assault begins (continuous until dawn)"
 				% _night_number)
 		_reschedule_spawn()
@@ -206,6 +210,18 @@ func _day_tick() -> void:
 	print("[Waves] Day roamer released (%s)" % type.id)
 
 
+# Nightfall: every surviving daytime roamer switches to ASSAULT and marches on
+# the tower. `behavior` is host-only state after spawn (clients never simulate —
+# Enemy disables physics off-host), so flipping it here needs no sync.
+func _conscript_roamers() -> int:
+	var joined := 0
+	for enemy in _enemies.get_children():
+		if enemy.behavior == Enemy.Behavior.ROAM and enemy.hp > 0:
+			enemy.host_join_assault()
+			joined += 1
+	return joined
+
+
 func _alive_roamers() -> int:
 	var count := 0
 	for enemy in _enemies.get_children():
@@ -221,7 +237,7 @@ func _build_enemy(data: Dictionary) -> Node:
 	var behavior: Enemy.Behavior = Enemy.Behavior.ROAM if data.get("roam", false) \
 			else Enemy.Behavior.ASSAULT
 	enemy.setup(_type_by_id(data.type_id), data.position, _build_manager, _tower,
-			behavior, _safe_radius)
+			behavior, _safe_radius, roamer_spawn_max_radius)
 	return enemy
 
 

@@ -399,7 +399,16 @@ func _run_auto_build() -> void:
 	await get_tree().create_timer(1.0).timeout
 	# Same cell again: the host must reject it as occupied.
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(3, 3))
-	await get_tree().create_timer(4.0).timeout
+	await get_tree().create_timer(1.0).timeout
+	# Towers upgrade walls in place: this wall becomes a sentry, and the wall's
+	# refund comes off the sentry's cost.
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
+	# ...but the swap only goes one way: a wall may not replace a tower.
+	build_manager.request_place.rpc_id(1, &"wall", Vector2i(4, 3))
+	await get_tree().create_timer(2.0).timeout
 	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
 
 

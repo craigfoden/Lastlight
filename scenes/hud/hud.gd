@@ -148,13 +148,16 @@ func _ability_tooltip(ability: AbilityType) -> String:
 	return "\n".join(lines)
 
 
-# "E  Harvest Wood" over the hotbar whenever pressing E would actually land —
-# same nearest_harvestable() the harvest itself uses, so the prompt never lies.
+# "E  Chop Wood (3 left → 4)" over the hotbar whenever pressing E would actually
+# land — same nearest_harvestable() the harvest itself uses, so the prompt never
+# lies. The chop count and payout are both shown because nothing is paid until
+# the node falls: without it, a 14-chop tree reads as broken.
 func _refresh_interact_hint() -> void:
 	var target := _local_player.nearest_harvestable() if not _local_player.downed else null
 	interact_hint.visible = target != null
 	if target != null:
-		interact_hint.text = "E  Harvest %s" % target.material_type.display_name
+		interact_hint.text = "E  Chop %s  (%d left → %d)" % [
+				target.material_type.display_name, target.amount, target.depleted_yield]
 
 
 func _set_slot(label: Label, key: String, ability: AbilityType, cd: float) -> void:

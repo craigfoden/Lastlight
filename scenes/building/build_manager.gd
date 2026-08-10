@@ -33,6 +33,11 @@ var _reserved := {}
 var _scenery := {}
 
 var _team_materials: TeamMaterials
+## Monotonic placement counter, part of every building's node name. A tower
+## replacing a wall would otherwise collide with the wall still sitting in the
+## tree, and Godot's auto-rename would differ per peer — breaking the
+## same-path-everywhere rule the buildings' RPCs rely on.
+var _place_seq := 0
 var _opening_cells: Array[Vector2i] = []
 ## Where enemies are headed: a walkable cell at the glowing tower's base.
 var _heart_cell := Vector2i.ZERO
@@ -150,17 +155,49 @@ func placement_error(
 		return "Class exclusive (%s only)" % type.class_id
 	if not _astar.region.has_point(cell):
 		return "Out of bounds"
-	if _occupied.has(cell) or _scenery.has(cell):
+	var replaced := replaceable_at(cell, type)
+	if _scenery.has(cell) or (_occupied.has(cell) and replaced == null):
 		return "Cell is occupied"
 	if _reserved.has(cell):
 		return "Cell must stay open"
 	if _player_on(cell):
 		return "Someone is standing here"
-	if not _team_materials.can_afford(type.cost):
+	if not _team_materials.can_afford(net_cost(type, cell)):
 		return "Not enough materials"
-	if _would_block_path(cell):
+	# A replacement swaps one solid cell for another, so it cannot change
+	# reachability — and _would_block_path assumes the cell starts non-solid.
+	if replaced == null and _would_block_path(cell):
 		return "Would block every path to the tower"
 	return ""
+
+
+## The building on `cell` that placing `type` would replace, or null if this is
+## an ordinary empty-cell placement. **Towers upgrade walls in place**: a
+## building that attacks may be built straight over one that doesn't. Nothing
+## else is replaceable — no wall over a tower, no tower over a tower.
+func replaceable_at(cell: Vector2i, type: BuildingType) -> Building:
+	if type == null or not type.attacks:
+		return null
+	var existing := building_at(cell)
+	if existing == null or existing.type.attacks:
+		return null
+	return existing
+
+
+## What placing `type` on `cell` actually costs the pool: its own cost less the
+## refund for anything it replaces, so upgrading a wall is never worse than
+## selling it and placing fresh. Clamped at zero per material — a replacement
+## worth more than the upgrade banks no change (can't happen with current data,
+## and crediting it would need the sell path, not the place path).
+func net_cost(type: BuildingType, cell: Vector2i) -> Dictionary:
+	var net: Dictionary = type.cost.duplicate()
+	var replaced := replaceable_at(cell, type)
+	if replaced == null:
+		return net
+	var refunded := replaced.type.refund()
+	for material_id in refunded:
+		net[material_id] = maxi(int(net.get(material_id, 0)) - refunded[material_id], 0)
+	return net
 
 
 # A building must never drop on a body — it would collide with and trap them.
@@ -202,8 +239,18 @@ func request_place(type_id: StringName, cell: Vector2i) -> void:
 	if error != "":
 		print("[Build] Rejected %s at %s: %s" % [type_id, cell, error])
 		return
-	_team_materials.host_spend(type.cost)
-	_spawner.spawn({"type_id": type_id, "cell": cell})
+	var replaced := replaceable_at(cell, type)
+	_team_materials.host_spend(net_cost(type, cell))
+	_place_seq += 1
+	if replaced != null:
+		# Retire the wall first; the seq in the node name keeps the two from
+		# colliding while both are briefly in the tree (queue_free is deferred).
+		var replaced_id: StringName = replaced.type.id
+		replaced.queue_free()
+		_spawner.spawn({"type_id": type_id, "cell": cell, "seq": _place_seq})
+		print("[Build] Placed %s at %s, replacing %s" % [type_id, cell, replaced_id])
+		return
+	_spawner.spawn({"type_id": type_id, "cell": cell, "seq": _place_seq})
 	print("[Build] Placed %s at %s" % [type_id, cell])
 
 
@@ -229,7 +276,7 @@ func request_sell(cell: Vector2i) -> void:
 # Spawn function: runs on every peer, builds the identical node.
 func _build_building(data: Dictionary) -> Node:
 	var building := BuildingScene.instantiate()
-	building.name = "Building_%d_%d" % [data.cell.x, data.cell.y]
+	building.name = "Building_%d_%d_%d" % [data.cell.x, data.cell.y, data.seq]
 	building.setup(type_by_id(data.type_id), data.cell)
 	building.position = cell_to_world(data.cell)
 	return building
@@ -243,6 +290,14 @@ func _on_building_added(node: Node) -> void:
 
 
 func _on_building_removed(node: Node) -> void:
+	# A replaced wall leaves the tree *after* its tower has already claimed the
+	# cell (queue_free is deferred on the host, and the spawn/despawn packets can
+	# arrive in either order on a client). Only the current occupant may release
+	# the cell — otherwise the replacement's own entry is erased and the grid
+	# calls a tower-occupied cell walkable.
+	if _occupied.get(node.cell) != node:
+		grid_changed.emit()
+		return
 	_occupied.erase(node.cell)
 	_astar.set_point_solid(node.cell, false)
 	grid_changed.emit()

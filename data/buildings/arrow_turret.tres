@@ -10,8 +10,8 @@ id = &"arrow_turret"
 display_name = "Arrow Turret"
 description = "The Ranger's own turret — faster, harder-hitting arrows with longer reach than the Sentry."
 cost = {
-&"stone": 3,
-&"wood": 4
+&"stone": 4,
+&"wood": 5
 }
 texture = ExtResource("2")
 visual_3d = ExtResource("3")

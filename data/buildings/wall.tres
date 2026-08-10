@@ -10,7 +10,7 @@ id = &"wall"
 display_name = "Wall"
 description = "A cheap barrier. Enemies never attack it — they walk around, so use walls to steer them through your towers' reach. Sells back in full."
 cost = {
-&"wood": 1
+&"wood": 2
 }
 texture = ExtResource("2")
 visual_3d = ExtResource("3")

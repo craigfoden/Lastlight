@@ -142,8 +142,11 @@ at it via WorldGen's material slots.
 
 **Populate the world (materials & scenery):** the map is scattered at load by `World/WorldGen`
 (`scenes/world/world_gen.gd`) from a fixed seed — identical on every peer, never synced. Tune
-its exports for density/rarity/amounts (`resource_count`, `near_amount`/`far_amount`, the ring
-radii, `plaza_radius`/`safe_radius` — all in cells), or point its slots at new resources:
+its exports for density/rarity/amounts (`resource_count`, the ring radii,
+`plaza_radius`/`safe_radius` — all in cells). Note `near_amount`/`far_amount` are **chops to
+fell**, not income: harvesting pays nothing per chop and banks `yield_per_node` (flat 4) when
+the node falls, so those two dials set how *fast* a node pays, and `yield_per_node` sets how
+*much*. Or point its slots at new resources:
 resource looks are the `tree_scene`/`rock_scene`/`wisp_scene` exports, solids are mesh scenes
 in `solid_scenes` (they join group `"obstacles"`), decor is flat 32×32 decal textures in
 `decor_textures` (scenes under `scenes/world/visuals/`). Don't hand-place `ResourceNode`s in
@@ -161,7 +164,10 @@ set `class_id` for class exclusives; set `refund_fraction` for salvage-on-remova
 1.0/full, towers use 0.5; set `visual_3d` to a small mesh scene under
 `scenes/building/visuals/`) → add the resource to `buildable_types` on the BuildManager node
 in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and sync all follow
-from the data.
+from the data. `attacks` also decides **upgrades**: anything that attacks may be built
+straight over anything that doesn't (tower replaces wall, charged at cost minus the wall's
+refund), never the reverse — so a new non-attacking building is automatically replaceable and
+a new tower automatically replaces walls, with no code change.
 
 **Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
 speed, attack stats — px-denominated) → add its 32×48 sprite SVG → add the resource to

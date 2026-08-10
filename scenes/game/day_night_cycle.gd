@@ -9,9 +9,10 @@ signal phase_changed(new_phase: Phase)
 
 enum Phase { DAY, NIGHT }
 
-## Pacing (seconds). Targets from the design doc: ~5 min days, ~3 min nights,
-## 7 days per run (~60 min). All tunable.
-@export var day_length := 300.0
+## Pacing (seconds). The design doc's original ~5 min day left nothing to do in
+## its back half (playtest note), so days were cut to 3 min — equal to nights,
+## 7 days per run (~42 min). All tunable.
+@export var day_length := 180.0
 @export var night_length := 180.0
 @export var final_day := 7
 

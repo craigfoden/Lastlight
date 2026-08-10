@@ -111,6 +111,34 @@ abilities, B dodge, A interact.
 - [ ] Dawn: leftovers burn, chest materials appear in the pool.
 - [ ] Night visibility: can you read the fight in the dark, or is it murky?
 
+### 5b. The rebalance (session 11 — judge these hardest)
+
+Mobs have double hp and +1 damage, buildings cost more, and wood/stone income is much
+lower. **A scripted smoke lost the tower on night 1** with 3 towers up and only 6 kills in
+a 60 s night — that harness aims badly and isn't proof, but go in expecting it to bite.
+
+- [ ] **Is night 1 now winnable by a competent player?** If it isn't, that's the headline
+      finding. Dials, cheapest first: `WaveDirector.max_alive_base` (10),
+      `interval_scale_per_night`, then mob `max_hp` back down.
+- [ ] **Chop-to-fell economy**: a node pays 4 only when it falls (near trees 14 chops, far
+      ones 5 — so far nodes are *faster* income now). Does felling feel like an event, or
+      does the back half of a 14-chop tree just feel like a chore? `WorldGen.yield_per_node`
+      is the dial; the HUD hint shows `(N left → 4)`.
+- [ ] **Can you afford anything?** Wall 2 wood, sentry 3 stone/4 wood, turret 4 stone/5 wood.
+      Is one night's prep enough for a real maze, or does building stop being a decision
+      because you're always broke?
+- [ ] **3-minute days**: still a back half with nothing to do, or now too rushed to prep?
+- [ ] **Roamers wander** — watch the light edge from inside the village. They should drift
+      through the dark, never park against the glow. (Instrumented, not just eyeballed: all
+      roamers circulate and none enter the safe zone.)
+- [ ] **Day survivors join the night** — leave roamers alive at dusk and confirm they march
+      on the tower with the horde (host log: "N daytime roamer(s) joined the assault").
+      Does that make ignoring them by day feel like a real mistake?
+- [ ] **Tower over wall**: build a wall, then place a tower on the same cell — it should
+      replace it and charge cost minus the wall's refund. Wall onto a tower must refuse.
+      Known cosmetic gap: the hotbar slot greys on full cost, so a tower you can only afford
+      *because* of the wall refund looks unaffordable but still places.
+
 ### 6b. World, daytime danger & survival (session 5 — new)
 - [ ] The map no longer feels empty: resource nodes are plentiful and scenery (boulders, dead
       trees, ruined pillars, grass, bones, rubble) dresses the open world. Solid props block

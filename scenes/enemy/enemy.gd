@@ -7,8 +7,10 @@ extends CharacterBody3D
 ##
 ## Two behaviours share one body — ASSAULT monsters (night waves) path to the tower heart and
 ## batter the tower; ROAM monsters (daytime threats) wander the dark and chase
-## any player who strays out of the safe zone. Paths come from the build grid
-## as XZ waypoints (1 unit = 1 cell); the body floats pinned to y = 0.
+## any player who strays out of the safe zone. A roamer alive at nightfall is
+## switched to ASSAULT by the WaveDirector (`host_join_assault`), so the day's
+## leftovers march with the horde. Paths come from the build grid as XZ
+## waypoints (1 unit = 1 cell); the body floats pinned to y = 0.
 
 ## How this monster behaves. Set at spawn by the WaveDirector.
 enum Behavior { ASSAULT, ROAM }
@@ -17,8 +19,14 @@ enum Behavior { ASSAULT, ROAM }
 ## boundary — speeds and ranges below divide by this once.
 const PX_PER_UNIT := 32.0
 
-## Roaming wander spread around the monster's home point (2D: 220 px).
+## One leg of a roamer's stroll, in cells: shortest and longest it will walk
+## before picking a new heading (2D: 220 px was the old spread).
+@export var wander_step_min := 3.0
 @export var wander_radius := 6.875
+## Clearance kept between a wander destination and the safe zone's edge. Points
+## are rejected inside it, so a roamer never *aims* at a cell the light will
+## refuse to let it enter — that mismatch is what used to park them on the edge.
+@export var wander_light_margin := 2.0
 
 var type: EnemyType
 var behavior := Behavior.ASSAULT
@@ -29,8 +37,12 @@ var hp := 0:
 
 var _build_manager: BuildManager
 var _tower: GlowTower
-var _home := Vector3.ZERO
 var _safe_radius := 0.0
+## Outer leash for roaming, in cells (0 = none) — WaveDirector's roamer ring.
+var _roam_max_radius := 0.0
+## Set by _advance_path when the light turned this roamer back, so the wander
+## can abandon that leg and head outward instead of pressing on the edge.
+var _light_blocked := false
 var _path := PackedVector2Array()
 var _path_index := 0
 var _attack_cooldown := 0.0
@@ -51,14 +63,15 @@ func setup(
 		build_manager: BuildManager,
 		tower: GlowTower,
 		new_behavior := Behavior.ASSAULT,
-		safe_radius := 0.0) -> void:
+		safe_radius := 0.0,
+		roam_max_radius := 0.0) -> void:
 	type = new_type
 	position = start_position
 	_build_manager = build_manager
 	_tower = tower
 	behavior = new_behavior
-	_home = start_position
 	_safe_radius = safe_radius
+	_roam_max_radius = roam_max_radius
 
 
 func _ready() -> void:
@@ -120,6 +133,9 @@ func _roam(delta: float) -> void:
 			_path_index = 0
 			_repath_cd = 0.4
 		_advance_path()
+		# A chase that ran into the light is just a chase that ended; don't let
+		# the flag leak into the next wander leg.
+		_light_blocked = false
 	else:
 		_wander(delta)
 
@@ -149,24 +165,50 @@ func _wander(delta: float) -> void:
 		velocity = Vector3.ZERO
 		return
 	if _path_index >= _path.size():
-		_wander_target = _pick_wander_point()
+		_wander_target = _pick_wander_point(_light_blocked)
+		_light_blocked = false
 		_path = _build_manager.path_to(global_position, _wander_target)
 		_path_index = 0
 		if _path.is_empty():
 			_wander_pause = 0.6
 			return
 	_advance_path()
+	if _light_blocked:
+		# The path we were handed cut through the light. Abandon this leg now and
+		# pick an outward one next tick — never stand around on the edge. The
+		# short pause is a busy-loop guard, not a rest.
+		_path_index = _path.size()
+		_wander_pause = 0.15
+		return
 	if _path_index >= _path.size():
 		_wander_pause = randf_range(0.6, 1.8)
 
 
-func _pick_wander_point() -> Vector3:
-	for _attempt in 6:
-		var candidate := _home + Vector3(randf_range(1.25, wander_radius), 0, 0) \
-				.rotated(Vector3.UP, randf() * TAU)
-		if candidate.length() >= _safe_radius + 0.75:
+# Somewhere to stroll next, sampled around where the monster actually is (not a
+# fixed spawn anchor — roamers that chased a player should carry on from there).
+# `outward` biases the heading away from the tower, used when the light just
+# turned us back.
+func _pick_wander_point(outward: bool) -> Vector3:
+	var from_tower := global_position - _tower.global_position
+	var outward_dir := from_tower.normalized() if from_tower.length() > 0.01 \
+			else Vector3.FORWARD
+	for _attempt in 8:
+		var direction := outward_dir.rotated(Vector3.UP, randf_range(-PI / 3.0, PI / 3.0)) \
+				if outward else Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU)
+		var candidate := global_position \
+				+ direction * randf_range(wander_step_min, wander_radius)
+		if _accepts_wander_point(candidate):
 			return candidate
-	return _home
+	# Nothing sampled clean (pinned in a corner or hugging the light): step
+	# straight out from the tower, which is always away from the edge.
+	return global_position + outward_dir * wander_step_min
+
+
+func _accepts_wander_point(point: Vector3) -> bool:
+	var from_tower := point.distance_to(_tower.global_position)
+	if from_tower < _safe_radius + wander_light_margin:
+		return false
+	return _roam_max_radius <= 0.0 or from_tower <= _roam_max_radius
 
 
 func _in_safe_zone(pos: Vector3) -> bool:
@@ -196,11 +238,31 @@ func _advance_path() -> void:
 	# night horde is meant to march through the village to the tower.
 	if behavior == Behavior.ROAM and _safe_radius > 0.0:
 		var next_pos := global_position + velocity * get_physics_process_delta_time()
-		if _in_safe_zone(next_pos):
+		# Refuse the step only if it enters the light *or* pushes deeper in.
+		# Outward steps are always allowed: a roamer that somehow ends up inside
+		# (a collision slide, future knockback) must be able to walk itself out
+		# instead of freezing on the spot — every direction would otherwise read
+		# as "inside the safe zone" and pin it there for good.
+		if _in_safe_zone(next_pos) and next_pos.distance_to(_tower.global_position) \
+				<= global_position.distance_to(_tower.global_position):
 			velocity = Vector3.ZERO
 			_path_index = _path.size()
+			_light_blocked = true
 			return
 	move_and_slide()
+
+
+## Host only: night fell while this roamer was still alive — it turns on the
+## tower and joins the assault instead of being burned off. Drops the wander
+## state and repaths to the heart; the safe-zone block in _advance_path is keyed
+## on ROAM, so it may now walk into the village like the rest of the horde.
+func host_join_assault() -> void:
+	if not multiplayer.is_server() or behavior == Behavior.ASSAULT:
+		return
+	behavior = Behavior.ASSAULT
+	_wander_pause = 0.0
+	_light_blocked = false
+	_repath()
 
 
 ## Host only: snare traps (and future crowd control) pin the enemy in place.

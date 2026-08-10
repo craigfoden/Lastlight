@@ -38,9 +38,12 @@ const SceneryPropScene := preload("res://scenes/world/scenery_prop.tscn")
 ## How many resource nodes to scatter (some rolls land on blocked cells and
 ## are skipped, same as 2D).
 @export var resource_count := 380
-## Stock on the closest nodes vs the furthest (lerped by distance).
+## Chops needed to fell the closest nodes vs the furthest (lerped by distance).
+## This is work, not income — see `yield_per_node`.
 @export var near_amount := 14
 @export var far_amount := 5
+## What felling any one node pays into the pool, whatever it cost to fell.
+@export var yield_per_node := 4
 
 @export_group("Scenery")
 @export var solid_scenes: Array[PackedScene] = []
@@ -79,6 +82,7 @@ func _scatter_resources(rng: RandomNumberGenerator) -> void:
 		node.position = _snap(cell)
 		node.material_type = material
 		node.starting_amount = _amount_for(dist)
+		node.depleted_yield = yield_per_node
 		node.visual_scene = _visual_for(material)
 		add_child(node)
 		_layout.append("%s:%s:%s" % [node.name, material.id, cell])
