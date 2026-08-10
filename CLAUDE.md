@@ -123,12 +123,15 @@ A system is done when ALL of:
   `modulate` every frame (compose with it, never overwrite it; survival tints multiply).
   Collision layers: 1 world/solids, 2 players, 4 enemies, 8 hitboxes. `.tres` data stays
   px-denominated — consumers divide by 32 (`PX_PER_UNIT`) at the boundary.
-- Omni-light shadows are **night-only and gated**: drive them through
-  `GlowTower.set_light_shadows()`, which refuses them on the Compatibility fallback (lit
-  region renders black) AND on macOS/Metal (whole range box over-darkens below ambient) —
-  and never leave them on in daylight, where the same over-darkening hits some Vulkan
-  drivers (decision log 2026-07-14). Only Windows/Vulkan Forward+ has verified-good night
-  omni shadows.
+- **The tower light never casts shadows — on any stack.** Every stack we have put eyes on
+  renders the shadowed omni's whole range box below ambient, so the pool floor goes BLACK:
+  Compatibility, macOS/Metal (cube *and* dual-paraboloid), Windows/Vulkan Forward+ by day,
+  and — checked last, 2026-08-10 — Windows/Vulkan Forward+ at night too. The allowlist is
+  therefore empty and expressed as `GlowTower.SHADOWED_OMNIS_TRUSTED = false`; keep
+  `set_light_shadows()` as the single gate WorldLight drives, and flip the const only for a
+  stack whose **night pool has been eyeballed in an actual frame** (decision log
+  2026-08-10). Shadowless, the pool reads correctly — we lose radial prop shadows, nothing
+  else.
 
 ## Recipes
 

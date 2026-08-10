@@ -13,6 +13,18 @@ extends StaticBody3D
 ## Fired on every peer when hp first reaches zero.
 signal destroyed
 
+## No stack we have tested renders a trustworthy shadowed omni, so the tower
+## light never casts shadows. The failure is always the same: the light's whole
+## range box over-darkens below ambient, so the pool floor renders BLACK — the
+## opposite of a light. Observed on the Compatibility fallback (phase 1), on
+## macOS/Metal in cube AND dual-paraboloid modes (phase 7), on Windows/Vulkan
+## Forward+ in daylight (Vega M, phase 2) and — the last stack anyone still
+## trusted — on Windows/Vulkan Forward+ at night too (Vega M, 2026-08-10:
+## a hard-edged black diamond over the entire pool, gone the instant
+## shadow_enabled is cleared with every other variable held fixed).
+## Flip to true only for a stack whose night pool has been eyeballed clean.
+const SHADOWED_OMNIS_TRUSTED := false
+
 @export var max_hp := 100
 
 var hp := 0:
@@ -30,17 +42,10 @@ func _ready() -> void:
 	set_light_shadows(false)
 
 
-## Cast shadows from the tower light — WorldLight drives this by day phase,
-## night only, and ONLY on stacks where shadowed omnis are trustworthy.
-## Refused on the Compatibility fallback (lit region renders black) and on
-## macOS/Metal (the whole range box over-darkens below ambient — cube AND
-## dual-paraboloid modes, phase 7); off in daylight everywhere, because the
-## same over-darkening hits some Vulkan drivers by day too (Vega M, phase 2).
-## Verified good: Windows/Vulkan Forward+ at night (phase 1's matrix).
+## The single gate for tower-light shadows — WorldLight calls this every frame
+## with its night-only test, and SHADOWED_OMNIS_TRUSTED vetoes it everywhere.
 func set_light_shadows(enabled: bool) -> void:
-	_light.shadow_enabled = (enabled
-			and RenderingServer.get_current_rendering_method() != "gl_compatibility"
-			and not RenderingServer.get_current_rendering_driver_name().begins_with("metal"))
+	_light.shadow_enabled = enabled and SHADOWED_OMNIS_TRUSTED
 
 
 ## WorldLight breathes the pool's brightness through the day cycle.

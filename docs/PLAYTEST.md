@@ -1,9 +1,15 @@
 # Playtest Checklist — 3D port acceptance (phase 8)
 
 Everything below has passed scripted headless tests; this run is the **port-acceptance
-playtest** — the 3D game replaced the 2D one, and this checklist plus the two-machine
-session is what gates the merge to main. Work through it at the machine, tick things off,
-and bring back the feedback at the bottom. Budget ~30–45 minutes.
+playtest** — the 3D game replaced the 2D one. The merge to main already happened (Craig's
+call, 2026-07-14), so this is acceptance-after-the-fact: what it gates now is whether the
+port's feel is good enough to build content on. Work through it at the machine, tick things
+off, and bring back the feedback at the bottom. Budget ~30–45 minutes.
+
+**A scripted visual pre-flight ran on 2026-08-10 (Chris, Windows/Vulkan/Vega M)** and
+cleared the frame-level look questions below, so this session can spend its time on feel
+rather than on "is it rendering right." It also found and fixed one real bug — see the
+night-look bullet.
 
 ## Setup
 
@@ -33,18 +39,24 @@ flag for real pacing (5 min / 3 min) once when judging pacing specifically. Othe
 
 - [ ] **Sun & dusk**: the sun arcs across the day, shadows move; dusk fades warm over ~12 s
       before night — does daybreak/nightfall read clearly enough to plan around?
-- [ ] **The daylight bubble**: by day the world gets continuously darker as you walk out
-      (`--spawn-at=30,0` to start out there) — everything darkens, not just the floor; at
-      dusk the bubble visibly contracts into the night pool. Too dark to forage out there,
-      or exactly the risk it should be?
-- [ ] **Night look**: the tower pool breathes; the world outside is cold and dark but the
-      fight is still readable. **Chris/Vulkan only**: props inside the pool should cast
-      radial shadows away from the tower with NO black region (if the pool floor goes black,
-      shout — that's the Metal bug appearing on Vulkan too and it must be gated).
-- [ ] **Billboards**: characters read well against the meshed world at all times of day;
-      sprites warm up as you walk into the tower pool; drop shadows sit at the feet.
-- [ ] **Minimap rotation**: walk toward the top of the screen — the dot field should move
-      DOWN the radar (radar-up = screen-up). In 2D it was axis-aligned; this transform is new.
+- [x] **The daylight bubble** — mechanically confirmed in-frame at `--spawn-at=30,0`:
+      ground, props, trees and the player billboard all dim together with distance, and the
+      bubble contracts through dusk into the night pool. **Still a judgement call for you:**
+      at 30 cells out by day it is quite dark — too dark to want to forage, or exactly the
+      risk it should be? Play it, don't just look at it.
+- [x] **Night look** — ✅ fixed, and this check earned its keep. The pool floor **did** go
+      black on Windows/Vulkan Forward+ at night: a hard-edged black diamond (the omni's
+      range box) over the whole pool. Shadowed omnis are now vetoed on every stack
+      (`GlowTower.SHADOWED_OMNIS_TRUSTED`, decision log 2026-08-10); the shadowless pool
+      renders correctly. Nothing left to check here beyond "does it look good to you."
+- [x] **Billboards** — characters read well at the village by day and inside the night pool,
+      drop shadows sit at the feet. **Note for you:** a player caught out in the wilds *at
+      night* is very nearly invisible (a dark silhouette with a grey head). Probably correct
+      as a punishment, but judge whether it's playable or just frustrating.
+- [x] **Minimap rotation** — verified geometrically rather than by walking: from
+      `--spawn-at=30,0` the tower lies in world −X, which this camera maps to screen
+      up-left, and the gold home marker sits up-left on the radar. Transform is correct.
+      Give the radar a *feel* check while moving anyway.
 - [ ] Real 2-machine test (not loopback): one hosts, the other joins by LAN IP.
 
 Controls: WASD/arrows move · mouse aims · **LMB** shoot · **Q** Piercing Arrow · **F** Snare
