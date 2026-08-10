@@ -670,6 +670,35 @@ the wilds without the walk.
 
 ---
 
+### The tower light casts no shadows anywhere (2026-08-10)
+
+The port-acceptance playtest carried one check nobody had run: PLAYTEST.md flagged
+"**Chris/Vulkan only** — props inside the pool should cast radial shadows away from the
+tower with NO black region… if the pool floor goes black, shout." It goes black. Windows /
+Vulkan Forward+ on a Radeon Vega M renders a hard-edged **black diamond** — the omni's
+±16-cell range box, axis-aligned in world space, so a diamond under the 45° ortho camera —
+over the entire night pool, darker than the unlit ground outside it. Held every other
+variable fixed (same seed, same `--cycle=30:60`, same t=32 stamp) and cleared only
+`shadow_enabled`: the diamond vanishes and the pool reads as a correct soft radial glow.
+**Decision: the allowlist is empty. `GlowTower.SHADOWED_OMNIS_TRUSTED = false` vetoes
+shadowed omnis on every stack**, with `set_light_shadows()` kept as the single gate
+WorldLight drives each frame.
+**Why a const veto rather than deleting the feature:** the gate is the thing that has
+repeatedly been wrong, and keeping one obvious switch makes re-enabling a one-line change
+for a stack that has actually been eyeballed. Cost of going shadowless is small — props
+stop throwing radial shadows away from the tower; the pool, the falloff, and the fight's
+readability are all unaffected (verified in-frame).
+**The lesson, again, sharper:** phase 1's matrix was read as "Windows/Vulkan night omni
+shadows are good" when what it actually established was "Windows/Vulkan doesn't fail the
+way Metal does *by day*." Three sessions then wrote that inference into a docstring, a
+CLAUDE.md convention, and a playtest checklist without a single night frame behind it. The
+architecture log already said "presentation-layer features need per-stack verification with
+eyes on actual frames" — the missing half is that an **allowlist entry is a claim**, and an
+unverified allowlist entry is more dangerous than a missing one, because it reads as
+evidence. Gate defaults belong at deny; entries earn their way in with a frame attached.
+
+---
+
 ## Template for new entries
 
 ```
