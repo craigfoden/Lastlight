@@ -923,6 +923,52 @@ wood/stone; the three essence tiers were harvestable and bought nothing. Arcane 
 there. Flagged as a balance question, not a settled call: if essence is too far out to reach on
 day 1, the Mage cannot build at all.
 
+### Tower upgrades are tiers on the replacement path, not levels on the node (2026-08-15)
+A tower upgrade is an ordinary `BuildingType` reached through a new `upgrades_to` chain, and
+upgrading is the **existing** wall→tower replacement path with its rule widened. Two new fields
+carry the whole feature: `upgrades_to` (the next tier, null = the end of the line) and
+`placeable` (false on tiers, so they never take a hotbar slot).
+
+`BuildManager.resolve_placement(type, cell)` is the one new idea: it decides what a click
+*means*. Clicking open ground with the Sentry hammer builds a Sentry; clicking a cell that
+already holds anything in the Sentry's chain builds that building's **next** tier. It walks the
+whole chain rather than matching the selected type alone, which is what lets one hotbar slot
+drive a whole line — the Sentry hammer takes a II up to a III exactly as it took a I up to a II.
+
+**Why:** the alternative was a `level: int` on the Building node with stats scaled by a curve.
+Fewer files, but it puts progression in a formula instead of in data (against the no-magic-
+numbers rule), makes each tower's curve unauthorable, and needs a new per-instance replicated
+field. Tiers-as-resources need **no new sync at all**: buildings already replicate by spawn
+data, occupancy is already derived from the container on every peer, and `net_cost()` already
+netted off the refund of whatever it replaced. The upgrade RPC is the place RPC.
+
+**What it cost, honestly:** the code is ~40 lines across three scripts. The other 16 files are
+data — 8 tier `.tres` and 8 tier visuals. That is the recipe working as advertised, but it is
+worth saying plainly that "a .tres and a mesh" times eight is still most of the session.
+
+**Two bugs the smoke test caught, both about the resolution step:**
+- Tiers must sit in `buildable_types` for `type_by_id` to resolve them out of a spawn packet —
+  which meant a crafted `request_place("arrow_turret_iii", ...)` bought a top tier outright for
+  its gross cost, skipping the line beneath it. `placement_error` now refuses any type whose
+  `placeable` is false. **A registry entry is not a permission**; anything reachable by id from
+  an RPC needs its own gate.
+- Resolution has to distinguish "walked the chain and found no tier above" from "this cell is
+  simply taken." Without `placed != type`, a wall on a wall reported *"Wall is fully upgraded"* —
+  a sentence about an upgrade line that wall does not have.
+
+**Costs are authored gross and paid net**, the convention walls and towers have used since
+session 11: a tier's `.tres` states its full price and the player pays that minus the refund for
+the tier beneath. Tier III costs 1 Bright Essence purely so the refunded Bright from tier II is
+absorbed rather than clamped away — `net_cost` floors at zero per material and cannot bank
+change. The host now logs what it actually charged, because that netted number is the one thing
+a reader cannot derive from the data files.
+
+**Bright and Radiant Essence buy something for the first time.** Session 13 gave Faint Essence a
+sink; the other two were harvestable from the outer rings — the dangerous ground — and bought
+nothing at all. Tier II costs Bright, tier III costs Radiant, so the far rings are now the
+upgrade economy. Same caveat as the Spire, and now louder: nobody has played these numbers, and
+if Radiant is too far out to reach, tier III is theoretical.
+
 ---
 
 ## Template for new entries

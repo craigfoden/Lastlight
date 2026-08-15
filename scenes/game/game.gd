@@ -462,6 +462,16 @@ func _run_auto_build() -> void:
 	# ...but the swap only goes one way: a wall may not replace a tower.
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(4, 3))
 	await get_tree().create_timer(1.0).timeout
+	# Tier upgrades: clicking the sentry's own hotbar slot on the sentry that is
+	# already standing walks it up its line, one tier per click. The third click
+	# must be refused — sentry_tower_iii is the end of the chain. (Needs the
+	# essence grant; the smoke command passes it.)
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
+	build_manager.request_place.rpc_id(1, &"sentry_tower", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
 	# The class gate, both halves, for whatever class this run picked: your own
 	# exclusive must place and somebody else's must be refused. Derived from the
 	# data rather than naming a building, so it keeps testing the rule as
@@ -469,7 +479,9 @@ func _run_auto_build() -> void:
 	var mine: BuildingType = null
 	var theirs: BuildingType = null
 	for type in build_manager.buildable_types:
-		if type.class_id == &"":
+		# Tiers carry their line's class_id too — skip them, or this picks a
+		# top tier nobody can place from scratch.
+		if type.class_id == &"" or not type.placeable:
 			continue
 		if type.class_id == Network.local_player_class:
 			mine = type

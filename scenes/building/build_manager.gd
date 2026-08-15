@@ -151,6 +151,8 @@ func _nearest_open_neighbor(cell: Vector2i) -> Vector2i:
 func types_for_class(class_id: StringName) -> Array[BuildingType]:
 	var result: Array[BuildingType] = []
 	for type in buildable_types:
+		if not type.placeable:
+			continue
 		if type.class_id == &"" or type.class_id == class_id:
 			result.append(type)
 	return result
@@ -166,9 +168,22 @@ func placement_error(
 		return "Unknown building type"
 	if type.class_id != &"" and type.class_id != builder_class:
 		return "Class exclusive (%s only)" % type.class_id
+	# Upgrade tiers are reached by upgrading, never by naming them directly.
+	# They have to sit in `buildable_types` for `type_by_id` to resolve them out
+	# of a spawn packet, which would otherwise let a crafted `request_place` buy
+	# a top tier outright and skip the line beneath it.
+	if not type.placeable:
+		return "%s is built by upgrading, not from scratch" % type.display_name
 	if not _astar.region.has_point(cell):
 		return "Out of bounds"
-	var replaced := replaceable_at(cell, type)
+	var placed := resolve_placement(type, cell)
+	var existing := building_at(cell)
+	# Resolving to the building already standing means the click walked its
+	# upgrade line and found no tier above. `placed != type` keeps that distinct
+	# from an ordinary same-type collision (a wall on a wall), which is occupancy.
+	if existing != null and placed == existing.type and placed != type:
+		return "%s is fully upgraded" % placed.display_name
+	var replaced := replaceable_at(cell, placed)
 	if _scenery.has(cell) or (_occupied.has(cell) and replaced == null):
 		return "Cell is occupied"
 	if _reserved.has(cell):
@@ -184,32 +199,72 @@ func placement_error(
 	return ""
 
 
-## The building on `cell` that placing `type` would replace, or null if this is
-## an ordinary empty-cell placement. **Towers upgrade walls in place**: a
-## building that attacks may be built straight over one that doesn't. Nothing
-## else is replaceable — no wall over a tower, no tower over a tower.
-func replaceable_at(cell: Vector2i, type: BuildingType) -> Building:
-	if type == null or not type.attacks:
+## What clicking `cell` while holding `type`'s hammer actually builds. Normally
+## that is `type` itself — but when the cell already holds a building from the
+## same upgrade line, the click means "upgrade this one" and resolves to that
+## building's next tier. Walking the chain (rather than matching `type` alone)
+## is what lets one hotbar slot drive a whole line: the Sentry hammer upgrades a
+## Sentry II into a III just as it did I into II.
+##
+## A building already at its final tier resolves to *itself*, which
+## `placement_error` reports as "fully upgraded" rather than "occupied".
+func resolve_placement(type: BuildingType, cell: Vector2i) -> BuildingType:
+	if type == null:
 		return null
 	var existing := building_at(cell)
-	if existing == null or existing.type.attacks:
+	if existing == null:
+		return type
+	for tier in type.upgrade_chain():
+		if tier == existing.type:
+			return existing.type.upgrades_to if existing.type.upgrades_to != null \
+					else existing.type
+	return type
+
+
+## The building on `cell` that building `type` would replace, or null if this is
+## an ordinary empty-cell placement. Two things are replaceable:
+## **its own next tier** (an upgrade — pass the *resolved* type), and
+## **a wall under anything that attacks** (towers upgrade walls in place,
+## session 11). Nothing else — no wall over a tower, no unrelated tower over a
+## tower.
+func replaceable_at(cell: Vector2i, type: BuildingType) -> Building:
+	if type == null:
 		return null
-	return existing
+	var existing := building_at(cell)
+	if existing == null:
+		return null
+	if existing.type.upgrades_to == type:
+		return existing
+	if type.attacks and not existing.type.attacks:
+		return existing
+	return null
 
 
-## What placing `type` on `cell` actually costs the pool: its own cost less the
-## refund for anything it replaces, so upgrading a wall is never worse than
-## selling it and placing fresh. Clamped at zero per material — a replacement
+## What clicking `cell` with `type` selected actually costs the pool: the
+## *resolved* building's cost less the refund for whatever it replaces, so
+## neither upgrading a wall into a tower nor a tower into its next tier is ever
+## worse than selling and placing fresh. Tier .tres files therefore author a
+## **gross** cost and the player pays the difference — the same convention
+## walls and towers have used since session 11. Clamped at zero per material — a replacement
 ## worth more than the upgrade banks no change (can't happen with current data,
 ## and crediting it would need the sell path, not the place path).
 func net_cost(type: BuildingType, cell: Vector2i) -> Dictionary:
-	var net: Dictionary = type.cost.duplicate()
-	var replaced := replaceable_at(cell, type)
+	var placed := resolve_placement(type, cell)
+	if placed == null:
+		return {}
+	var net: Dictionary = placed.cost.duplicate()
+	var replaced := replaceable_at(cell, placed)
 	if replaced == null:
 		return net
 	var refunded := replaced.type.refund()
 	for material_id in refunded:
-		net[material_id] = maxi(int(net.get(material_id, 0)) - refunded[material_id], 0)
+		var remaining := maxi(int(net.get(material_id, 0)) - refunded[material_id], 0)
+		# Drop the line rather than leave a zero: `cost_text` renders every entry,
+		# and "0 Bright Essence" in the upgrade hint is a lie about the price.
+		if remaining > 0:
+			net[material_id] = remaining
+		else:
+			net.erase(material_id)
 	return net
 
 
@@ -252,19 +307,33 @@ func request_place(type_id: StringName, cell: Vector2i) -> void:
 	if error != "":
 		print("[Build] Rejected %s at %s: %s" % [type_id, cell, error])
 		return
-	var replaced := replaceable_at(cell, type)
-	_team_materials.host_spend(net_cost(type, cell))
+	# The click may mean "upgrade the tower already here" — resolve before
+	# spending or spawning, so the pool and the spawn data agree on the tier.
+	var placed := resolve_placement(type, cell)
+	var replaced := replaceable_at(cell, placed)
+	# Logged as well as spent: what the pool was actually charged is the one
+	# number a reader can't derive from the .tres files (it nets off the refund
+	# for whatever stood here), so the smoke tests assert on it.
+	var spent := net_cost(type, cell)
+	_team_materials.host_spend(spent)
 	_place_seq += 1
 	if replaced != null:
-		# Retire the wall first; the seq in the node name keeps the two from
-		# colliding while both are briefly in the tree (queue_free is deferred).
+		# Retire the old building first; the seq in the node name keeps the two
+		# from colliding while both are briefly in the tree (queue_free is
+		# deferred).
 		var replaced_id: StringName = replaced.type.id
+		var upgraded := replaced.type.upgrades_to == placed
 		replaced.queue_free()
-		_spawner.spawn({"type_id": type_id, "cell": cell, "seq": _place_seq})
-		print("[Build] Placed %s at %s, replacing %s" % [type_id, cell, replaced_id])
+		_spawner.spawn({"type_id": placed.id, "cell": cell, "seq": _place_seq})
+		if upgraded:
+			print("[Build] Upgraded %s to %s at %s (cost %s)"
+					% [replaced_id, placed.id, cell, spent])
+		else:
+			print("[Build] Placed %s at %s, replacing %s (cost %s)"
+					% [placed.id, cell, replaced_id, spent])
 		return
-	_spawner.spawn({"type_id": type_id, "cell": cell, "seq": _place_seq})
-	print("[Build] Placed %s at %s" % [type_id, cell])
+	_spawner.spawn({"type_id": placed.id, "cell": cell, "seq": _place_seq})
+	print("[Build] Placed %s at %s (cost %s)" % [placed.id, cell, spent])
 
 
 @rpc("any_peer", "call_local", "reliable")

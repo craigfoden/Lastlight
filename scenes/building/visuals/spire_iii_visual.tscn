@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/spire_visual.tscn" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="rank_mat"]
+albedo_color = Color(0.82, 0.72, 1, 1)
+emission_enabled = true
+emission = Color(0.82, 0.72, 1, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="SphereMesh" id="rank_mesh"]
+material = SubResource("rank_mat")
+radius = 0.19
+height = 0.38
+
+[node name="SpireIIIVisual" type="Node3D"]
+
+[node name="Base" parent="." instance=ExtResource("1")]
+transform = Transform3D(1.12, 0, 0, 0, 1.12, 0, 0, 0, 1.12, 0, 0, 0)
+
+[node name="Rank" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.25, 0)
+mesh = SubResource("rank_mesh")

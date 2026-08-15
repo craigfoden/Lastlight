@@ -12,9 +12,17 @@ signal selection_changed(type: BuildingType)
 signal sell_mode_changed(active: bool)
 ## In sell mode, the building under the mouse changed (null = open ground).
 signal sell_hover_changed(building: Building)
+## What the current selection would actually build on the hovered cell changed.
+## Carries the *resolved* type, so the hint can read "Upgrade to Sentry Tower II"
+## over a cell that already holds a Sentry. `type` is null when nothing is
+## selected; `error` is placement_error's verdict for that cell.
+signal placement_preview_changed(type: BuildingType, cell: Vector2i, error: String)
 
 const GHOST_VALID := Color(0.55, 1.0, 0.55, 0.45)
 const GHOST_INVALID := Color(1.0, 0.4, 0.4, 0.45)
+## A legal click that upgrades the building already standing here, rather than
+## building on open ground — worth its own colour so the two never look alike.
+const GHOST_UPGRADE := Color(1.0, 0.85, 0.35, 0.5)
 ## Sell mode's hover highlight: "this one comes down if you click".
 const GHOST_SELL := Color(1.0, 0.55, 0.2, 0.5)
 ## A cell far outside the grid region — "the mouse ray missed the ground";
@@ -35,6 +43,11 @@ var _my_types: Array[BuildingType] = []
 var _selected: BuildingType
 var _sell_mode := false
 var _sell_hover: Building
+## Last values pushed through `placement_preview_changed`, so the hint updates
+## on change rather than every frame.
+var _preview_type: BuildingType
+var _preview_cell := CELL_NOWHERE
+var _preview_error := ""
 var _ghost: MeshInstance3D
 var _ghost_material: StandardMaterial3D
 
@@ -71,6 +84,8 @@ func select(type: BuildingType) -> void:
 		_set_sell_mode(false)
 	_selected = type
 	_ghost.visible = type != null
+	if type == null:
+		_set_preview(null, CELL_NOWHERE, "")
 	selection_changed.emit(type)
 
 
@@ -90,6 +105,7 @@ func _set_sell_mode(active: bool) -> void:
 		# The hammer replaces the blueprint — drop the selection quietly
 		# (calling select() here would immediately exit sell mode again).
 		_selected = null
+		_set_preview(null, CELL_NOWHERE, "")
 		selection_changed.emit(null)
 	sell_mode_changed.emit(active)
 
@@ -99,6 +115,15 @@ func _set_sell_hover(building: Building) -> void:
 		return
 	_sell_hover = building
 	sell_hover_changed.emit(building)
+
+
+func _set_preview(type: BuildingType, cell: Vector2i, error: String) -> void:
+	if type == _preview_type and cell == _preview_cell and error == _preview_error:
+		return
+	_preview_type = type
+	_preview_cell = cell
+	_preview_error = error
+	placement_preview_changed.emit(type, cell, error)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -138,7 +163,13 @@ func _process(_delta: float) -> void:
 		_ghost.position = _build_manager.cell_to_world(cell) + Vector3(0, 0.45, 0)
 		var error := _build_manager.placement_error(
 				_selected, cell, Network.local_player_class)
-		_ghost_material.albedo_color = GHOST_VALID if error == "" else GHOST_INVALID
+		var placed := _build_manager.resolve_placement(_selected, cell)
+		var upgrading := placed != _selected and error == ""
+		if error != "":
+			_ghost_material.albedo_color = GHOST_INVALID
+		else:
+			_ghost_material.albedo_color = GHOST_UPGRADE if upgrading else GHOST_VALID
+		_set_preview(placed, cell, error)
 	elif _sell_mode:
 		var building := _build_manager.building_at(_mouse_cell())
 		_set_sell_hover(building)

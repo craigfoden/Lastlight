@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/turret_iii_visual.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"arrow_turret_iii"
+display_name = "Siege Turret"
+description = "Ranger exclusive. Outranges everything else on the field and fires twice for every sentry bolt."
+cost = {
+&"essence_bright": 1,
+&"essence_radiant": 3,
+&"stone": 9,
+&"wood": 10
+}
+visual_3d = ExtResource("2")
+placeable = false
+refund_fraction = 0.5
+class_id = &"ranger"
+attacks = true
+damage = 9
+attack_range = 240.0
+fire_interval = 0.5

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/sentry_iii_visual.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"sentry_tower_iii"
+display_name = "Bastion Sentry"
+description = "The sentry line's last word: heavier bolts and a longer watch. Radiant Essence from the deep wilds is the only thing that will raise one."
+cost = {
+&"essence_bright": 1,
+&"essence_radiant": 3,
+&"stone": 8,
+&"wood": 8
+}
+visual_3d = ExtResource("2")
+placeable = false
+refund_fraction = 0.5
+attacks = true
+damage = 8
+attack_range = 160.0
+fire_interval = 0.9

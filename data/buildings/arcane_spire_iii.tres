@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/spire_iii_visual.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"arcane_spire_iii"
+display_name = "Astral Spire"
+description = "Mage exclusive. Watches almost the whole approach, and finally hits hard enough that the chipping actually kills."
+cost = {
+&"essence_bright": 1,
+&"essence_faint": 4,
+&"essence_radiant": 3,
+&"stone": 8
+}
+visual_3d = ExtResource("2")
+placeable = false
+refund_fraction = 0.5
+class_id = &"mage"
+attacks = true
+damage = 7
+attack_range = 320.0
+fire_interval = 0.9

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/turret_ii_visual.tscn" id="2"]
+[ext_resource type="Resource" path="res://data/buildings/arrow_turret_iii.tres" id="3"]
+
+[resource]
+script = ExtResource("1")
+id = &"arrow_turret_ii"
+display_name = "Longbow Turret"
+description = "Ranger exclusive. A longer draw and a faster cycle — the turret's reach starts to cover a whole arm of the maze."
+cost = {
+&"essence_bright": 2,
+&"stone": 7,
+&"wood": 8
+}
+visual_3d = ExtResource("2")
+upgrades_to = ExtResource("3")
+placeable = false
+refund_fraction = 0.5
+class_id = &"ranger"
+attacks = true
+damage = 6
+attack_range = 210.0
+fire_interval = 0.6

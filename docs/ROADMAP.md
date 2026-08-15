@@ -27,7 +27,8 @@ same scene file.
 | 11 | **Balance & behaviour pass** (playtest feedback, Chris's call) — roamers wander instead of loitering on the light edge; daytime survivors conscripted into the night assault instead of burned off at dusk; towers upgrade walls in place (net cost, wall refunded); days cut 5→3 min; harvesting pays on **felling**, not per chop (flat 4, same chop count); wall 1→2 wood, sentry/turret +1 of each; mob hp doubled and damage +1 | ✅ 2026-08-10 (numbers unjudged by a human — the playtest still owes a verdict on night-1 winnability) | Chris + Claude |
 | 12 | **Class roster & the Paladin** — the session-4 class pipe was never joined up at either end: nothing set `Network.local_player_class` and `player.tscn` hardcoded the Ranger, so the roster knew your class and your character didn't. `Classes` registry; class carried in spawn data; **the host now defers a joiner's spawn until their class is in the roster** (it used to spawn inside `peer_connected`, before the client's registration packet arrived); dedicated class-select screen + `--class=<id>`; two new ability kinds (MELEE_ARC, SELF_BUFF); Paladin kit + exclusive tower | ✅ 2026-08-15 (green solo + host/client, incl. a mixed-class party; Paladin numbers are a first draft nobody has played) | Chris + Claude |
 | 13 | **The Mage** — third class, built deliberately as a test of session 12's "add a class = a .tres + a preload" recipe: what the data carried, and where it didn't. Verdict: the claim holds for classes and not for abilities, and never distinguished them — the class, tower, card, gating and XP were genuinely zero code; the two abilities wanting *new behaviour* were not. Both were paid by widening existing kinds rather than adding new ones (MELEE_ARC now roots; a deployable with `tick_damage` burns instead of springing). Arcane Spire is the first building that costs essence | ✅ 2026-08-15 (green solo + host/client across all three classes; numbers unplayed) | Chris + Claude |
-| 14+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 14 | **Tower upgrades, and a sink for the dead essences** — three-tier upgrade lines for all four towers (Sentry/Turret/Brazier/Spire), built as `BuildingType` resources chained by a new `upgrades_to` and hidden from the hotbar by `placeable = false`. No new input mode and no new keys: you hold the base tower's hotbar slot and click a tower already standing, and `BuildManager.resolve_placement` walks it one tier up its line — the session-11 wall→tower replacement path with its rule widened, so upgrades needed no new sync at all. Tier II costs **Bright Essence** and tier III **Radiant Essence**, which before this session were harvestable from the outer rings and bought *nothing whatsoever*. Ghost turns gold over a legal upgrade; the hotbar hint quotes the netted price; base-tower tooltips spell out the whole line. The host now logs what it actually charged. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
+| 15+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -83,6 +84,20 @@ same scene file.
 - Depleted resource nodes never respawn; day-phase respawn/scatter belongs to map-gen work.
   (Softened by session 5: there are ~130 nodes now, so running dry mid-run is unlikely.)
 - Menu has no dedicated Quit button; window close only.
+- **Upgrade tier numbers are a first draft nobody has played** (session 14). The open questions,
+  in order: can you reach Bright Essence early enough for tier II to matter on a night that
+  isn't the last one, and is Radiant so far out that tier III is theoretical? The dial is the
+  tier costs, not the map. Also unjudged: whether upgrading one tower beats building a second,
+  which is the decision the whole feature exists to create.
+- Upgrade tiers are marked by a floating emissive orb over the tower (gold = II, violet = III)
+  plus a slightly bulkier base. Tier III reads clearly in-frame; **II vs III has never been seen
+  side by side**, and an orb over a tower looks a little like a wisp resource node. Placeholder
+  art — revisit when real art lands.
+- The hotbar greys a slot on its **full** cost, so a tower you can only afford because of the
+  refund from what's already on the cell looks unaffordable but still places. Pre-existing for
+  wall→tower (session 11); upgrades inherit it, and it bites harder now that every tier is a
+  net-cost placement. Fix is to tint per hovered cell, which means the hotbar needs the ghost's
+  cell — deliberately not done in session 14.
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.
 
 ## Post-v1 parking lot

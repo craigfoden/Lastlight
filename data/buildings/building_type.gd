@@ -20,6 +20,17 @@ extends Resource
 ## tunes its own value — no magic numbers in the removal logic.
 @export_range(0.0, 1.0, 0.05) var refund_fraction := 1.0
 
+## The tier this building becomes when upgraded in place, or null when it is the
+## last tier. Upgrading reuses the wall->tower replacement path: you hold the
+## base tower's hammer and click the one already standing (the resolution rule
+## lives in BuildManager.resolve_placement).
+@export var upgrades_to: BuildingType
+
+## False for upgrade tiers. They still live in `buildable_types` so placement
+## RPCs can resolve their ids, but they are never their own hotbar slot — you
+## reach a tier by upgrading into it, never by placing it from scratch.
+@export var placeable := true
+
 @export var texture: Texture2D
 
 ## The 3D port's look for this building — a small mesh scene instantiated by
@@ -38,6 +49,18 @@ extends Resource
 @export var attack_range := 0.0
 ## Seconds between shots.
 @export var fire_interval := 1.0
+
+
+## This tier and every one above it, base first — the whole upgrade line. The
+## `has()` guard makes a mis-authored cycle in the .tres files terminate with a
+## short chain instead of hanging the game.
+func upgrade_chain() -> Array[BuildingType]:
+	var chain: Array[BuildingType] = []
+	var tier: BuildingType = self
+	while tier != null and not chain.has(tier):
+		chain.append(tier)
+		tier = tier.upgrades_to
+	return chain
 
 
 ## What selling this returns: each cost line scaled by `refund_fraction` and

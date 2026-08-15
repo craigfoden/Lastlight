@@ -11,13 +11,21 @@ const PX_PER_UNIT := 32.0
 ## Shown while sell mode is on but nothing removable is under the mouse.
 const SELL_HINT_DEFAULT := "Click a highlighted building to sell it"
 
+## Hint colours: selling, a legal upgrade, and a refused click. They match the
+## ghost's own tints (BuildController.GHOST_SELL/UPGRADE/INVALID) so the text
+## under the dock and the box on the ground always agree.
+const HINT_SELL := Color(1.0, 0.75, 0.5)
+const HINT_UPGRADE := Color(1.0, 0.85, 0.45)
+const HINT_REFUSED := Color(1.0, 0.55, 0.55)
+
+var _build_manager: BuildManager
 var _build_controller: BuildController
 var _team_materials: TeamMaterials
 var _buttons := {}  # BuildingType -> Button
 var _sell_button: Button
 
 @onready var _slots: HBoxContainer = %Slots
-@onready var _sell_hint: Label = %SellHint
+@onready var _hint: Label = %Hint
 
 
 ## Injected by the Game scene.
@@ -25,6 +33,7 @@ func setup(
 		build_manager: BuildManager,
 		build_controller: BuildController,
 		team_materials: TeamMaterials) -> void:
+	_build_manager = build_manager
 	_build_controller = build_controller
 	_team_materials = team_materials
 
@@ -53,6 +62,7 @@ func setup(
 	build_controller.selection_changed.connect(_on_selection_changed)
 	build_controller.sell_mode_changed.connect(_on_sell_mode_changed)
 	build_controller.sell_hover_changed.connect(_on_sell_hover_changed)
+	build_controller.placement_preview_changed.connect(_on_placement_preview_changed)
 	team_materials.pool_changed.connect(_refresh_affordability)
 	_refresh_affordability()
 
@@ -69,18 +79,45 @@ func _on_selection_changed(selected: BuildingType) -> void:
 
 func _on_sell_mode_changed(active: bool) -> void:
 	_sell_button.set_pressed_no_signal(active)
-	_sell_hint.visible = active
-	_sell_hint.text = SELL_HINT_DEFAULT
+	_hint.visible = active
+	_show_hint(SELL_HINT_DEFAULT, HINT_SELL)
 
 
 # Promise exactly what the host will pay — both sides ask BuildingType.refund().
 func _on_sell_hover_changed(building: Building) -> void:
 	if building == null:
-		_sell_hint.text = SELL_HINT_DEFAULT
+		_show_hint(SELL_HINT_DEFAULT, HINT_SELL)
 		return
 	var refund := building.type.refund()
-	_sell_hint.text = "Sell %s — refunds %s" % [building.type.display_name,
-			Materials.cost_text(refund) if not refund.is_empty() else "nothing"]
+	_show_hint("Sell %s — refunds %s" % [building.type.display_name,
+			Materials.cost_text(refund) if not refund.is_empty() else "nothing"],
+			HINT_SELL)
+
+
+# Build mode: the hint only speaks up over a cell that already holds something,
+# which is exactly when the click does something other than what the hotbar slot
+# says. Quotes net_cost, so the promise is what the host will actually charge.
+func _on_placement_preview_changed(
+		type: BuildingType, cell: Vector2i, error: String) -> void:
+	var existing := _build_manager.building_at(cell) if type != null else null
+	if existing == null:
+		_hint.visible = false
+		return
+	_hint.visible = true
+	if error != "":
+		_show_hint(error, HINT_REFUSED)
+		return
+	var verb := "Upgrade to" if existing.type.upgrades_to == type else "Replace with"
+	var line := "%s %s — %s" % [verb, type.display_name,
+			Materials.cost_text(_build_manager.net_cost(type, cell))]
+	if type.attacks:
+		line += " · %s" % _attack_text(type)
+	_show_hint(line, HINT_UPGRADE)
+
+
+func _show_hint(text: String, color: Color) -> void:
+	_hint.text = text
+	_hint.add_theme_color_override(&"font_color", color)
 
 
 func _refresh_affordability() -> void:
@@ -95,10 +132,26 @@ func _tooltip_for(type: BuildingType) -> String:
 	if type.description != "":
 		lines.append(type.description)
 	if type.attacks:
-		lines.append("Damage %d · Range %.1f cells · Fires every %.1f s" % [
-				type.damage, type.attack_range / PX_PER_UNIT, type.fire_interval])
+		lines.append(_attack_text(type))
 	if type.class_id != &"":
 		lines.append("%s exclusive." % String(type.class_id).capitalize())
 	lines.append("Cost: %s · Sells back at %d%%" % [
 			Materials.cost_text(type.cost), int(roundf(type.refund_fraction * 100.0))])
+	# Spell out the upgrade line on the slot that starts it — otherwise nothing
+	# in the UI tells you the higher tiers exist until you click one into being.
+	var chain := type.upgrade_chain()
+	if chain.size() > 1:
+		lines.append("")
+		lines.append("Upgrades in place — click this slot on one already built:")
+		for i in range(1, chain.size()):
+			var tier := chain[i]
+			lines.append("  %s — %s · %s" % [
+					tier.display_name, Materials.cost_text(tier.cost),
+					_attack_text(tier)])
+		lines.append("(you pay the difference — the old tier's refund comes off)")
 	return "\n".join(lines)
+
+
+func _attack_text(type: BuildingType) -> String:
+	return "Damage %d · Range %.1f cells · Fires every %.1f s" % [
+			type.damage, type.attack_range / PX_PER_UNIT, type.fire_interval]

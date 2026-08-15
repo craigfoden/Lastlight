@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="BuildingType" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="BuildingType" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/arrow_turret.svg" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/building/visuals/turret_visual.tscn" id="3"]
+[ext_resource type="Resource" path="res://data/buildings/arrow_turret_ii.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
@@ -15,6 +16,7 @@ cost = {
 }
 texture = ExtResource("2")
 visual_3d = ExtResource("3")
+upgrades_to = ExtResource("4")
 class_id = &"ranger"
 refund_fraction = 0.5
 attacks = true

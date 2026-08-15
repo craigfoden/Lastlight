@@ -167,10 +167,23 @@ set `class_id` for class exclusives; set `refund_fraction` for salvage-on-remova
 1.0/full, towers use 0.5; set `visual_3d` to a small mesh scene under
 `scenes/building/visuals/`) → add the resource to `buildable_types` on the BuildManager node
 in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and sync all follow
-from the data. `attacks` also decides **upgrades**: anything that attacks may be built
+from the data. `attacks` also decides **wall replacement**: anything that attacks may be built
 straight over anything that doesn't (tower replaces wall, charged at cost minus the wall's
 refund), never the reverse — so a new non-attacking building is automatically replaceable and
 a new tower automatically replaces walls, with no code change.
+
+**Add an upgrade tier to a tower:** create the tier the same way as any building, then set
+`placeable = false` on it (tiers are reached by upgrading, never from the hotbar — and
+`placement_error` refuses a direct request for one) and point the tier *below* it at it via
+`upgrades_to`. Build the line top-down so each `.tres` can reference the next. Add **every**
+tier to `buildable_types` in `game.tscn` regardless — `type_by_id` has to resolve them out of
+spawn packets — and give each its own `visual_3d` so a tower's rank is readable on the ground.
+In play you hold the base tower's hotbar slot and click a tower already standing: it walks one
+tier up its line per click (`BuildManager.resolve_placement`). **Costs are authored gross and
+paid net** — the tier states its full price and the player pays that minus the refund for the
+tier beneath, so an upgrade is never worse than selling and rebuilding. `net_cost` floors at
+zero per material and cannot give change, so if a tier refunds a material the next one doesn't
+charge for, that refund is silently lost — spend it back by having the next tier cost 1 of it.
 
 **Add an enemy:** create `data/enemies/<id>.tres` (script `enemy_type.gd`; stable `id`, hp,
 speed, attack stats — px-denominated) → add its 32×48 sprite SVG → add the resource to

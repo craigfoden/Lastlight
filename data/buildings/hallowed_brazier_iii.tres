@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/brazier_iii_visual.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"hallowed_brazier_iii"
+display_name = "Radiant Pyre"
+description = "Paladin exclusive. Hits harder than anything else that can be built, and still barely reaches past arm's length — build the maze around it, not the other way round."
+cost = {
+&"essence_bright": 1,
+&"essence_radiant": 3,
+&"stone": 9,
+&"wood": 9
+}
+visual_3d = ExtResource("2")
+placeable = false
+refund_fraction = 0.5
+class_id = &"paladin"
+attacks = true
+damage = 16
+attack_range = 112.0
+fire_interval = 1.2
