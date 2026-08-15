@@ -10,6 +10,7 @@ extends Node3D
 ## --auto-walk (local player strolls), --log-players-after-sec=a,b,
 ## --auto-harvest (teleport-harvest loop, exercises the RPC chain),
 ## --auto-build / --auto-block-test / --grant-materials=... / --auto-fight /
+## --auto-camp / --auto-camp-clear /
 ## --hurt-test / --tower-hp=N / --fast-cycle / --cycle=day:night /
 ## --final-day=N / --spawn-at=x,z (start the local player out in the wilds).
 ## Class comes from --class=<id>, parsed on the main menu before we load.
@@ -101,6 +102,14 @@ func _ready() -> void:
 	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
 			world_gen.safe_radius)
 	world_light.setup(day_night, $Sun, $WorldEnvironment, glow_tower)
+	# Camps last of the world wiring: they need the WaveDirector already holding
+	# the build grid and the tower, which is the line above. WorldGen built the
+	# camps themselves during its own _ready. Garrisons are NOT posted here —
+	# that is host-only work and we do not yet know whether we are the host (see
+	# the host branch below, and GOTCHAS).
+	for node in get_tree().get_nodes_in_group("camps"):
+		node.setup(wave_director)
+		node.cleared.connect(_on_camp_cleared.bind(node))
 	wave_director.night_survived.connect(_on_night_survived)
 	glow_tower.destroyed.connect(_on_tower_destroyed)
 	run_end_screen.menu_requested.connect(_return_to_menu.bind(""))
@@ -130,6 +139,12 @@ func _ready() -> void:
 			Network.player_registered.connect(_on_player_registered)
 			# Our own roster entry was written by host_game(), so no wait here.
 			_spawn_player(1)
+			# Camp garrisons: host-only, and only safe to post now. Until
+			# host_game() assigned a peer, `multiplayer.is_server()` answered
+			# TRUE on a joining client too, so a self-guarded version had every
+			# client spawning its own guards into a spawner it does not own.
+			for node in get_tree().get_nodes_in_group("camps"):
+				node.host_post_garrison()
 			for arg in OS.get_cmdline_user_args():
 				# Dev cheat for testing builds: --grant-materials=wood:10,stone:10
 				if arg.begins_with("--grant-materials="):
@@ -180,6 +195,10 @@ func _on_player_registered(peer_id: int) -> void:
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
 		node.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("enemies"):
+		node.host_send_snapshot(peer_id)
+	# Camps: the guards themselves replicate through the enemy spawner, but the
+	# tally that locks each cache is Camp's own state and has to be sent.
+	for node in get_tree().get_nodes_in_group("camps"):
 		node.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("players"):
 		node.host_send_snapshot(peer_id)
@@ -247,6 +266,14 @@ func _end_run(victory: bool, nights: int) -> void:
 
 func _on_resource_harvested(material_type: MaterialType, count: int) -> void:
 	team_materials.host_add(material_type.id, count)
+
+
+# Host only. The cache unlocks itself (Camp pushes the tally); this is the run's
+# record that a site fell, which is the thing worth reading back in a log.
+func _on_camp_cleared(camp: Camp) -> void:
+	print("[Camp] %s at %v cleared on day %d - %s waiting in the cache"
+			% [camp.type.id, camp.global_position, day_night.day_number,
+			Materials.cost_text(camp.type.loot)])
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -337,6 +364,10 @@ func _parse_dev_args() -> void:
 			_run_auto_block_test()
 		elif arg == "--auto-fight":
 			_start_auto_fight()
+		elif arg == "--auto-camp":
+			_start_auto_camp()
+		elif arg == "--auto-camp-clear":
+			_start_auto_camp_clear()
 		elif arg == "--hurt-test":
 			_start_hurt_test()
 		elif arg == "--fast-cycle":
@@ -419,6 +450,73 @@ func _auto_fight_reach(ability: AbilityType) -> float:
 			# Pop it as they close, which is when it would matter.
 			return AUTO_FIGHT_BUFF_RANGE
 	return 0.0
+
+
+# Smoke-test hook (godot -- --auto-camp): stand at the nearest camp's cache and
+# try to loot it every 2 s. While the garrison stands the host must REFUSE (the
+# [ResourceNode] refusal log); once something has cleared the camp the same call
+# must pay out (the [Loot] log). Deliberately runs on host or client — pointing
+# it at a client is how the two-instance smoke proves a client-initiated loot
+# travels the whole RPC chain.
+func _start_auto_camp() -> void:
+	var timer := Timer.new()
+	timer.wait_time = 2.0
+	timer.autostart = true
+	timer.timeout.connect(_auto_camp_tick)
+	add_child(timer)
+
+
+func _auto_camp_tick() -> void:
+	var me: Player = players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me == null or not me.is_multiplayer_authority():
+		return
+	# Nearest camp to the village that still has loot in it.
+	var target: Camp = null
+	var best := INF
+	for node in get_tree().get_nodes_in_group("camps"):
+		var camp := node as Camp
+		var cache := camp.get_node_or_null("Cache") as LootCache
+		if cache == null or cache.amount <= 0:
+			continue
+		var dist: float = camp.global_position.length_squared()
+		if dist < best:
+			best = dist
+			target = camp
+	if target == null:
+		return
+	var cache := target.get_node_or_null("Cache") as LootCache
+	var stand := cache.global_position + Vector3(1.0, 0.0, 0.0)
+	if me.global_position.distance_to(stand) > 0.1:
+		# Arrive this tick, ask next tick: a freshly moved Area3D reports no
+		# overlaps until it has been through a physics step, so harvesting on the
+		# same tick as the teleport silently finds nothing (see GOTCHAS).
+		me.global_position = stand
+		print("[Camp] auto-camp: arrived at %s, %d guards left" % [
+				target.type.id, target.guards_remaining])
+		return
+	print("[Camp] auto-camp: trying %s, %d guards left" % [
+			target.type.id, target.guards_remaining])
+	me.try_harvest()
+
+
+# Smoke-test hook (godot -- --auto-camp-clear): host cheat that kills every camp
+# garrison in the world once, so the unlock -> loot half of --auto-camp can be
+# exercised without a real fight. Kills rather than despawns, so it goes through
+# the same `died` signal a player's arrow would.
+func _start_auto_camp_clear() -> void:
+	# Late enough that --auto-camp on a client gets several *refused* attempts in
+	# first: the lock is half of what this pair of hooks exists to prove.
+	await get_tree().create_timer(12.0).timeout
+	if not multiplayer.is_server():
+		return
+	var killed := 0
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var enemy := node as Enemy
+		if enemy == null or enemy.behavior != Enemy.Behavior.GUARD or enemy.hp <= 0:
+			continue
+		enemy.host_take_damage(enemy.hp)
+		killed += 1
+	print("[Camp] auto-camp-clear: put down %d guards" % killed)
 
 
 # Smoke-test hook (godot -- --hurt-test): the host chips every player's hp on a
@@ -526,7 +624,9 @@ func _auto_harvest_tick() -> void:
 	var nearest: ResourceNode = null
 	var best := INF
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
-		if node.amount <= 0:
+		# A locked loot cache is a resource node that would refuse us — the
+		# harness would park on it forever. --auto-camp is the hook for those.
+		if node.amount <= 0 or node.harvest_block_reason() != "":
 			continue
 		var dist := me.global_position.distance_squared_to(node.global_position)
 		if dist < best:

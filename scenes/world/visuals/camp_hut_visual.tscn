@@ -1,0 +1,27 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="StandardMaterial3D" id="daub_mat"]
+albedo_color = Color(0.427451, 0.388235, 0.317647, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="thatch_mat"]
+albedo_color = Color(0.352941, 0.290196, 0.180392, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="wall_mesh"]
+material = SubResource("daub_mat")
+size = Vector3(0.88, 1.05, 0.88)
+
+[sub_resource type="PrismMesh" id="roof_mesh"]
+material = SubResource("thatch_mat")
+size = Vector3(1.02, 0.55, 1.02)
+
+[node name="CampHutVisual" type="Node3D"]
+
+[node name="Walls" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.52, 0)
+mesh = SubResource("wall_mesh")
+
+[node name="Roof" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.3, 0)
+mesh = SubResource("roof_mesh")

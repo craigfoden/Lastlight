@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CampType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/camps/camp_type.gd" id="1"]
+[ext_resource type="Resource" path="res://data/enemies/wretch.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"bandit_camp"
+display_name = "Bandit Camp"
+description = "A scavenger camp thrown up against the dark. Whatever they took from the last village is still stacked in the middle of it."
+site_count = 4
+radius_min = 20.0
+radius_max = 50.0
+footprint_radius = 3
+courtyard_radius = 1
+guard_type = ExtResource("2")
+guard_count = 3
+guard_post_radius = 1.6
+guard_leash = 12.0
+loot = {
+&"stone": 4,
+&"wood": 6
+}

@@ -109,6 +109,28 @@ abilities, B dodge, A interact.
 - [ ] Build a maze corridor, then watch night enemies actually walk it.
 - [ ] In build mode, LMB places (doesn't fire the bow); Esc puts the hammer away.
 
+### 4b. Camps (session 15 — the day loop's whole reason to exist)
+
+Ten camps sit out in the wilds; the minimap rings them red while held, green once cleared.
+Nothing here has been played by a human. The headline question is whether a camp is a **bet
+worth placing with a third of your day**, not whether it works.
+
+- [ ] Walk to a bandit camp (nearest ones are ~20–50 cells out). Does it read as a *place* from
+      a distance, or as scenery you happen to be standing in?
+- [ ] Stand by the cache with the garrison alive: the prompt must say *sealed while N guards
+      still stand* and E must do nothing. Kill them; the bars come off and E pays the bundle.
+- [ ] **Fight it honestly.** Three wretches at a bandit camp, five marauders at a barrow. Is a
+      camp a fight or a formality? Is the barrow survivable before you have towers up?
+- [ ] **The leash.** Back away mid-fight: guards should chase a little, give up, and walk home
+      — never trail you back to the village, and never let you peel the whole camp one at a
+      time from safety.
+- [ ] **The real question: does clearing a camp cost you the day?** Time one. If you can clear
+      a camp *and* harvest *and* build, camps are free money and the numbers are wrong.
+- [ ] **Radiant is now camp-only in practice** (ambient scatter is 4 %). Play a run trying to
+      reach a tier-III tower. Earned, or unreachable? This is the dial the feature lives on.
+- [ ] Guards must still be standing after a night passes — camps are not burned off at dawn.
+- [ ] Two players: clear a camp together, have the *other* player loot it. Pool credits once.
+
 ### 5. Night combat (10 min — the fun question lives here)
 - [ ] Waves come from both openings; towers fire on their own.
 - [ ] The kit: bow on cooldown-clicks, Piercing Arrow through a line of enemies, trap roots

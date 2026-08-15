@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CampType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/camps/camp_type.gd" id="1"]
+[ext_resource type="Resource" path="res://data/enemies/shambler.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"ruined_hamlet"
+display_name = "Ruined Hamlet"
+description = "Somebody lived here before the light failed. What is walking between the houses now did not."
+site_count = 3
+radius_min = 45.0
+radius_max = 72.0
+footprint_radius = 4
+courtyard_radius = 1
+guard_type = ExtResource("2")
+guard_count = 4
+guard_post_radius = 2.2
+guard_leash = 14.0
+loot = {
+&"essence_bright": 2,
+&"essence_faint": 4,
+&"stone": 8
+}

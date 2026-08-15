@@ -32,6 +32,27 @@ while the sun is up.
 Procedurally generated to a standard: village at the center, danger and rarity increasing with
 distance. **The difficulty setting controls how many openings** lead into the village (easiest = 1).
 
+## Camps (session 15)
+
+Scattered through the wilds are **guarded sites** — bandit camps near in, ruined hamlets in the
+middle ring, warband barrows out at the edge. Each is a ruin with a garrison standing in it and
+a **cache** at its heart that will not open while a single guard lives.
+
+Camps exist to give the *day* a decision. Harvesting is a tax you pay with time; a camp is a
+bet you place with it. Clearing one costs a real chunk of a three-minute day plus the walk, and
+the roamers are still out there while you do it — so "do we go take the eastern camp today, or
+do we build?" is a conversation two players have to have.
+
+**Distance sets the tier**, the same axis everything else in the map uses: a bandit camp is
+three wretches and a pile of wood, a barrow is five marauders and the run's Radiant Essence.
+Guards hold their ground on a **leash** — pull one and you have pulled one, but the garrison
+cannot be kited off the site and the cache walked to.
+
+**Camps are the Radiant Essence supply.** The ambient scatter keeps only a token 4 %, so the
+tier-III towers introduced in session 14 are gated on clearing a barrow rather than on walking
+far enough. Distance was already something the map charges for; this makes the top tier cost a
+*decision* instead.
+
 ## Multiplayer rules
 
 - 1–4 players; **solo is first-class** (waves, costs, rewards scale with player count).

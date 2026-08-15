@@ -85,6 +85,11 @@ that screen entirely, so this is the only way to choose one headlessly; unknown 
 refused loudly and leave the default in place),
 `--spawn-at=x,z` (start the local player at that cell — playtest distance-based things
 like the glow edge and roamers without the walk),
+`--auto-camp` (stand at the nearest camp's cache and try to loot it every 2 s — refused while
+the garrison stands, pays out once it doesn't; runs on host *or* client, and pointing it at a
+client is how the two-instance smoke proves a client-initiated loot travels the whole chain),
+`--auto-camp-clear` (host cheat: kills every camp garrison after 12 s, so the unlock→loot half
+can be exercised without a real fight — pair it with `--auto-camp`),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
 windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
@@ -218,6 +223,17 @@ the new *behaviours*, not the new classes. Cheapest first: a new number on an ex
 Give a class a **fourth** placeable and it appears in the hotbar but stays click-only until a
 `build_select_4` action is added to `project.godot` (see `BuildController.HOTBAR_KEYS`).
 
+**Add a camp:** create `data/camps/<id>.tres` (script `camp_type.gd`; stable `id`,
+`display_name`, `description`, `site_count`, the `radius_min`/`radius_max` ring band in cells,
+`footprint_radius`, a `guard_type` + `guard_count` + `guard_leash`, and a `loot` dict) → add it
+to `camp_types` on `World/WorldGen` in `game.tscn`. Placement, the ruined-wall footprint, the
+cache, the lock, the garrison, the minimap ring and all the sync follow from the data.
+**If the guard is a new enemy**, add its `.tres` to `guard_types` on the WaveDirector — *not*
+`enemy_types`, which is the night's composition and would draft your guard into the horde.
+Camps are stamped **before** the resource/scenery scatter (they are the only content with a
+footprint), so adding one shifts the whole map layout — expected, and the startup layout hash
+will change on every peer together.
+
 **Add a talent:** create `data/talents/<id>.tres` (script `talent_type.gd`; `class_id`,
 `modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys.
 
@@ -301,6 +317,14 @@ Give a class a **fourth** placeable and it appears in the hotbar but stays click
 - Sub-resources authored in a `.tscn` (shapes, meshes, materials) are **shared across every
   instance** of that scene unless `resource_local_to_scene` is set. Sizing one from per-instance
   data resizes every other live instance too — build it in code instead.
+- **`multiplayer.is_server()` returns TRUE before a peer is assigned.** A joining client runs
+  all of `Game._ready()` *before* `Network.join_game()` creates its peer, and a peerless
+  `SceneMultiplayer` reports itself as the server — so any `if multiplayer.is_server():` in
+  that window fires on clients too. Symptom seen in session 15: 39 `!_has_authority(spawner)`
+  errors, then 39 `parent->has_node(name)` collisions as the host's real spawns landed on
+  names the client had already taken, then a flood of `!pinfo.recv_nodes.has(net_id)`. One
+  cause, three unrelated-looking error storms. Host-only work in `_ready` must be *called from*
+  the start-mode branch, not self-guarded before it.
 - Windowed runs on this Windows box log `WASAPI: init_output_device error` and fall back to the
   dummy audio driver — there is no audio device over RDP. Environmental, not a code fault; it
   does not appear in `--headless` runs.

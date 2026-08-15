@@ -1,0 +1,66 @@
+[gd_scene load_steps=8 format=3]
+
+[sub_resource type="StandardMaterial3D" id="chest_mat"]
+albedo_color = Color(0.360784, 0.239216, 0.152941, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="band_mat"]
+albedo_color = Color(0.470588, 0.443137, 0.352941, 1)
+metallic = 0.6
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="glow_mat"]
+albedo_color = Color(1, 0.870588, 0.470588, 1)
+emission_enabled = true
+emission = Color(1, 0.807843, 0.352941, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="BoxMesh" id="body_mesh"]
+material = SubResource("chest_mat")
+size = Vector3(0.72, 0.42, 0.5)
+
+[sub_resource type="BoxMesh" id="lid_mesh"]
+material = SubResource("band_mat")
+size = Vector3(0.76, 0.16, 0.54)
+
+[sub_resource type="BoxMesh" id="bar_mesh"]
+material = SubResource("band_mat")
+size = Vector3(0.06, 0.9, 0.06)
+
+[sub_resource type="SphereMesh" id="glow_mesh"]
+material = SubResource("glow_mat")
+radius = 0.13
+height = 0.26
+
+[node name="CacheVisual" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.21, 0)
+mesh = SubResource("body_mesh")
+
+[node name="Lid" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("lid_mesh")
+
+[node name="Bars" type="Node3D" parent="."]
+
+[node name="BarNW" type="MeshInstance3D" parent="Bars"]
+position = Vector3(-0.32, 0.45, -0.32)
+mesh = SubResource("bar_mesh")
+
+[node name="BarNE" type="MeshInstance3D" parent="Bars"]
+position = Vector3(0.32, 0.45, -0.32)
+mesh = SubResource("bar_mesh")
+
+[node name="BarSW" type="MeshInstance3D" parent="Bars"]
+position = Vector3(-0.32, 0.45, 0.32)
+mesh = SubResource("bar_mesh")
+
+[node name="BarSE" type="MeshInstance3D" parent="Bars"]
+position = Vector3(0.32, 0.45, 0.32)
+mesh = SubResource("bar_mesh")
+
+[node name="Glow" type="MeshInstance3D" parent="."]
+visible = false
+position = Vector3(0, 0.72, 0)
+mesh = SubResource("glow_mesh")

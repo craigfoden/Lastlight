@@ -11,6 +11,12 @@ extends Node3D
 ##    (outside the safe zone) so venturing far is never risk-free. At nightfall
 ##    the survivors are conscripted into the assault rather than cleared — what
 ##    you failed to deal with by day arrives with the horde.
+## It also owns the spawner the **camps** borrow for their garrisons
+## (`host_spawn_guard`). Camps decide where guards stand; the WaveDirector is
+## simply the one node that may create an Enemy, so there is a single spawner
+## and a single spawn-data format for every monster in the game. GUARD monsters
+## are otherwise none of its business: they are exempt from the dawn wipe and
+## from the dusk conscription, so a camp is cleared by players or not at all.
 ## Enemies replicate through the MultiplayerSpawner below; clients only ever
 ## see the results.
 
@@ -22,6 +28,12 @@ const EnemyScene := preload("res://scenes/enemy/enemy.tscn")
 ## Monster roster for this run, in escalation order (index 0 = the baseline).
 ## Recipe: new enemy .tres goes in this array on the WaveDirector node.
 @export var enemy_types: Array[EnemyType] = []
+
+## Monsters that only ever stand in camps. Kept out of `enemy_types` on purpose:
+## that array *is* the night's composition (index 0 is the baseline, index 1 the
+## fast one, and the day loop cycles the whole thing), so a camp guard listed
+## there would quietly join the horde. Spawn packets resolve ids out of both.
+@export var guard_types: Array[EnemyType] = []
 
 ## Night is a CONTINUOUS stream until dawn, not a fixed count. The gap between
 ## spawns eases from `spawn_interval_start` (dusk trickle) toward
@@ -122,8 +134,10 @@ func _on_phase_changed(phase: DayNightCycle.Phase) -> void:
 		_reschedule_spawn()
 	else:
 		_spawn_timer.stop()
-		# Dawn: the amplified sunlight burns whatever is still out there.
-		_despawn_all()
+		# Dawn: the amplified sunlight burns whatever is still out there — but
+		# not camp garrisons. A camp is standing content, not a wave: burning it
+		# off would hand the players a free cache every morning.
+		_despawn_all(false)
 		if _night_number > 0:
 			night_survived.emit(_night_number)
 
@@ -183,7 +197,12 @@ func _spawn_one_assault() -> void:
 		type = enemy_types[1]
 	var spawn_position := _spawn_positions[_spawn_seq % _spawn_positions.size()]
 	spawn_position += Vector3(0, 0, randf_range(-spawn_jitter, spawn_jitter))
-	_spawner.spawn({"type_id": type.id, "position": spawn_position, "seq": _spawn_seq})
+	_spawner.spawn({
+		"type_id": type.id,
+		"position": spawn_position,
+		"seq": _spawn_seq,
+		"behavior": Enemy.Behavior.ASSAULT,
+	})
 
 
 # Daytime top-up: keep the roamer population at target while it is day.
@@ -205,9 +224,27 @@ func _day_tick() -> void:
 		"type_id": type.id,
 		"position": spawn_position,
 		"seq": _spawn_seq,
-		"roam": true,
+		"behavior": Enemy.Behavior.ROAM,
 	})
 	print("[Waves] Day roamer released (%s)" % type.id)
+
+
+## Host only: post one camp guard and hand the node back so the camp can watch
+## it die. Camps own the geometry (where a post is, how long the leash is); this
+## exists so every Enemy in the game is still born from the one spawner, with
+## one spawn-data format, and replicates the same way.
+func host_spawn_guard(type: EnemyType, post: Vector3, home: Vector3, leash: float) -> Node:
+	if not multiplayer.is_server() or type == null:
+		return null
+	_spawn_seq += 1
+	return _spawner.spawn({
+		"type_id": type.id,
+		"position": post,
+		"seq": _spawn_seq,
+		"behavior": Enemy.Behavior.GUARD,
+		"home": home,
+		"leash": leash,
+	})
 
 
 # Nightfall: every surviving daytime roamer switches to ASSAULT and marches on
@@ -234,20 +271,27 @@ func _alive_roamers() -> int:
 func _build_enemy(data: Dictionary) -> Node:
 	var enemy := EnemyScene.instantiate()
 	enemy.name = "Enemy_%d" % data.seq
-	var behavior: Enemy.Behavior = Enemy.Behavior.ROAM if data.get("roam", false) \
-			else Enemy.Behavior.ASSAULT
+	var behavior: Enemy.Behavior = data.get("behavior", Enemy.Behavior.ASSAULT)
 	enemy.setup(_type_by_id(data.type_id), data.position, _build_manager, _tower,
-			behavior, _safe_radius, roamer_spawn_max_radius)
+			behavior, _safe_radius, roamer_spawn_max_radius,
+			data.get("home", Vector3.ZERO), data.get("leash", 0.0))
 	return enemy
 
 
-func _despawn_all() -> void:
+# `include_guards` is false at dawn (garrisons are standing content, not a wave)
+# and true at run end, where the whole field is cleared.
+func _despawn_all(include_guards := true) -> void:
 	for enemy in _enemies.get_children():
+		if not include_guards and enemy.behavior == Enemy.Behavior.GUARD:
+			continue
 		enemy.queue_free()
 
 
 func _type_by_id(type_id: StringName) -> EnemyType:
 	for type in enemy_types:
+		if type.id == type_id:
+			return type
+	for type in guard_types:
 		if type.id == type_id:
 			return type
 	return null

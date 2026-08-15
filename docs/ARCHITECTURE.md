@@ -969,6 +969,90 @@ nothing at all. Tier II costs Bright, tier III costs Radiant, so the far rings a
 upgrade economy. Same caveat as the Spire, and now louder: nobody has played these numbers, and
 if Radiant is too far out to reach, tier III is theoretical.
 
+### Camps split down the middle: WorldGen owns the place, Camp owns the state (2026-08-15)
+A camp is a footprint of ruined walls, a garrison of leashed guards, and a cache that stays
+locked until the last guard falls. It is built by two owners with a hard line between them.
+
+**WorldGen owns the layout** and nothing else: it rolls a site, reserves the whole footprint,
+stamps a perimeter of solid props with a doorway knocked in it, and creates the `Camp` node.
+All of that is deterministic from the baked seed and, like every other scatter, **never
+synced** — the layout hash printed at startup matched byte-for-byte across host and client in
+the smoke.
+
+**Camp owns the state**, because the state cannot work that way. Guards are `Enemy` nodes, and
+Enemies are host-simulated with client physics disabled and hp delivered by RPC — a
+deterministic per-peer scatter cannot produce one. So the host posts the garrison through the
+WaveDirector's spawner, counts it down, and broadcasts the tally.
+
+**Why the split at all:** the tempting alternative was to make guards deterministic scenery so
+camps needed no networking. That fails the moment a guard moves or dies. The other alternative
+was to make camps entirely host-spawned, including the walls, which throws away the free,
+zero-bandwidth layout the scatter already gives us. Splitting on *deterministic vs simulated*
+puts each half where it costs nothing.
+
+**Camps are stamped before the resource and scenery passes.** They are the only content with a
+footprint, and reserving a whole site up front is what keeps a courtyard clear — which in turn
+is what lets `Camp.host_post_garrison()` place guards without re-checking for walls. It costs
+the scatter a handful of skipped rolls and it means the map layout is no longer cell-for-cell
+the 2D game's, since the rng sequence now starts with the camps.
+
+### LootCache extends ResourceNode instead of being a new interactable (2026-08-15)
+Every part of the harvest lane already fitted: the same E key, the same host-side range check,
+the same request → validate → broadcast RPCs, the same "depleted, so free the cell" derived
+state, and the same `harvested` signal the game routes into the pool. A cache changes only
+three things, so those three became the extension points on `ResourceNode` —
+`harvest_block_reason()` (refuse while guards live), `_emit_payout()` (several materials, not
+one), and `interact_prompt()` (say so).
+
+The RPCs themselves are **not** overridden and stay defined once in the base. That is
+deliberate: all RPCs in a script are checksummed together across peers, and a subclass
+redeclaring one is a checksum question nobody should have to think about at 2am. Multi-material
+payout works by emitting `harvested` once per material, so the game scene's router needed no
+second path into the pool.
+
+`interact_prompt()` living on the node rather than in `hud.gd` is the one arguable call. The
+HUD's existing rule is that the prompt is generated from the same `nearest_harvestable()` the
+harvest uses, "so the prompt never lies"; putting the wording next to the gate extends that
+rule instead of adding a class check in the HUD. Ability tooltips still compose in `hud.gd`
+from a `match` — those branch on *data*, this would have branched on *type*.
+
+### GUARD is a third Enemy behaviour, exempt from both ends of the night (2026-08-15)
+`Behavior.GUARD` joins ASSAULT and ROAM in the one enemy body. It holds a post, chases to the
+end of a leash, then walks home; hysteresis on the leash boundary (`_returning`) is what stops
+it oscillating in and out of aggro. The leash is the design: pull one guard and you have pulled
+one guard, but you can never kite a garrison off the map and stroll in to the cache.
+
+Two one-line exemptions carry the rest. Dawn's `_despawn_all()` skips guards, or a camp would
+hand out a free cache every morning; dusk's `_conscript_roamers()` skips them, or a camp would
+clear itself overnight. Guard types live in their own `guard_types` array on the WaveDirector,
+never in `enemy_types` — that array *is* the night's composition, so a guard listed there would
+quietly join the horde.
+
+`Enemy.died` was added alongside, fired only on a real kill and before the free. Camps count
+down on it, so a wipe-the-field despawn can never be mistaken for players clearing a site.
+
+### `multiplayer.is_server()` is TRUE before a peer exists — post garrisons from the host branch (2026-08-15)
+The first host/client smoke produced 39 `!_has_authority(spawner)` errors on the client, then
+39 name collisions, then a flood of unauthorized sync packets — one cascade from one cause.
+`Camp.setup()` guarded its garrison spawn with `multiplayer.is_server()`, but a joining client
+runs all of `Game._ready()` *before* `Network.join_game()` assigns a peer, and a peerless
+`SceneMultiplayer` answers `is_server() == true`. Every client was posting its own garrison
+into a spawner it has no authority over.
+
+The fix is not a better guard, it is a better *caller*: `host_post_garrison()` is public and
+host-only by contract, called explicitly from the host branch of `Game._ready()`'s start-mode
+match, where being the host is already established. **Anywhere in `Game._ready()` that runs
+before the start-mode branch cannot ask whether it is the server** — it has to be told.
+
+### Radiant Essence is what camps are for (2026-08-15)
+Ambient radiant in the outer-ring scatter went from 15 % to 4 %, and the two Warband Barrows
+each hold 3. Session 14 gave Bright and Radiant their first sink (tier II and III towers) but
+left both as things you get by walking far enough; tier III was gated on distance, which is a
+gate the game already charges for. Now it is gated on clearing a camp, which is a decision
+someone has to make out loud with a teammate. The 4 % left is a safety valve, not a supply — a
+party that ignores camps should find the tier out of reach, not hard-locked. **If camps prove
+too punishing the dial is that 4 %, not the camp loot.**
+
 ---
 
 ## Template for new entries

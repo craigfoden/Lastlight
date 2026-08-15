@@ -28,7 +28,8 @@ same scene file.
 | 12 | **Class roster & the Paladin** — the session-4 class pipe was never joined up at either end: nothing set `Network.local_player_class` and `player.tscn` hardcoded the Ranger, so the roster knew your class and your character didn't. `Classes` registry; class carried in spawn data; **the host now defers a joiner's spawn until their class is in the roster** (it used to spawn inside `peer_connected`, before the client's registration packet arrived); dedicated class-select screen + `--class=<id>`; two new ability kinds (MELEE_ARC, SELF_BUFF); Paladin kit + exclusive tower | ✅ 2026-08-15 (green solo + host/client, incl. a mixed-class party; Paladin numbers are a first draft nobody has played) | Chris + Claude |
 | 13 | **The Mage** — third class, built deliberately as a test of session 12's "add a class = a .tres + a preload" recipe: what the data carried, and where it didn't. Verdict: the claim holds for classes and not for abilities, and never distinguished them — the class, tower, card, gating and XP were genuinely zero code; the two abilities wanting *new behaviour* were not. Both were paid by widening existing kinds rather than adding new ones (MELEE_ARC now roots; a deployable with `tick_damage` burns instead of springing). Arcane Spire is the first building that costs essence | ✅ 2026-08-15 (green solo + host/client across all three classes; numbers unplayed) | Chris + Claude |
 | 14 | **Tower upgrades, and a sink for the dead essences** — three-tier upgrade lines for all four towers (Sentry/Turret/Brazier/Spire), built as `BuildingType` resources chained by a new `upgrades_to` and hidden from the hotbar by `placeable = false`. No new input mode and no new keys: you hold the base tower's hotbar slot and click a tower already standing, and `BuildManager.resolve_placement` walks it one tier up its line — the session-11 wall→tower replacement path with its rule widened, so upgrades needed no new sync at all. Tier II costs **Bright Essence** and tier III **Radiant Essence**, which before this session were harvestable from the outer rings and bought *nothing whatsoever*. Ghost turns gold over a legal upgrade; the hotbar hint quotes the netted price; base-tower tooltips spell out the whole line. The host now logs what it actually charged. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
-| 15+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 15 | **Camps: something to do with a day** — the day loop was walk out, hold E, walk back; all the danger and every decision lived at night. Guarded sites now sit out in the wilds: a footprint of ruined walls stamped by WorldGen, a leashed garrison posted by the host through the WaveDirector's spawner, and a `LootCache` at the middle that refuses to open while a guard still stands. New `CampType` resource (three tiers — Bandit Camp / Ruined Hamlet / Warband Barrow, 10 sites), new `Marauder` enemy kept out of the wave roster, new `Enemy.Behavior.GUARD` with a leash and an `Enemy.died` signal, `ResourceNode` grown three extension points so the cache reuses the whole harvest RPC lane rather than inventing one. **Ambient Radiant Essence cut 15 % → 4 %**: tier-III towers are now gated on clearing a barrow instead of on walking far enough. HUD prompt, minimap camp rings, `--auto-camp` / `--auto-camp-clear`. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
+| 16+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -99,6 +100,23 @@ same scene file.
   net-cost placement. Fix is to tint per hovered cell, which means the hotbar needs the ghost's
   cell — deliberately not done in session 14.
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.
+- **Camp numbers are wholly unplayed** (session 15). In order: is a 3-wretch bandit camp worth
+  a third of a 3-minute day; is a 5-marauder barrow survivable at all before the tower has
+  towers; and — the one the whole feature turns on — does cutting ambient Radiant to 4 % make
+  tier III *earned* or *unreachable*? The dial for the last one is the 4 %, not the camp loot.
+- Camps never repopulate: 10 sites, cleared once each, and a long run strip-mines them exactly
+  as it does resource nodes. Fine at 7 nights; belongs with the map-generation/respawn work.
+- Guards ignore buildings, like every other enemy (pre-existing gap). Nothing stops a party
+  walling a camp's doorway and shooting the garrison through the gap — the guards will stand
+  there and take it. Only matters if players actually find it.
+- 39 guards stand host-simulated from the first frame of every run. Cheap now (`_guard` is a
+  distance check and an idle branch), but it is the first content that scales enemy count with
+  *map* size rather than with the wave, and worth remembering if camps ever multiply.
+- Camp footprints are stamped from two placeholder meshes (palisade, hut) picked per cell, so
+  every camp is architecturally the same ruin in a different order. Tier is readable from the
+  garrison and the cache, not from the buildings. Revisit when real art lands.
+- A cleared cache leaves the camp standing and empty for the rest of the run — there is no
+  "looted" state on the site itself beyond the minimap ring turning green.
 
 ## Post-v1 parking lot
 

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CampType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/camps/camp_type.gd" id="1"]
+[ext_resource type="Resource" path="res://data/enemies/marauder.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"warband_barrow"
+display_name = "Warband Barrow"
+description = "A grave-mound the warband dug open and never left. The radiant essence the wilds no longer give up is down there, behind five of them."
+site_count = 3
+radius_min = 70.0
+radius_max = 92.0
+footprint_radius = 4
+courtyard_radius = 1
+guard_type = ExtResource("2")
+guard_count = 5
+guard_post_radius = 2.2
+guard_leash = 16.0
+loot = {
+&"essence_bright": 3,
+&"essence_radiant": 3
+}

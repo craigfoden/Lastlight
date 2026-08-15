@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/enemies/enemy_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/marauder.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"marauder"
+display_name = "Marauder"
+texture = ExtResource("2")
+max_hp = 46
+move_speed = 50.0
+damage = 8
+attack_interval = 1.6
+attack_range = 48.0
+aggro_range = 300.0

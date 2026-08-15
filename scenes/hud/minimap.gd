@@ -15,6 +15,8 @@ extends Control
 @export var node_dot := 2.5
 @export var enemy_dot := 3.0
 @export var player_dot := 3.5
+## Radius of the ring drawn around a camp site.
+@export var camp_ring := 6.5
 
 const _BACKING := Color(0.05, 0.06, 0.10, 0.72)
 const _RIM := Color(1, 1, 1, 0.35)
@@ -22,6 +24,8 @@ const _ENEMY := Color(0.95, 0.3, 0.3)
 const _MATE := Color(0.4, 0.85, 1.0)
 const _SELF := Color(1, 1, 1)
 const _TOWER := Color(1.0, 0.86, 0.4)
+const _CAMP_HELD := Color(0.95, 0.45, 0.35, 0.85)
+const _CAMP_OPEN := Color(0.55, 0.95, 0.6, 0.85)
 
 var _tower: GlowTower
 var _player: Player
@@ -82,6 +86,19 @@ func _draw() -> void:
 		var rel := _to_radar(node.global_position, radar_scale)
 		if rel.length() <= radius:
 			draw_circle(center + rel, player_dot, _MATE)
+
+	# Camp sites: a ring big enough to read as a place rather than a pickup.
+	# Red while the garrison holds it, green once the cache is open — so a camp
+	# you cleared and walked away from still says so when you come back for it.
+	# `guards_remaining` is replicated, so a client's ring tells the truth.
+	for node in get_tree().get_nodes_in_group("camps"):
+		var camp := node as Camp
+		if camp == null:
+			continue
+		var camp_rel := _to_radar(camp.global_position, radar_scale)
+		if camp_rel.length() <= radius:
+			draw_arc(center + camp_rel, camp_ring, 0.0, TAU, 20,
+					_CAMP_OPEN if camp.is_cleared() else _CAMP_HELD, 1.5)
 
 	# Home marker: pin the tower to the rim when it is off-radar so you can
 	# always find your way back to the village.

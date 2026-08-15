@@ -5,6 +5,11 @@ extends StaticBody3D
 ## a harvest; the host validates it and broadcasts the result. The node never
 ## touches the material pool itself — it announces the harvest with a signal
 ## and the game scene routes it (signals up, calls down).
+##
+## Variants (LootCache) extend this rather than duplicating the lane: the RPCs
+## below stay the only harvest path in the game, and a subclass changes what it
+## *refuses* (`harvest_block_reason`), what it *pays* (`_emit_payout`), and what
+## the prompt *says* (`interact_prompt`) — never how the request travels.
 
 ## Fired on the host when the node is felled, carrying the WHOLE payout —
 ## chopping is progress, not income (see `depleted_yield`).
@@ -83,6 +88,13 @@ func request_harvest() -> void:
 		return
 	if player.global_position.distance_to(global_position) > HARVEST_RANGE:
 		return
+	# Variant gate (a loot cache still under guard). Checked here so the refusal
+	# is host-authoritative like every other harvest rule — the client's prompt
+	# only *predicts* it.
+	var refusal := harvest_block_reason()
+	if refusal != "":
+		print("[ResourceNode] %s refused %s: %s" % [player.name, name, refusal])
+		return
 	var chopped: int = mini(yield_per_harvest, amount)
 	var remaining := amount - chopped
 	_sync_amount.rpc(remaining)
@@ -91,9 +103,31 @@ func request_harvest() -> void:
 				% [player.name, material_type.id, remaining])
 		return
 	# Felled: the whole node pays out at once.
+	_emit_payout(player)
+
+
+## "" when a harvest may proceed, otherwise the host's reason for refusing it.
+## Overridden by variants; the base node has no gate beyond range and stock.
+func harvest_block_reason() -> String:
+	return ""
+
+
+## What this node pays when its last chop lands, host-side. `harvested` may be
+## emitted more than once (a loot cache pays several materials), which the game
+## scene's router already handles one material at a time.
+func _emit_payout(player: Node3D) -> void:
 	harvested.emit(material_type, depleted_yield)
 	print("[ResourceNode] %s felled a %s node for %d"
 			% [player.name, material_type.id, depleted_yield])
+
+
+## The interact prompt the HUD shows while this node is the nearest harvestable
+## — including *why* it would be refused, so the prompt can never promise a
+## harvest `request_harvest` would turn down. Lives on the node (not in a HUD
+## type-check) so a variant's gate and its prompt are written together.
+func interact_prompt() -> String:
+	return "E  Chop %s  (%d left → %d)" % [
+			material_type.display_name, amount, depleted_yield]
 
 
 ## Host only: bring a late joiner up to date.

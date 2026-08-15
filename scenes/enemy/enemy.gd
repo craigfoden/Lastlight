@@ -5,15 +5,23 @@ extends CharacterBody3D
 ## hp via RPC. Honors the group-"enemies" contract towers target:
 ## hp + host_take_damage() + host_send_snapshot().
 ##
-## Two behaviours share one body — ASSAULT monsters (night waves) path to the tower heart and
+## Three behaviours share one body — ASSAULT monsters (night waves) path to the tower heart and
 ## batter the tower; ROAM monsters (daytime threats) wander the dark and chase
-## any player who strays out of the safe zone. A roamer alive at nightfall is
-## switched to ASSAULT by the WaveDirector (`host_join_assault`), so the day's
-## leftovers march with the horde. Paths come from the build grid as XZ
-## waypoints (1 unit = 1 cell); the body floats pinned to y = 0.
+## any player who strays out of the safe zone; GUARD monsters hold a camp,
+## chasing only to the end of a leash before walking back to their post. A
+## roamer alive at nightfall is switched to ASSAULT by the WaveDirector
+## (`host_join_assault`), so the day's leftovers march with the horde — guards
+## are exempt, or a camp would clear itself overnight. Paths come from the build
+## grid as XZ waypoints (1 unit = 1 cell); the body floats pinned to y = 0.
 
-## How this monster behaves. Set at spawn by the WaveDirector.
-enum Behavior { ASSAULT, ROAM }
+## How this monster behaves. Set at spawn by the WaveDirector. Append-only —
+## the value travels in spawn packets.
+enum Behavior { ASSAULT, ROAM, GUARD }
+
+## Host only: this monster was killed (as opposed to despawned at dawn or at
+## run end). Camps count their garrison down on this, so a wipe-the-field
+## despawn can never read as "the players cleared it".
+signal died
 
 ## 2D data resources stay px-denominated (32 px = 1 cell); convert at the
 ## boundary — speeds and ranges below divide by this once.
@@ -27,6 +35,10 @@ const PX_PER_UNIT := 32.0
 ## are rejected inside it, so a roamer never *aims* at a cell the light will
 ## refuse to let it enter — that mismatch is what used to park them on the edge.
 @export var wander_light_margin := 2.0
+## How close to its post a returning guard has to get before it counts as home
+## again, in cells. Doubles as the hysteresis that stops a guard oscillating on
+## its leash boundary — it must come all the way back before it will chase again.
+@export var guard_post_tolerance := 0.75
 
 var type: EnemyType
 var behavior := Behavior.ASSAULT
@@ -50,6 +62,11 @@ var _root_remaining := 0.0
 var _repath_cd := 0.0
 var _wander_target := Vector3.ZERO
 var _wander_pause := 0.0
+## GUARD only: the post this monster holds, and how far it will stray from it.
+var _home := Vector3.ZERO
+var _leash := 0.0
+## GUARD only: walking back to its post, and refusing to chase until it arrives.
+var _returning := false
 var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight
 
 @onready var _sprite: Sprite3D = $Sprite3D
@@ -64,7 +81,9 @@ func setup(
 		tower: GlowTower,
 		new_behavior := Behavior.ASSAULT,
 		safe_radius := 0.0,
-		roam_max_radius := 0.0) -> void:
+		roam_max_radius := 0.0,
+		home := Vector3.ZERO,
+		leash := 0.0) -> void:
 	type = new_type
 	position = start_position
 	_build_manager = build_manager
@@ -72,6 +91,8 @@ func setup(
 	behavior = new_behavior
 	_safe_radius = safe_radius
 	_roam_max_radius = roam_max_radius
+	_home = home
+	_leash = leash
 
 
 func _ready() -> void:
@@ -91,6 +112,8 @@ func _physics_process(delta: float) -> void:
 	match behavior:
 		Behavior.ROAM:
 			_roam(delta)
+		Behavior.GUARD:
+			_guard(delta)
 		_:
 			_assault(delta)
 
@@ -138,6 +161,46 @@ func _roam(delta: float) -> void:
 		_light_blocked = false
 	else:
 		_wander(delta)
+
+
+# Camp garrison: hold the site. Fights anything that comes to it, chases only
+# to the end of its leash, then walks back to its post. The leash is what keeps
+# a camp a place instead of a pull: back away far enough and you have taken one
+# guard for a walk, not emptied the courtyard — but you can never kite the
+# garrison off the map and stroll in to the cache.
+func _guard(delta: float) -> void:
+	var target := _nearest_target()
+	if target != null and global_position.distance_to(target.global_position) <= _attack_range():
+		velocity = Vector3.ZERO
+		_swing_at(delta, target)
+		return
+	if _root_remaining > 0.0:
+		_root_remaining -= delta
+		velocity = Vector3.ZERO
+		return
+	var home_dist := global_position.distance_to(_home)
+	if _leash > 0.0 and home_dist >= _leash:
+		_returning = true
+	if _returning and home_dist <= guard_post_tolerance:
+		_returning = false
+	if target != null and not _returning:
+		_repath_cd -= delta
+		if _repath_cd <= 0.0 or _path_index >= _path.size():
+			_path = _build_manager.path_to(global_position, target.global_position)
+			_path_index = 0
+			_repath_cd = 0.4
+		_advance_path()
+		# Same as ROAM: a chase that ran into the light is just a chase that ended.
+		_light_blocked = false
+		return
+	if home_dist > guard_post_tolerance:
+		if _path_index >= _path.size():
+			_path = _build_manager.path_to(global_position, _home)
+			_path_index = 0
+		_advance_path()
+		return
+	# At its post with nothing to fight: stand.
+	velocity = Vector3.ZERO
 
 
 # Nearest living player who is outside the safe zone (the village is a haven —
@@ -232,11 +295,11 @@ func _advance_path() -> void:
 		_path_index += 1
 		return
 	velocity = global_position.direction_to(waypoint) * (type.move_speed / PX_PER_UNIT)
-	# Daytime roamers lurk in the dark and never set foot in the light: if this
-	# step would cross into the safe zone, stop at its edge and drop the path
+	# Daytime roamers and camp guards lurk in the dark and never set foot in the
+	# light: if this step would cross into the safe zone, stop at its edge and drop the path
 	# (a fresh one is picked next tick). ASSAULT monsters ignore this — the
 	# night horde is meant to march through the village to the tower.
-	if behavior == Behavior.ROAM and _safe_radius > 0.0:
+	if behavior != Behavior.ASSAULT and _safe_radius > 0.0:
 		var next_pos := global_position + velocity * get_physics_process_delta_time()
 		# Refuse the step only if it enters the light *or* pushes deeper in.
 		# Outward steps are always allowed: a roamer that somehow ends up inside
@@ -279,6 +342,10 @@ func host_take_damage(amount: int) -> void:
 	_sync_hp.rpc(new_hp)
 	if new_hp == 0:
 		print("[Enemy] %s (%s) died" % [name, type.id])
+		# Killed, as opposed to despawned — announced before the free so a camp
+		# can count its garrison down. Dawn's wipe and the run-end clear both go
+		# through queue_free() alone and deliberately never reach here.
+		died.emit()
 		# Freeing on the host despawns it on every peer via the spawner.
 		queue_free()
 
@@ -289,6 +356,14 @@ func host_send_snapshot(peer_id: int) -> void:
 
 
 func _repath() -> void:
+	if behavior == Behavior.GUARD:
+		# A guard has no standing destination — its next path is chosen in
+		# _guard (chase, or walk back to its post). Clearing is what makes the
+		# grid_changed hookup below correct for it: an in-flight path through a
+		# cell that just became solid is dropped, not followed into a wall.
+		_path = PackedVector2Array()
+		_path_index = 0
+		return
 	_path = _build_manager.path_to_heart(global_position)
 	_path_index = 0
 

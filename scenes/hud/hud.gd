@@ -71,9 +71,12 @@ func _process(_delta: float) -> void:
 	tower_label.text = "Tower %d/%d" % [_glow_tower.hp, _glow_tower.max_hp]
 	var low := _glow_tower.hp <= _glow_tower.max_hp * 0.3
 	tower_label.self_modulate = Color(1, 0.45, 0.45) if low else Color.WHITE
+	# Camp garrisons are deliberately not counted: this number is how much is
+	# loose in the field and coming for you, and every guard in the world would
+	# swamp it with monsters standing still on the far side of the map.
 	var foes := 0
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if enemy.hp > 0:
+		if enemy.hp > 0 and enemy.behavior != Enemy.Behavior.GUARD:
 			foes += 1
 	foes_label.text = "Foes: %d" % foes
 	foes_label.visible = foes > 0
@@ -167,14 +170,14 @@ func _ability_tooltip(ability: AbilityType) -> String:
 
 # "E  Chop Wood (3 left → 4)" over the hotbar whenever pressing E would actually
 # land — same nearest_harvestable() the harvest itself uses, so the prompt never
-# lies. The chop count and payout are both shown because nothing is paid until
-# the node falls: without it, a 14-chop tree reads as broken.
+# lies. The wording is the node's own (`interact_prompt`), which is what lets a
+# loot cache say "sealed while 3 guards still stand" instead of the chop line,
+# and keeps the HUD from having to know which kind of harvestable it is.
 func _refresh_interact_hint() -> void:
 	var target := _local_player.nearest_harvestable() if not _local_player.downed else null
 	interact_hint.visible = target != null
 	if target != null:
-		interact_hint.text = "E  Chop %s  (%d left → %d)" % [
-				target.material_type.display_name, target.amount, target.depleted_yield]
+		interact_hint.text = target.interact_prompt()
 
 
 func _set_slot(label: Label, key: String, ability: AbilityType, cd: float) -> void:
