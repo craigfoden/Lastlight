@@ -29,7 +29,8 @@ same scene file.
 | 13 | **The Mage** — third class, built deliberately as a test of session 12's "add a class = a .tres + a preload" recipe: what the data carried, and where it didn't. Verdict: the claim holds for classes and not for abilities, and never distinguished them — the class, tower, card, gating and XP were genuinely zero code; the two abilities wanting *new behaviour* were not. Both were paid by widening existing kinds rather than adding new ones (MELEE_ARC now roots; a deployable with `tick_damage` burns instead of springing). Arcane Spire is the first building that costs essence | ✅ 2026-08-15 (green solo + host/client across all three classes; numbers unplayed) | Chris + Claude |
 | 14 | **Tower upgrades, and a sink for the dead essences** — three-tier upgrade lines for all four towers (Sentry/Turret/Brazier/Spire), built as `BuildingType` resources chained by a new `upgrades_to` and hidden from the hotbar by `placeable = false`. No new input mode and no new keys: you hold the base tower's hotbar slot and click a tower already standing, and `BuildManager.resolve_placement` walks it one tier up its line — the session-11 wall→tower replacement path with its rule widened, so upgrades needed no new sync at all. Tier II costs **Bright Essence** and tier III **Radiant Essence**, which before this session were harvestable from the outer rings and bought *nothing whatsoever*. Ghost turns gold over a legal upgrade; the hotbar hint quotes the netted price; base-tower tooltips spell out the whole line. The host now logs what it actually charged. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
 | 15 | **Camps: something to do with a day** — the day loop was walk out, hold E, walk back; all the danger and every decision lived at night. Guarded sites now sit out in the wilds: a footprint of ruined walls stamped by WorldGen, a leashed garrison posted by the host through the WaveDirector's spawner, and a `LootCache` at the middle that refuses to open while a guard still stands. New `CampType` resource (three tiers — Bandit Camp / Ruined Hamlet / Warband Barrow, 10 sites), new `Marauder` enemy kept out of the wave roster, new `Enemy.Behavior.GUARD` with a leash and an `Enemy.died` signal, `ResourceNode` grown three extension points so the cache reuses the whole harvest RPC lane rather than inventing one. **Ambient Radiant Essence cut 15 % → 4 %**: tier-III towers are now gated on clearing a barrow instead of on walking far enough. HUD prompt, minimap camp rings, `--auto-camp` / `--auto-camp-clear`. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
-| 16+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 16 | **Visual overhaul: pixel art** — the game's whole look, in three parts. (1) **Art is text**: a single shared palette plus every character/decal authored as rows of palette characters in `tools/art/art_sprites.gd`, compiled to PNGs by a `--script` generator that also forces the import settings pixel art cannot survive (`detect_3d/compress_to`), with a contact-sheet previewer for reviewing it. All 15 sprites redrawn — 3 classes, 3 enemies, 5 decals, shadow, wisp, 2 projectiles. (2) **The world is pixelated too**: `PixelRender` sets the root Viewport's `SCALING_3D_MODE_NEAREST` and derives the scale from the live camera so one sprite texel = one rendered pixel, so meshes and sprites share one grid — no SubViewport, so no node paths moved. (3) **Procedural animation**: `SpriteAnimator` adds a walk bob, facing flip, hit flash and attack recoil from already-replicated state, at zero network cost. Also closed: projectiles get per-ability textures (`AbilityType.projectile_texture`) instead of every shot being the same yellow dart, and the dead `BuildingType.texture` field and the whole placeholder SVG folder are gone. | ✅ 2026-08-15 (green solo + host/client incl. mixed classes, zero errors/warnings; **art quality is placeholder and deliberately so** — see gaps) | Craig + Claude |
+| 17+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -64,15 +65,16 @@ same scene file.
   class select → game, built from `Classes.ALL`, with `--class=<id>` for scripted runs. Still
   open: in-flight projectiles/traps are not replayed to late joiners. (Player HP +
   downed/respawn landed in session 5.)
-- Every projectile in the game shares one mesh and material, so an Arcane Bolt and an arrow are
-  the same yellow dart. The deployables' equivalent was fixed in session 13 (`decal_texture` on
-  the ability, per-instance material); projectiles want the same treatment.
+- ~~Every projectile in the game shares one mesh and material, so an Arcane Bolt and an arrow
+  are the same yellow dart.~~ Fixed session 16: `AbilityType.projectile_texture`, and the
+  projectile is a billboard sprite rather than a mesh. Bow Shot and Piercing Arrow share the
+  default arrow deliberately — they *are* both arrows.
 - The class-select screen lists a class's stats and its three abilities but not its exclusive
   tower — there is no `Buildings` registry to enumerate, and `buildable_types` lives on a node
   in `game.tscn`. The build hotbar's tooltip still says "Paladin exclusive." (session 12).
-- `BuildingType.texture` is dead in the 3D game — nothing reads it. The older buildings still
-  set it; the Paladin's brazier does not. Harmless, but the field should go when someone is
-  next in those files (session 12).
+- ~~`BuildingType.texture` is dead in the 3D game — nothing reads it.~~ Removed session 16,
+  along with the three `.tres` references and the whole `assets/sprites/placeholder/` folder,
+  which the pixel art superseded.
 - Bulwark (the Paladin's self-buff) is verified to cast, expire, and tint the sprite; the
   damage-reduction *arithmetic* was reviewed but never measured against a known hit. Worth an
   assertion if buffs multiply (session 12).
@@ -115,6 +117,24 @@ same scene file.
 - Camp footprints are stamped from two placeholder meshes (palisade, hut) picked per cell, so
   every camp is architecturally the same ruin in a different order. Tier is readable from the
   garrison and the cache, not from the buildings. Revisit when real art lands.
+- **The pixel art is placeholder and should be replaced** (session 16). It is coherent, it
+  reads at gameplay distance, and it is not the work of an artist — Claude hand-placed every
+  pixel. The *pipeline* is the deliverable: swapping in real art means dropping PNGs of the
+  same dimensions into `assets/sprites/pixel/` (or editing the text and regenerating), and
+  nothing else changes. Weakest first: the Marauder's axe reads as a cleaver, the Mage's arms
+  are stubs, and the undead still read as green people more than as corpses.
+- **No frame animation** (session 16). Characters have a procedural walk bob, facing flip, hit
+  flash and attack recoil, but a single frame — so the bow never draws and a swing never
+  swings, the character just kicks. `ArtSprites` extends to frames trivially (a sprite becomes
+  an array of pixel maps) but the drawing is the cost, and it should wait for real art.
+- No death animation: enemies vanish on death rather than fading or falling. Deferring the
+  free has network implications, so it was left alone (session 16).
+- Buildings, towers, trees and rocks are still smooth meshes — they *read* as pixel art only
+  because the whole 3D buffer is rendered low-res and nearest-upscaled. That works well, but
+  it means their silhouettes are still modelled, not drawn, and no amount of sprite work will
+  change their shapes (session 16).
+- The ground is a flat untextured shader plane, which is the largest remaining smooth surface
+  in frame. A pixel ground/detail texture is probably the next-biggest visual win (session 16).
 - A cleared cache leaves the camp standing and empty for the rest of the run — there is no
   "looted" state on the site itself beyond the minimap ring turning green.
 

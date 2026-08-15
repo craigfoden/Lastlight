@@ -90,6 +90,8 @@ the garrison stands, pays out once it doesn't; runs on host *or* client, and poi
 client is how the two-instance smoke proves a client-initiated loot travels the whole chain),
 `--auto-camp-clear` (host cheat: kills every camp garrison after 12 s, so the unlock→loot half
 can be exercised without a real fight — pair it with `--auto-camp`),
+`--no-pixel-render` (render the 3D world at native resolution instead of low-res + nearest
+upscale — the A/B for the pixel look; ignored headless, which renders no frames),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
 windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
@@ -117,11 +119,21 @@ A system is done when ALL of:
   `host_*` (host-only plain funcs). See ARCHITECTURE.md for the full sync model.
 - Lifecycle events `print("[System] ...")` — the smoke tests assert on these logs.
 - Tunable numbers live in `@export` vars or `.tres` resources, never inline.
-- Placeholder art: character/decal art is SVGs at final sprite dimensions in
-  `assets/sprites/placeholder/`, one file per sprite (characters 32×48, flat ground decals
-  32×32); world solids, buildings, and towers are small mesh scenes under
-  `scenes/world/visuals/` and `scenes/building/visuals/`. No packed spritesheets until
-  real art.
+- **Sprite art is pixel art, compiled from text.** Every character/decal sprite is authored
+  as a pixel map in `tools/art/art_sprites.gd` — one character per pixel, keyed by the single
+  shared palette in `tools/art/art_palette.gd` — and compiled to PNGs in
+  `assets/sprites/pixel/` (characters 32×48 with feet on the last row, everything else 32×32).
+  The PNGs are committed; edit the text and re-run the generator, never the PNGs. World
+  solids, buildings, and towers remain small mesh scenes under `scenes/world/visuals/` and
+  `scenes/building/visuals/`. No packed spritesheets until real art.
+- **The 3D world renders at low resolution and is nearest-upscaled** (`scenes/game/pixel_render.gd`,
+  decision log 2026-08-15). That is what makes the mesh half of the game read as pixel art
+  next to the sprites. The render height is derived live from the active camera so one sprite
+  texel lands on one rendered pixel; do not hardcode it, and do not change `pixel_size` on a
+  character Sprite3D without understanding that it sets the whole game's render resolution.
+- **Billboarded sprites ignore node scale** (`billboard_keep_scale` is false and Sprite3D does
+  not expose it). Animate a billboard by moving it, tinting it, or flipping it — never by
+  scaling it, which compiles and silently does nothing.
 - **World & rendering** (the 3D-ortho hybrid, ported sessions 9–11 — history in
   `docs/PORT_PLAN.md`): renderer is **Forward+** (decision log 2026-07-13). Scale:
   **1 world unit = 1 grid cell** (= 32 px of 2D-era art); ground plane is y = 0; the
@@ -234,6 +246,35 @@ Camps are stamped **before** the resource/scenery scatter (they are the only con
 footprint), so adding one shifts the whole map layout — expected, and the startup layout hash
 will change on every peer together.
 
+**Add or edit a sprite:** open `tools/art/art_sprites.gd` and draw it as rows of palette
+characters (`CHARACTERS` is 32×48, `SMALL` is 32×32; `.` is transparent, and every colour must
+already exist in `ArtPalette.COLORS` — a stray key renders magenta and warns rather than
+quietly picking a slightly wrong brown). Then:
+
+```powershell
+& $godot --headless --path C:\SourceControl\Lastlight --script res://tools/art/generate_art.gd
+& $godot --headless --import --path C:\SourceControl\Lastlight
+```
+
+A row of the wrong length fails the whole run naming the sprite and row — that validator is
+the reason hand-drawing in text is practical at all. The generator also forces the import
+settings pixel art cannot survive without (chiefly `detect_3d/compress_to=0`; see its comments
+for why), so a new sprite cannot silently get them wrong. To actually *look* at the result,
+build a zoomed contact sheet of every sprite on a checkerboard:
+
+```powershell
+& $godot --headless --path C:\SourceControl\Lastlight --script res://tools/art/preview_art.gd -- --out=C:\some\where\sheet.png
+```
+
+Three rules keep the set coherent, and breaking one makes a new sprite look wrong beside the
+others even when it looks fine alone: **one skeleton** (every humanoid shares head rows 4-19,
+torso 20-31, legs 32-47, body within columns 7-24 — class is carried by headgear, colour and
+weapon), **feet on the last row** (the Sprite3D anchors put row 47 on the ground plane, so a
+figure that ends early floats), and **key light top-left**. Outlines: pure black `0` on the
+outer silhouette only — use a ramp's dark step for internal lines, or the sprite grows a
+black box on its chest. And a held weapon needs an arm of solid pixels reaching it, or it
+hangs in space (this is exactly what happened, twice).
+
 **Add a talent:** create `data/talents/<id>.tres` (script `talent_type.gd`; `class_id`,
 `modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys.
 
@@ -325,6 +366,14 @@ will change on every peer together.
   names the client had already taken, then a flood of `!pinfo.recv_nodes.has(net_id)`. One
   cause, three unrelated-looking error storms. Host-only work in `_ready` must be *called from*
   the start-mode branch, not self-guarded before it.
+- Godot silently **re-imports any texture it detects being used in 3D with VRAM compression**
+  (`detect_3d/compress_to`, default on). It is a lossy block codec: invisible on photographic
+  art, ruinous on 32 px art, where it smears every hard edge and mottles the alpha. Worse, it
+  happens on the *second* run, so the art appears to break by itself. Every generated sprite
+  is forced to `detect_3d/compress_to=0` by ArtGenerator; hand-added textures need it set too.
+- `class_name` globals are not registered until the project has been imported, so a
+  `--script` tool that references one dies with "Identifier not declared in the current scope"
+  on a fresh clone. Run `--headless --import` first.
 - Windowed runs on this Windows box log `WASAPI: init_output_device error` and fall back to the
   dummy audio driver — there is no audio device over RDP. Environmental, not a code fault; it
   does not appear in `--headless` runs.

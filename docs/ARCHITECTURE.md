@@ -1053,6 +1053,65 @@ someone has to make out loud with a teammate. The 4 % left is a safety valve, no
 party that ignores camps should find the tier out of reach, not hard-locked. **If camps prove
 too punishing the dial is that 4 %, not the camp loot.**
 
+### Sprite art is text, compiled to PNG (2026-08-15)
+Every character and decal sprite is authored as rows of palette characters in
+`tools/art/art_sprites.gd` and compiled by a `--script` tool into `assets/sprites/pixel/`.
+The PNGs are committed; the text is the source.
+
+**Why:** three properties a binary art pipeline cannot give a two-person repo. A sprite change
+shows up in `git diff` as a picture of what changed rather than "binary files differ". A
+palette-wide decision — every outline one step darker — is one edit instead of thirty
+repaints. And nobody needs an image editor installed to fix a stray pixel. The cost is that
+the art can only be as good as someone can hand-place pixels, which is the right trade while
+the art is explicitly placeholder. Rejected: committing PNGs alone (opaque, unmergeable) and
+generating art procedurally from shape primitives (no control where it matters, the
+silhouette). The generator also owns the `.import` settings, because `detect_3d/compress_to`
+defaults to VRAM-compressing anything used in 3D and would quietly destroy every sprite on
+its second run.
+
+### The pixel look is a render resolution, not a shader (2026-08-15)
+`PixelRender` sets the **root Viewport's** `scaling_3d_mode = SCALING_3D_MODE_NEAREST` and
+derives `scaling_3d_scale` from the active camera so one sprite texel lands on one rendered
+pixel (~641×361 at 720p). Meshes and sprites are then pixelated by the same thing, at the same
+grid.
+
+**Why:** the world is half billboards and half meshes, and crisp sprites against smooth
+meshes read as unfinished. Two other routes were considered and are worse. Reparenting the
+world under a SubViewport is the "textbook" answer and is genuinely dangerous here: every
+WorldGen node resolves its harvest RPCs **by node path**, and the build system raycasts
+through viewport/camera coordinates — both would have been disturbed, and `game.tscn` is the
+one file the team rule says not to churn. A full-screen post-process shader is safe but is
+point-sampling a high-resolution render, which shimmers under motion. `scaling_3d_mode` scales
+only the 3D buffer, in place: no scene-tree change, no path change, no picking change, and the
+2D HUD and minimap keep rendering at native resolution and stay sharp.
+
+The scale is derived live rather than fixed, because the Game scene starts on a wide fallback
+camera and swaps to the player's much tighter one on spawn — a value computed once in `_ready`
+is measured against a camera about to be replaced, which the logs confirmed was happening.
+
+### Animation is procedural, and reads state that is already replicated (2026-08-15)
+`SpriteAnimator` gives every character a distance-locked walk bob, a screen-space facing flip,
+a white flash on being hit and a kick-back when it attacks. No frames were drawn.
+
+**Why:** the *feel* of a character being alive is mostly motion, not frames, and motion is
+free — whereas frame animation for six characters is two dozen more hand-drawn pixel maps and
+belongs with the real art, not with placeholder art someone will replace. Two consequences
+worth recording:
+
+- **It costs no network traffic.** Every input is state replicated for gameplay reasons
+  already: `velocity` is in the replication config of both player and enemy, and hp arrives
+  via `_sync_hp`. That is also why the hit flash fires on *observing* an hp drop rather than
+  where damage is dealt — the observation happens on every peer, the damage only on the host.
+  Same reason the attack recoil lives in the `call_local` spawn RPCs.
+- **It runs its own `_process`, deliberately.** None of its owners have a callback that fires
+  everywhere: a Player physics-processes only on its owning client and processes only on the
+  host, and an Enemy does not physics-process on clients at all. Hanging animation off any of
+  those animates on one peer and leaves the character sliding rigidly on the others.
+
+A billboarded sprite **ignores node scale** (`billboard_keep_scale` is false and Sprite3D does
+not expose it), so the squash-and-stretch went to the un-billboarded drop shadow instead — it
+would have compiled, run, and done nothing on the sprite.
+
 ---
 
 ## Template for new entries

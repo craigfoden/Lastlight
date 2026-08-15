@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ClassType" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://data/classes/class_type.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/player_ranger.svg" id="2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/player_ranger.png" id="2"]
 [ext_resource type="Resource" path="res://data/abilities/bow_shot.tres" id="3"]
 [ext_resource type="Resource" path="res://data/abilities/piercing_arrow.tres" id="4"]
 [ext_resource type="Resource" path="res://data/abilities/snare_trap.tres" id="5"]

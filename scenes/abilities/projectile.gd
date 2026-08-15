@@ -10,6 +10,8 @@ const PX_PER_UNIT := 32.0
 ## Height above the ground plane the shot flies at (enemy capsule center).
 const FLIGHT_HEIGHT := 0.5
 
+@onready var _sprite: Sprite3D = $Sprite3D
+
 var _ability: AbilityType
 var _direction := Vector3.RIGHT
 var _travelled := 0.0
@@ -23,11 +25,21 @@ func setup(ability: AbilityType, from: Vector3, direction: Vector3) -> void:
 	_direction = Vector3(direction.x, 0.0, direction.z).normalized()
 	_hits_left = 1 + ability.pierce
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
-	# Aim the arrow mesh along the flight direction (-Z is a Node3D's forward).
-	basis = Basis.looking_at(_direction)
 
 
 func _ready() -> void:
+	if _ability != null and _ability.projectile_texture != null:
+		_sprite.texture = _ability.projectile_texture
+	# A billboard cannot be rotated to point along its flight — that is the
+	# whole point of a billboard — so the only orientation available is the
+	# horizontal flip. Sprites are authored pointing right, and "right" here
+	# means right ON SCREEN, so the test is against the camera's own right
+	# vector rather than world +X: this camera is yawed 45 degrees, and world
+	# +X alone would flip arrows on the wrong half of the compass.
+	var camera := get_viewport().get_camera_3d()
+	if camera != null:
+		_sprite.flip_h = camera.global_basis.x.dot(_direction) < 0.0
+
 	if multiplayer.is_server():
 		body_entered.connect(_on_body_entered)
 

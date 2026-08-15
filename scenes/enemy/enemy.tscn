@@ -1,7 +1,8 @@
 [gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scenes/enemy/enemy.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/shadow.svg" id="2_shadow"]
+[ext_resource type="Script" path="res://scenes/fx/sprite_animator.gd" id="3_animator"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/shadow.png" id="2_shadow"]
 
 [sub_resource type="StandardMaterial3D" id="shadow_mat"]
 transparency = 1
@@ -44,6 +45,9 @@ texture_filter = 0
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.5, 0)
 shape = SubResource("body_shape")
+
+[node name="SpriteAnimator" type="Node" parent="."]
+script = ExtResource("3_animator")
 
 [node name="Sync" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("replication")

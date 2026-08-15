@@ -41,9 +41,9 @@
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/boulder_visual.tscn" id="12_boulder"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/dead_tree_visual.tscn" id="13_deadtree"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/pillar_visual.tscn" id="14_pillar"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/grass_tuft.svg" id="15_grass"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/bones.svg" id="16_bones"]
-[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/rubble.svg" id="17_rubble"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/grass_tuft.png" id="15_grass"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/bones.png" id="16_bones"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/rubble.png" id="17_rubble"]
 [ext_resource type="Script" path="res://data/camps/camp_type.gd" id="45_camptype"]
 [ext_resource type="Resource" path="res://data/camps/bandit_camp.tres" id="46_bandit"]
 [ext_resource type="Resource" path="res://data/camps/ruined_hamlet.tres" id="47_hamlet"]
@@ -52,6 +52,7 @@
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/camp_wall_visual.tscn" id="50_campwall"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/camp_hut_visual.tscn" id="51_camphut"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/cache_visual.tscn" id="52_cache"]
+[ext_resource type="Script" path="res://scenes/game/pixel_render.gd" id="53_pixelrender"]
 
 [sub_resource type="SceneReplicationConfig" id="daynight_replication"]
 properties/0/path = NodePath(".:day_number")
@@ -169,6 +170,9 @@ script = ExtResource("21_buildctl")
 [node name="BuildMenu" parent="." instance=ExtResource("22_buildmenu")]
 
 [node name="RunEndScreen" parent="." instance=ExtResource("32_runend")]
+
+[node name="PixelRender" type="Node" parent="."]
+script = ExtResource("53_pixelrender")
 
 [node name="FallbackRig" type="Node3D" parent="."]
 rotation = Vector3(-0.575959, 0.785398, 0)

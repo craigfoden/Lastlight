@@ -29,6 +29,11 @@ enum Kind { PROJECTILE, DEPLOYABLE, MELEE_ARC, SELF_BUFF }
 ## Extra enemies a shot can pass through (0 = stops on first hit;
 ## a large number makes it a line skill-shot).
 @export var pierce := 0
+## The billboard the shot is drawn as. All projectiles share one scene, so
+## without this an arrow and an arcane bolt are the same sprite — the same trap
+## `decal_texture` fixed for deployables. Leave null to keep the default arrow.
+## Drawn pointing right and flipped for leftward flight, so author it that way.
+@export var projectile_texture: Texture2D
 
 @export_group("Deployable")
 ## Seconds enemies caught by the deployable cannot move. Zero means it does

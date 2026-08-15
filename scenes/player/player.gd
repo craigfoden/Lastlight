@@ -88,6 +88,7 @@ var _deploy_seq := 0  # host-side counter for deterministic deployable names
 
 @onready var sprite: Sprite3D = $Sprite3D
 @onready var camera: Camera3D = $CameraRig/Camera3D
+@onready var animator: SpriteAnimator = $SpriteAnimator
 @onready var name_label: Label3D = $NameLabel
 @onready var interact_range: Area3D = $InteractRange
 
@@ -100,6 +101,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	sprite.texture = class_type.sprite
+	animator.setup(sprite, self, $Shadow)
 	var is_local := is_multiplayer_authority()
 	if is_local:
 		# Talents come from MY profile and only affect the character I
@@ -256,6 +258,10 @@ func _spawn_projectile(from: Vector3, direction: Vector3, ability_id: StringName
 	var shot: Projectile = ProjectileScene.instantiate()
 	shot.setup(_ability_by_id(ability_id), from, direction)
 	get_parent().add_child(shot)
+	# These spawn RPCs are call_local, so they already fire on every peer —
+	# which makes them exactly the right place to kick the caster's sprite.
+	# Everyone sees the shot AND sees who fired it.
+	animator.recoil(direction)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -265,6 +271,9 @@ func _spawn_melee_arc(from: Vector3, direction: Vector3, ability_id: StringName)
 	var swing: MeleeArc = MeleeArcScene.instantiate()
 	swing.setup(_ability_by_id(ability_id), from, direction)
 	get_parent().add_child(swing)
+	# A swing leans INTO the blow rather than away from it, so the kick is
+	# inverted — the same component reads as two different actions.
+	animator.recoil(-direction)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -370,6 +379,12 @@ func _respawn_at(point: Vector3) -> void:
 func _sync_hp(new_hp: int) -> void:
 	if not _sender_is_host():
 		return
+	# Flash on the observed drop rather than where the damage was dealt: this
+	# runs on every peer, so everyone sees the hit. Guarded on a DROP because
+	# the same call carries heals and respawns, and a white flash on being
+	# healed would read as taking a hit.
+	if new_hp < hp:
+		animator.flash()
 	hp = new_hp
 
 
@@ -378,6 +393,7 @@ func _sync_downed(is_downed: bool) -> void:
 	if not _sender_is_host():
 		return
 	downed = is_downed
+	animator.upright = not is_downed
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -409,7 +425,7 @@ func _update_survival_appearance() -> void:
 			# Warded: a gold wash over the hurt tint, so a buffed-and-bloodied
 			# player still reads as both.
 			tint = tint.lerp(Color(1.0, 0.85, 0.35), damage_reduction)
-		sprite.modulate = _light_tint * tint
+		sprite.modulate = _light_tint * tint * animator.tint_multiplier()
 
 
 func _ability_by_id(ability_id: StringName) -> AbilityType:

@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AbilityType" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/pixel/arcane_bolt.png" id="2"]
 
 [resource]
 script = ExtResource("1")
+projectile_texture = ExtResource("2")
 id = &"arcane_bolt"
 display_name = "Arcane Bolt"
 description = "Your basic attack: a fast mote of light that reaches further than any bow. Hits harder than an arrow but comes slower, so make each one count."

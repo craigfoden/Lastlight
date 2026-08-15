@@ -31,8 +31,6 @@ extends Resource
 ## reach a tier by upgrading into it, never by placing it from scratch.
 @export var placeable := true
 
-@export var texture: Texture2D
-
 ## The 3D port's look for this building — a small mesh scene instantiated by
 ## Building (the 2D game ignores this field). Placeholder meshes live in
 ## scenes/building/visuals/.

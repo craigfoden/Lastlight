@@ -70,6 +70,7 @@ var _returning := false
 var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight
 
 @onready var _sprite: Sprite3D = $Sprite3D
+@onready var _animator: SpriteAnimator = $SpriteAnimator
 
 
 ## Called by the spawn function on every peer. The node refs are each peer's
@@ -97,6 +98,7 @@ func setup(
 
 func _ready() -> void:
 	_sprite.texture = type.texture
+	_animator.setup(_sprite, self, $Shadow)
 	hp = type.max_hp
 	if not multiplayer.is_server():
 		set_physics_process(false)
@@ -374,6 +376,10 @@ func _attack_range() -> float:
 
 @rpc("authority", "call_local", "reliable")
 func _sync_hp(new_hp: int) -> void:
+	# call_local, so this runs on every peer — the flash is seen by everyone
+	# even though only the host decided the damage.
+	if new_hp < hp:
+		_animator.flash()
 	hp = new_hp
 
 
@@ -387,6 +393,6 @@ func set_light_tint(tint: Color) -> void:
 func _update_appearance() -> void:
 	if _sprite == null:
 		return
-	var color := _light_tint
+	var color := _light_tint * _animator.tint_multiplier()
 	color.a = lerpf(0.4, 1.0, float(hp) / float(maxi(type.max_hp, 1)))
 	_sprite.modulate = color
