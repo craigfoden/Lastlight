@@ -462,11 +462,25 @@ func _run_auto_build() -> void:
 	# ...but the swap only goes one way: a wall may not replace a tower.
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(4, 3))
 	await get_tree().create_timer(1.0).timeout
-	# The class gate, both halves from one line: a Paladin run places the
-	# brazier, any other class is refused as "Class exclusive". Which outcome
-	# is correct depends on --class, so run this smoke as both.
-	build_manager.request_place.rpc_id(1, &"hallowed_brazier", Vector2i(2, 3))
-	await get_tree().create_timer(2.0).timeout
+	# The class gate, both halves, for whatever class this run picked: your own
+	# exclusive must place and somebody else's must be refused. Derived from the
+	# data rather than naming a building, so it keeps testing the rule as
+	# classes are added.
+	var mine: BuildingType = null
+	var theirs: BuildingType = null
+	for type in build_manager.buildable_types:
+		if type.class_id == &"":
+			continue
+		if type.class_id == Network.local_player_class:
+			mine = type
+		elif theirs == null:
+			theirs = type
+	if mine != null:
+		build_manager.request_place.rpc_id(1, mine.id, Vector2i(2, 3))
+		await get_tree().create_timer(1.0).timeout
+	if theirs != null:
+		build_manager.request_place.rpc_id(1, theirs.id, Vector2i(2, 4))
+		await get_tree().create_timer(1.0).timeout
 	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
 
 

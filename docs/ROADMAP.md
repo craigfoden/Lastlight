@@ -26,7 +26,8 @@ same scene file.
 | 10 | **Playtest-prep UX pass** — proper night-join refusal message (app-layer refusal RPC before the kick, verified in a 3-instance smoke); "press E" harvest prompt; hover tooltips on build hotbar + ability bar (new `description` on BuildingType/AbilityType, stats composed from the same fields the game runs on); sell mode: visible [X] Sell hotbar button, orange hover highlight, refund preview from the shared `BuildingType.refund()`. Tooltip hover + sell-mode feel are untestable headless — they're on the playtest checklist. | ✅ 2026-07-15 | Craig + Claude |
 | 11 | **Balance & behaviour pass** (playtest feedback, Chris's call) — roamers wander instead of loitering on the light edge; daytime survivors conscripted into the night assault instead of burned off at dusk; towers upgrade walls in place (net cost, wall refunded); days cut 5→3 min; harvesting pays on **felling**, not per chop (flat 4, same chop count); wall 1→2 wood, sentry/turret +1 of each; mob hp doubled and damage +1 | ✅ 2026-08-10 (numbers unjudged by a human — the playtest still owes a verdict on night-1 winnability) | Chris + Claude |
 | 12 | **Class roster & the Paladin** — the session-4 class pipe was never joined up at either end: nothing set `Network.local_player_class` and `player.tscn` hardcoded the Ranger, so the roster knew your class and your character didn't. `Classes` registry; class carried in spawn data; **the host now defers a joiner's spawn until their class is in the roster** (it used to spawn inside `peer_connected`, before the client's registration packet arrived); dedicated class-select screen + `--class=<id>`; two new ability kinds (MELEE_ARC, SELF_BUFF); Paladin kit + exclusive tower | ✅ 2026-08-15 (green solo + host/client, incl. a mixed-class party; Paladin numbers are a first draft nobody has played) | Chris + Claude |
-| 13+ | **Content & polish** (pattern-following) — Mage kit and tower via the recipes; enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 13 | **The Mage** — third class, built deliberately as a test of session 12's "add a class = a .tres + a preload" recipe: what the data carried, and where it didn't. Verdict: the claim holds for classes and not for abilities, and never distinguished them — the class, tower, card, gating and XP were genuinely zero code; the two abilities wanting *new behaviour* were not. Both were paid by widening existing kinds rather than adding new ones (MELEE_ARC now roots; a deployable with `tick_damage` burns instead of springing). Arcane Spire is the first building that costs essence | ✅ 2026-08-15 (green solo + host/client across all three classes; numbers unplayed) | Chris + Claude |
+| 14+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -61,6 +62,9 @@ same scene file.
   class select → game, built from `Classes.ALL`, with `--class=<id>` for scripted runs. Still
   open: in-flight projectiles/traps are not replayed to late joiners. (Player HP +
   downed/respawn landed in session 5.)
+- Every projectile in the game shares one mesh and material, so an Arcane Bolt and an arrow are
+  the same yellow dart. The deployables' equivalent was fixed in session 13 (`decal_texture` on
+  the ability, per-instance material); projectiles want the same treatment.
 - The class-select screen lists a class's stats and its three abilities but not its exclusive
   tower — there is no `Buildings` registry to enumerate, and `buildable_types` lives on a node
   in `game.tscn`. The build hotbar's tooltip still says "Paladin exclusive." (session 12).

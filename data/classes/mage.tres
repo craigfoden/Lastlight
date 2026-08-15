@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ClassType" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://data/classes/class_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/player_mage.svg" id="2"]
+[ext_resource type="Resource" path="res://data/abilities/arcane_bolt.tres" id="3"]
+[ext_resource type="Resource" path="res://data/abilities/frost_nova.tres" id="4"]
+[ext_resource type="Resource" path="res://data/abilities/ember_sigil.tres" id="5"]
+
+[resource]
+script = ExtResource("1")
+id = &"mage"
+display_name = "Mage"
+description = "Reaches further than anyone and dies faster than anyone. Fights at the edge of what it can see, and answers anything that closes the distance by freezing it and walking away. Never wins a fight it let start."
+sprite = ExtResource("2")
+move_speed = 135.0
+max_hp = 70
+basic_attack = ExtResource("3")
+ability_1 = ExtResource("4")
+ability_2 = ExtResource("5")
+dodge_speed = 440.0
+dodge_duration = 0.18
+dodge_cooldown = 1.6

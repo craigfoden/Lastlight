@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/ember_sigil.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"ember_sigil"
+display_name = "Ember Sigil"
+description = "Burns a rune into the ground at your feet that scorches anything standing on it. Unlike a trap it does not spring and vanish — it keeps burning, so lay it where they have to queue."
+cooldown = 12.0
+kind = 1
+root_duration = 0.0
+lifetime = 10.0
+tick_damage = 3
+tick_interval = 0.7
+decal_texture = ExtResource("2")

@@ -19,6 +19,7 @@
 [ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="25_sentry"]
 [ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="26_turret"]
 [ext_resource type="Resource" path="res://data/buildings/hallowed_brazier.tres" id="35_brazier"]
+[ext_resource type="Resource" path="res://data/buildings/arcane_spire.tres" id="36_spire"]
 [ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="2_tower"]
 [ext_resource type="Script" path="res://scenes/world/world_gen.gd" id="3_worldgen"]
 [ext_resource type="Resource" path="res://data/materials/wood.tres" id="4_wood"]
@@ -133,7 +134,7 @@ spawn_path = NodePath("../Enemies")
 
 [node name="BuildManager" type="Node3D" parent="."]
 script = ExtResource("20_buildmgr")
-buildable_types = Array[ExtResource("23_buildingtype")]([ExtResource("24_wall"), ExtResource("25_sentry"), ExtResource("26_turret"), ExtResource("35_brazier")])
+buildable_types = Array[ExtResource("23_buildingtype")]([ExtResource("24_wall"), ExtResource("25_sentry"), ExtResource("26_turret"), ExtResource("35_brazier"), ExtResource("36_spire")])
 
 [node name="Buildings" type="Node3D" parent="BuildManager"]
 

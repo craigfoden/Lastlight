@@ -31,11 +31,22 @@ enum Kind { PROJECTILE, DEPLOYABLE, MELEE_ARC, SELF_BUFF }
 @export var pierce := 0
 
 @export_group("Deployable")
-## Seconds enemies caught by the deployable cannot move.
+## Seconds enemies caught by the deployable cannot move. Zero means it does
+## not root at all, which also means it does not spring and vanish — a
+## damage-only sigil keeps burning for its whole `lifetime`.
 @export var root_duration := 2.5
 @export var lifetime := 30.0
+## Damage dealt to everything standing on it, every `tick_interval` seconds.
+## Zero (the default) is the plain snare: no burn.
+@export var tick_damage := 0
+@export var tick_interval := 0.7
+## Flat 32x32 ground decal. All deployables share one scene, so without this
+## every one of them looks like the Ranger's snare; leave null to keep that.
+@export var decal_texture: Texture2D
 
 @export_group("Melee arc")
+## An arc also roots what it catches when `root_duration` (in the Deployable
+## group) is above zero — that is what separates a freezing nova from a swing.
 ## Pixels from the caster the swing reaches (see `damage` above for its bite).
 @export var melee_range := 48.0
 ## Width of the wedge the swing covers, centred on the aim direction. 360 is a

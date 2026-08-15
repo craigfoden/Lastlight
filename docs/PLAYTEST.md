@@ -31,8 +31,8 @@ PROJ=~/Documents/SourceControl/Lastlight
 ```
 
 Since session 12 both windows land on a **class-select screen** first — pick there, then the
-run starts. Add `--class=ranger` or `--class=paladin` to skip it (that also bypasses the screen
-entirely, which is how the smoke tests run).
+run starts. Add `--class=ranger`, `--class=paladin` or `--class=mage` to skip it (that also
+bypasses the screen entirely, which is how the smoke tests run).
 
 `--cycle=90:60` = 90-second days / 60-second nights so a whole run fits the session. Drop the
 flag for real pacing (3 min / 3 min) once when judging pacing specifically. Other useful flags:
@@ -64,7 +64,8 @@ flag for real pacing (3 min / 3 min) once when judging pacing specifically. Othe
 - [ ] Real 2-machine test (not loopback): one hosts, the other joins by LAN IP.
 
 Controls: WASD/arrows move · mouse aims · **LMB** basic attack · **Q** and **F** the other two
-abilities (Ranger: Piercing Arrow / Snare Trap; Paladin: Consecration / Bulwark) ·
+abilities (Ranger: Piercing Arrow / Snare Trap; Paladin: Consecration / Bulwark; Mage: Frost
+Nova / Ember Sigil) ·
 **Space** dodge · **E** harvest (a prompt appears in range) · **1/2/3** build hotbar ·
 **LMB** place · **RMB/Esc** cancel build · **X** (or the hotbar's Sell button) toggles sell
 mode — hovered buildings highlight orange with a refund preview, LMB sells. Hover any hotbar
@@ -173,6 +174,30 @@ the numbers are a first draft, so react to how it feels, not to whether it's bal
       holds the gap, Ranger kites and traps), or do you both end up doing the same thing?
 - [ ] Confirm each player sees the *other's* class correctly — the right sprite over the right
       name. (Asserted in the smoke tests, but eyes on it once.)
+
+### 5d. The Mage (session 13 — new)
+
+Third class, and the first thing in the game that spends essence. Same caveat as the Paladin:
+nobody has played these numbers.
+
+- [ ] **70 hp at 135 speed** — the Ranger is 90/150 and the Paladin 140/120. Does the Mage feel
+      like a deliberate risk, or just fragile? How many hits before you're downed, in practice?
+- [ ] **Arcane Bolt** (LMB, 4 damage, 15 cells, every 0.55 s): reaches further than any bow.
+      Can you actually *see* far enough to use that range, or does the camera cap it before the
+      ability does? That's the interesting question — if the camera wins, the range is a lie.
+- [ ] **Frost Nova** (Q, 3 damage, 4 cells all around, roots 2.5 s, every 9 s): the escape
+      button, not a damage tool. Does it reliably buy you the room to walk away?
+- [ ] **Ember Sigil** (F, burns 3 every 0.7 s for 10 s, every 12 s): unlike the Ranger's trap it
+      does *not* spring and vanish — it keeps burning. Lay it in a corridor. Does the difference
+      read on the ground? (It has its own orange rune art so it can't be confused with a snare.)
+- [ ] **Arcane Spire** (2 Faint Essence + 3 Stone; 3 damage, 8 cells, every 1.1 s): watches far
+      more ground than any other tower and chips rather than kills.
+- [ ] **The essence question — judge this hardest.** This is the only building that costs
+      essence, and essence lives in the mid and outer rings. Can you get enough by night 1 to
+      build anything, or does the Mage spend its first night unable to build at all? If it's the
+      latter, the dial is the Spire's cost, not the map.
+- [ ] **Three classes together** (if you can get a third window up): does the party split into
+      real roles — Paladin holds, Ranger kites, Mage covers ground — or does everyone converge?
 
 ### 6b. World, daytime danger & survival (session 5 — new)
 - [ ] The map no longer feels empty: resource nodes are plentiful and scenery (boulders, dead

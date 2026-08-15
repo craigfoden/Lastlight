@@ -76,12 +76,17 @@ func _ability_stats(ability: AbilityType) -> String:
 			return "%d damage, %.1f cells, every %.2f s" % [ability.damage,
 					ability.projectile_range / PX_PER_UNIT, ability.cooldown]
 		AbilityType.Kind.DEPLOYABLE:
-			return "roots %.1f s, every %.0f s" % [ability.root_duration, ability.cooldown]
+			var effect := "roots %.1f s" % ability.root_duration if ability.root_duration > 0.0 \
+					else "burns %d every %.1f s for %.0f s" % [ability.tick_damage,
+					ability.tick_interval, ability.lifetime]
+			return "%s, every %.0f s" % [effect, ability.cooldown]
 		AbilityType.Kind.MELEE_ARC:
 			var shape := "all around you" if ability.arc_degrees >= 360.0 \
 					else "%.0f° arc" % ability.arc_degrees
-			return "%d damage, %.1f cells, %s, every %.2f s" % [ability.damage,
-					ability.melee_range / PX_PER_UNIT, shape, ability.cooldown]
+			var held := ", roots %.1f s" % ability.root_duration \
+					if ability.root_duration > 0.0 else ""
+			return "%d damage, %.1f cells, %s%s, every %.2f s" % [ability.damage,
+					ability.melee_range / PX_PER_UNIT, shape, held, ability.cooldown]
 		AbilityType.Kind.SELF_BUFF:
 			return "%.0f%% less damage for %.0f s, every %.0f s" % [
 					ability.damage_reduction * 100.0, ability.buff_duration, ability.cooldown]

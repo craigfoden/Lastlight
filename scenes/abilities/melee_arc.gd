@@ -81,6 +81,10 @@ func _host_strike() -> void:
 			continue
 		_already_hit[body.get_instance_id()] = true
 		body.host_take_damage(_ability.damage)
+		if _ability.root_duration > 0.0:
+			# A freezing nova is a swing that also holds them: same wedge, same
+			# once-per-swing rule, one extra line of data.
+			body.host_apply_root(_ability.root_duration)
 		_hit_count += 1
 
 

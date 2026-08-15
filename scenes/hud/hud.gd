@@ -142,13 +142,22 @@ func _ability_tooltip(ability: AbilityType) -> String:
 			lines.append("Damage %d · Range %.1f cells" % [
 					ability.damage, ability.projectile_range / PX_PER_UNIT])
 		AbilityType.Kind.DEPLOYABLE:
-			lines.append("Roots for %.1f s · Lasts %.0f s on the ground" % [
-					ability.root_duration, ability.lifetime])
+			var parts: Array[String] = []
+			if ability.root_duration > 0.0:
+				parts.append("Roots for %.1f s" % ability.root_duration)
+			if ability.tick_damage > 0:
+				parts.append("Burns %d every %.1f s" % [
+						ability.tick_damage, ability.tick_interval])
+			parts.append("Lasts %.0f s on the ground" % ability.lifetime)
+			lines.append(" · ".join(parts))
 		AbilityType.Kind.MELEE_ARC:
 			var shape := "All around you" if ability.arc_degrees >= 360.0 \
 					else "%.0f° arc" % ability.arc_degrees
-			lines.append("Damage %d · Reach %.1f cells · %s" % [
-					ability.damage, ability.melee_range / PX_PER_UNIT, shape])
+			var arc_line := "Damage %d · Reach %.1f cells · %s" % [
+					ability.damage, ability.melee_range / PX_PER_UNIT, shape]
+			if ability.root_duration > 0.0:
+				arc_line += " · Roots for %.1f s" % ability.root_duration
+			lines.append(arc_line)
 		AbilityType.Kind.SELF_BUFF:
 			lines.append("Takes %d%% less damage for %.0f s" % [
 					int(roundf(ability.damage_reduction * 100.0)), ability.buff_duration])

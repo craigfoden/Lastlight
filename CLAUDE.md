@@ -184,6 +184,12 @@ class resource. A new *kind* is the one part that needs code: a scene under `sce
 following `projectile.gd` (spawned on every peer, host-only damage) plus an arm in
 `Player.request_cast`, the HUD tooltip's `match`, and the class screen's stat line. `Kind` is
 append-only — the enum is stored as an int in every `.tres`.
+**Prefer widening a kind to adding one.** Fields already read across kinds: `root_duration`
+holds for both DEPLOYABLE and MELEE_ARC, and `tick_damage` turns a snare into a burning sigil
+that never springs. Two behaviours out of one node beat two nodes — but both branches must
+then be reachable from data alone, and **both tooltips must tell the truth**, so widen the
+`match` arms in `hud.gd` and `class_select.gd` in the same change. All deployables share one
+scene: set `decal_texture` or a new one looks exactly like the Ranger's trap.
 
 **Add a class:** create `data/classes/<id>.tres` (script `class_type.gd`; sprite, `description`,
 speed, hp, dodge stats, three ability slots) → add its preload to `Classes.ALL` in
@@ -191,6 +197,11 @@ speed, hp, dodge stats, three ability slots) → add its preload to `Classes.ALL
 the select screen builds its own card, spawn data carries the id, and player combat, build
 gating, the hotbar filter, the HUD, talents, and XP banking all key off it. `Classes.by_id()`
 never returns null — an unknown id warns and falls back to `ALL[0]`.
+**But a class is only as data-driven as its abilities are** (learned building the Mage,
+session 13). Slotting *existing behaviour* with new numbers is genuinely zero code. Wanting a
+behaviour no kind performs yet is code every time, and that is the axis to estimate on — count
+the new *behaviours*, not the new classes. Cheapest first: a new number on an existing kind
+(Frost Nova = MELEE_ARC that also reads `root_duration`), then a new kind, then a new system.
 Give a class a **fourth** placeable and it appears in the hotbar but stays click-only until a
 `build_select_4` action is added to `project.godot` (see `BuildController.HOTBAR_KEYS`).
 

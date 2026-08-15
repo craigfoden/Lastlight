@@ -881,6 +881,50 @@ about today's data, not an invariant: a fourth needs a `build_select_4` action i
 
 ---
 
+### The Mage, and what "add a class = a .tres" was actually worth (2026-08-15)
+
+Session 12 left a claim in CLAUDE.md — adding a class is a `.tres` plus a preload — and the
+Mage was built deliberately to test it rather than to assume it. **The verdict: the claim is
+true about classes and false about abilities, and it never distinguished them.**
+
+Genuinely zero code, exactly as promised: the sprite, the class resource, the preload, the
+exclusive tower, its mesh, the class-select card, spawn data, hotbar gating, HUD ability bar,
+XP banking. Arcane Bolt is a PROJECTILE with different numbers and needed nothing at all.
+
+What did need code was never *the class* — it was **behaviour no kind performed yet**:
+- Frost Nova wanted a burst that holds what it catches. MELEE_ARC now reads `root_duration`
+  (a field DEPLOYABLE already had) and calls the same `host_apply_root` the trap does.
+- Ember Sigil wanted a deployable that burns instead of springing. `SnareTrap` now yields two
+  behaviours from one node chosen by data: `root_duration > 0` is a snare that is consumed by
+  the first thing it catches, `tick_damage > 0` is a sigil that keeps burning for its lifetime.
+
+**The rule this gives us:** estimate on new *behaviours*, not new classes. Cheapest first — a
+new number on an existing kind, then a new kind, then a new system. The Paladin needed two new
+kinds and was most of a session; the Mage needed none and was a fraction of one.
+
+**Prefer widening a kind to adding one**, but pay the two debts that come with it: both
+branches must be reachable from data alone, and **both tooltips must tell the truth**. The
+`match` arms in `hud.gd` and `class_select.gd` compose stats from the fields the game actually
+runs on (session 10's rule), so a widened kind that does not widen its arms will silently
+describe a burning sigil as a snare that "roots for 0.0 s".
+
+**A shared scene is a shared look.** All deployables instantiate one `snare_trap.tscn`, so the
+Mage's sigil arrived looking exactly like the Ranger's trap — two abilities of the same kind
+sitting on the ground, indistinguishable in co-op. Fixed with a `decal_texture` on the ability
+and a **per-instance** `material_override` built in code, because sub-resources authored in a
+`.tscn` are shared across instances and swapping the texture on one would repaint every other
+deployable on the map (the same trap `melee_arc.gd` avoided by building its shape in code).
+Still outstanding on the same principle: every projectile in the game uses one mesh and
+material, so an arcane bolt and an arrow are the same yellow dart.
+
+**Essence has a sink now, for the first time.** Wall, Sentry, Turret and Brazier all cost
+wood/stone; the three essence tiers were harvestable and bought nothing. Arcane Spire costs
+`essence_faint`, which gives the outer rings a purpose and the Mage a reason to have been out
+there. Flagged as a balance question, not a settled call: if essence is too far out to reach on
+day 1, the Mage cannot build at all.
+
+---
+
 ## Template for new entries
 
 ```

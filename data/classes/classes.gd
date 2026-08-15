@@ -9,6 +9,7 @@ extends RefCounted
 const ALL: Array[ClassType] = [
 	preload("res://data/classes/ranger.tres"),
 	preload("res://data/classes/paladin.tres"),
+	preload("res://data/classes/mage.tres"),
 ]
 
 

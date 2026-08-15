@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"arcane_bolt"
+display_name = "Arcane Bolt"
+description = "Your basic attack: a fast mote of light that reaches further than any bow. Hits harder than an arrow but comes slower, so make each one count."
+cooldown = 0.55
+kind = 0
+damage = 4
+projectile_speed = 560.0
+projectile_range = 480.0
+pierce = 0

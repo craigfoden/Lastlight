@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"frost_nova"
+display_name = "Frost Nova"
+description = "A ring of cold that bursts out around you, freezing everything it catches where it stands. It barely hurts — it buys you the seconds to walk away."
+cooldown = 9.0
+kind = 2
+damage = 3
+root_duration = 2.5
+melee_range = 128.0
+arc_degrees = 360.0
+swing_time = 0.35
