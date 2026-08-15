@@ -803,6 +803,84 @@ instrument the thing you are actually claiming.
 
 ---
 
+### Class roster: the host spawns you only once it knows what you are (2026-08-15)
+
+Session 4 built the class *resource* and everything downstream of it, but neither end was
+joined up: nothing ever set `Network.local_player_class`, and `player.tscn` carried
+`class_type = ranger.tres` as a scene-level default. So the roster knew your class —
+`build_manager` gated exclusive towers on it, `profile` banked XP against it — while your
+character ignored it. Wiring the two ends together exposed a **join-order race** that had
+been latent since session 1.
+
+**The race.** `game.gd` spawned a joiner's character inside `_on_peer_connected`. That
+signal fires when the *transport* connects. The roster is filled by `Network._register_player`,
+an RPC the joining client sends from its own `peer_connected(1)` handler — a separate packet
+that necessarily arrives later. So at spawn time `Network.players[peer_id]` did not exist yet,
+and reading `class_id` there would have quietly built every joiner as the fallback class.
+
+**Decision:** `Network` gained a `player_registered(peer_id)` signal, and the host now defers
+the spawn. `_on_peer_connected` still runs the night-join refusal check immediately (it must
+stay early — a refused peer should never be spawned at all) and then records the peer in
+`_pending_spawns`; `_on_player_registered` does the spawn and the state snapshots. A peer that
+drops mid-handshake is erased from the pending set by `_on_peer_disconnected`.
+**Why not the alternatives:** spawning a placeholder and syncing the class afterwards is
+exactly what `spawn_function`-with-explicit-spawn-data exists to prevent (a client's defaults
+overwriting host-chosen state); a bespoke pre-spawn handshake would duplicate a message that
+already carries this payload at the right moment.
+**The tell we nearly missed:** `build_manager.gd` reads the roster as
+`.get(sender, {}).get("class_id", &"")`. That defensive default was written because the roster
+can be incomplete — the codebase already *knew* about this window and had only ever tolerated
+it. A defensive default is a load-bearing fact wearing a disguise; when you make that data
+load-bearing, go and read why the default was there.
+
+### Two new ability kinds, and the hitbox that struck too early (2026-08-15)
+
+`AbilityType.Kind` had exactly two members, so any kit that was not "shoot a thing" or "drop a
+thing" needed new code. Added `MELEE_ARC` (instant wedge of `arc_degrees` out to `melee_range`)
+and `SELF_BUFF` (`damage_reduction` for `buff_duration`, applied in `host_take_damage`).
+Both follow the established shapes: the arc spawns on every peer through an `any_peer` +
+sender-is-host broadcast and only the host's copy damages (Projectile's contract); the buff is
+host-owned state pushed on both edges like `downed`, so no peer counts down its own copy.
+
+`MeleeArc` builds its wedge mesh from `arc_degrees` at runtime rather than authoring one per
+ability, so a 100° cleave and a 360° slam are one kind with two `.tres` files and no second
+visual to keep in step. It also creates its `CylinderShape3D` in code: shapes authored in a
+scene are **shared between instances**, so sizing one from ability data would resize every
+other swing in flight.
+
+**The trap, and it cost the session real time:** the first implementation struck once, on the
+first `_physics_process` tick. It reliably hit nothing. A freshly `add_child`ed Area3D has not
+been through a physics step yet, so `get_overlapping_bodies()` is still empty on tick one — the
+swing always whiffed while every log line said the cast had fired. The fix is to poll for the
+whole `swing_time`, tracking already-hit bodies so nothing takes damage twice, which also makes
+the wedge an honest active window. `SnareTrap` already polls every tick and its docstring says
+why ("also catches enemies that spawn or get pushed inside the zone") — the same engine fact,
+written down two sessions earlier, in the file next door.
+**How it was caught:** by running the *Ranger* through the same harness as a control. The
+Paladin scored zero kills and the Ranger six, which localised the fault to the new code in one
+run instead of leaving "the rebalance made night 1 unwinnable" as a plausible explanation.
+When a new thing does not work, re-run the old thing through the same path first.
+
+### The class-select screen sits before the game scene (2026-08-15)
+
+Scene flow is now menu → class select → game. The choice must be made *before* the game scene
+loads, because `Network.local_player_class` has to be in the roster from the first packet —
+picking in-game would need a second round trip and a respawn. The screen builds its cards from
+`Classes.ALL` at runtime, so adding a class stays a `.tres` plus a preload with no scene edit.
+**Scripted runs bypass it entirely:** `--host` / `--join` on the main menu go straight to the
+game scene and take their class from `--class=<id>`. A smoke test must never land on a screen
+waiting for a click it will never get — this is why the bypass is a parameter on
+`_start_host`/`_start_join` rather than a check inside the select screen.
+
+**Consequence worth knowing:** `types_for_class()` on BuildManager is now the single source for
+"what may this player place", and the hotbar, its number keys, and the ghost all index into
+that filtered list. Arrow Turret was already Ranger-exclusive (session 4), so every class
+currently lands on exactly three placeables — two shared plus one exclusive. That is a fact
+about today's data, not an invariant: a fourth needs a `build_select_4` action in
+`project.godot`, and `BuildController.HOTBAR_KEYS` says so where someone will hit it.
+
+---
+
 ## Template for new entries
 
 ```

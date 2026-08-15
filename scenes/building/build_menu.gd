@@ -28,8 +28,11 @@ func setup(
 	_build_controller = build_controller
 	_team_materials = team_materials
 
-	for i in build_manager.buildable_types.size():
-		var type := build_manager.buildable_types[i]
+	# Only what this player's class can actually place — an exclusive tower in
+	# someone else's hotbar is a slot that always refuses.
+	var my_types := build_manager.types_for_class(Network.local_player_class)
+	for i in my_types.size():
+		var type := my_types[i]
 		var button := Button.new()
 		button.toggle_mode = true
 		button.text = "[%d] %s\n%s" % [i + 1, type.display_name, Materials.cost_text(type.cost)]

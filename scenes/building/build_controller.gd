@@ -21,7 +21,17 @@ const GHOST_SELL := Color(1.0, 0.55, 0.2, 0.5)
 ## placement_error reports it as out of bounds.
 const CELL_NOWHERE := Vector2i(1 << 20, 1 << 20)
 
+## How many number keys the input map defines (build_select_1..N). Every class
+## currently lands on exactly 3 placeables — two shared plus one exclusive —
+## which is a fact about today's data, not a rule. Give any class a fourth and
+## it appears in the hotbar but stays click-only until a `build_select_4`
+## action is added to project.godot (a merge-sensitive file: call it out).
+const HOTBAR_KEYS := 3
+
 var _build_manager: BuildManager
+## This player's placeable list, in the same order the hotbar draws it, so
+## key N and button N are always the same building.
+var _my_types: Array[BuildingType] = []
 var _selected: BuildingType
 var _sell_mode := false
 var _sell_hover: Building
@@ -48,6 +58,7 @@ func _ready() -> void:
 ## Injected by the Game scene.
 func setup(build_manager: BuildManager) -> void:
 	_build_manager = build_manager
+	_my_types = build_manager.types_for_class(Network.local_player_class)
 
 
 ## Select if it isn't selected; put the hammer away if it is.
@@ -93,9 +104,9 @@ func _set_sell_hover(building: Building) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _build_manager == null:
 		return
-	for i in mini(_build_manager.buildable_types.size(), 3):
+	for i in mini(_my_types.size(), HOTBAR_KEYS):
 		if event.is_action_pressed("build_select_%d" % (i + 1)):
-			toggle(_build_manager.buildable_types[i])
+			toggle(_my_types[i])
 			return
 	if event.is_action_pressed("sell"):
 		toggle_sell_mode()

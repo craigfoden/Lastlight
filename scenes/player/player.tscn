@@ -1,7 +1,6 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1_script"]
-[ext_resource type="Resource" path="res://data/classes/ranger.tres" id="2_ranger"]
 [ext_resource type="Texture2D" path="res://assets/sprites/placeholder/shadow.svg" id="3_shadow"]
 
 [sub_resource type="StandardMaterial3D" id="shadow_mat"]
@@ -33,7 +32,6 @@ collision_layer = 2
 collision_mask = 1
 motion_mode = 1
 script = ExtResource("1_script")
-class_type = ExtResource("2_ranger")
 
 [node name="Shadow" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.02, 0)

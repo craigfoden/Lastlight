@@ -8,6 +8,10 @@ extends Resource
 
 @export var display_name: String
 
+## A sentence or two for the class-select screen — how this one is played, not
+## what its numbers are. Stats and abilities are composed from the real fields.
+@export_multiline var description := ""
+
 @export var sprite: Texture2D
 
 @export var move_speed := 150.0

@@ -12,9 +12,17 @@ extends Node3D
 ## --auto-build / --auto-block-test / --grant-materials=... / --auto-fight /
 ## --hurt-test / --tower-hp=N / --fast-cycle / --cycle=day:night /
 ## --final-day=N / --spawn-at=x,z (start the local player out in the wilds).
+## Class comes from --class=<id>, parsed on the main menu before we load.
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
 const PlayerScene := preload("res://scenes/player/player.tscn")
+
+## Ability data is px-denominated; convert at the boundary (32 px = 1 cell).
+const PX_PER_UNIT := 32.0
+## --auto-fight only: how close a target must be before the harness lays a
+## deployable, or pops a self-buff. Both are harness pacing, not game balance.
+const AUTO_FIGHT_DEPLOY_RANGE := 5.0
+const AUTO_FIGHT_BUFF_RANGE := 4.0
 
 ## The glowing tower's footprint on the build grid (solid, unbuildable) and
 ## the walkable cell at its base that enemies path toward. Same cells as the
@@ -49,6 +57,10 @@ const HEART_CELL := Vector2i(0, 0)
 var run_over := false
 var _auto_walk := false
 var _spawn_at_override := Vector3.ZERO
+
+## Host only: peers that connected and passed the join rules but whose roster
+## entry (name + class) has not arrived yet. peer_id -> true.
+var _pending_spawns := {}
 
 @onready var players: Node3D = $Players
 @onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
@@ -115,6 +127,8 @@ func _ready() -> void:
 				return
 			multiplayer.peer_connected.connect(_on_peer_connected)
 			multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+			Network.player_registered.connect(_on_player_registered)
+			# Our own roster entry was written by host_game(), so no wait here.
 			_spawn_player(1)
 			for arg in OS.get_cmdline_user_args():
 				# Dev cheat for testing builds: --grant-materials=wood:10,stone:10
@@ -132,9 +146,12 @@ func _ready() -> void:
 			RenderingServer.get_current_rendering_driver_name()])
 
 
-# Host only. The joiner's scene is already loaded (clients connect from inside
-# it), so it is safe to spawn their player and push them the state that is not
-# covered by synchronizers.
+# Host only. Vets the join, then puts the peer on the pending list rather than
+# spawning it: `peer_connected` fires when the transport connects, which is
+# strictly before the joiner's own _register_player RPC arrives, so at this
+# moment we do not yet know their name or their CLASS. Spawning here would
+# build every joiner as the fallback class. _on_player_registered finishes the
+# job (see the decision log, 2026-08-15).
 func _on_peer_connected(peer_id: int) -> void:
 	if day_night.phase == DayNightCycle.Phase.NIGHT or run_over:
 		# Design rule: joining is day-phase only. Refusing at the app layer
@@ -147,6 +164,15 @@ func _on_peer_connected(peer_id: int) -> void:
 		print("[Game] Refused join from peer %d (%s)" % [peer_id, reason])
 		_receive_join_refusal.rpc_id(peer_id, reason)
 		_kick_after_grace(peer_id)
+		return
+	_pending_spawns[peer_id] = true
+
+
+# Host only: the joiner's class is now in the roster, so build their character
+# and push the state that synchronizers do not cover. A refused peer never made
+# the pending list, and one that dropped mid-handshake was taken off it.
+func _on_player_registered(peer_id: int) -> void:
+	if not _pending_spawns.erase(peer_id):
 		return
 	_spawn_player(peer_id)
 	team_materials.host_send_snapshot(peer_id)
@@ -224,6 +250,9 @@ func _on_resource_harvested(material_type: MaterialType, count: int) -> void:
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
+	# Dropped before registering (or refused and kicked): nothing was ever
+	# spawned, but the pending entry would outlive them.
+	_pending_spawns.erase(peer_id)
 	if players.has_node(str(peer_id)):
 		# Freeing on the host makes the MultiplayerSpawner despawn it everywhere.
 		players.get_node(str(peer_id)).queue_free()
@@ -235,6 +264,9 @@ func _spawn_player(peer_id: int) -> void:
 	player_spawner.spawn({
 		"peer_id": peer_id,
 		"position": Vector3(spawn_radius, 0, 0).rotated(Vector3.UP, angle),
+		# The owner's chosen class, read from the roster the host now knows is
+		# populated (_on_player_registered guarantees it).
+		"class_id": Network.players[peer_id].get("class_id", Classes.ALL[0].id),
 	})
 
 
@@ -244,6 +276,9 @@ func _build_player(data: Dictionary) -> Node:
 	# The node name doubles as the owner's peer id (see player.gd).
 	player.name = str(data.peer_id)
 	player.position = data.position
+	# Set before add_child so _ready() sees the right sprite and max_hp —
+	# the whole reason this spawner uses an explicit spawn_function.
+	player.class_type = Classes.by_id(data.class_id)
 	if _spawn_at_override != Vector3.ZERO and data.peer_id == multiplayer.get_unique_id():
 		# Dev cheat (--spawn-at): only the owner overrides — position is
 		# client-authority, so the synchronizer pushes it to everyone else.
@@ -322,9 +357,8 @@ func _parse_dev_args() -> void:
 
 
 # Smoke-test hook (godot -- --auto-fight): stand on the eastern approach lane
-# and cast the whole Ranger kit at the nearest monster. Exercises aim/cast
-# RPCs, projectiles, piercing, and the snare trap. Same logic as the 2D hook,
-# distances in cells (2D px / 32).
+# and cast the whole kit at the nearest monster. Exercises aim/cast RPCs and
+# every ability kind the chosen class happens to carry. Distances in cells.
 func _start_auto_fight() -> void:
 	var timer := Timer.new()
 	timer.wait_time = 0.6
@@ -359,13 +393,32 @@ func _auto_fight_tick() -> void:
 		return
 	var direction := me.global_position.direction_to(nearest.global_position)
 	var distance := me.global_position.distance_to(nearest.global_position)
-	# Hold fire until they're ON the trap, so the root gets tested too.
-	if me.cooldown_remaining(me.class_type.ability_2) <= 0.0 and distance < 5.0:
-		me.try_cast_toward(me.class_type.ability_2, direction)
-	elif me.cooldown_remaining(me.class_type.ability_1) <= 0.0 and distance < 1.875:
-		me.try_cast_toward(me.class_type.ability_1, direction)
-	elif distance < 1.875:
-		me.try_cast_toward(me.class_type.basic_attack, direction)
+	# Cast the first thing that is both off cooldown and actually in reach.
+	# Reach comes from each ability's own data, so a melee kit swings when they
+	# arrive instead of whiffing at the range a bow would have fired from.
+	for ability in [me.class_type.ability_2, me.class_type.ability_1,
+			me.class_type.basic_attack]:
+		if ability == null or me.cooldown_remaining(ability) > 0.0:
+			continue
+		if distance <= _auto_fight_reach(ability):
+			me.try_cast_toward(ability, direction)
+			return
+
+
+# Cells within which the harness considers an ability worth casting.
+func _auto_fight_reach(ability: AbilityType) -> float:
+	match ability.kind:
+		AbilityType.Kind.PROJECTILE:
+			return ability.projectile_range / PX_PER_UNIT
+		AbilityType.Kind.MELEE_ARC:
+			return ability.melee_range / PX_PER_UNIT
+		AbilityType.Kind.DEPLOYABLE:
+			# Drop it while they are still walking in, so the root gets tested.
+			return AUTO_FIGHT_DEPLOY_RANGE
+		AbilityType.Kind.SELF_BUFF:
+			# Pop it as they close, which is when it would matter.
+			return AUTO_FIGHT_BUFF_RANGE
+	return 0.0
 
 
 # Smoke-test hook (godot -- --hurt-test): the host chips every player's hp on a
@@ -408,6 +461,11 @@ func _run_auto_build() -> void:
 	await get_tree().create_timer(1.0).timeout
 	# ...but the swap only goes one way: a wall may not replace a tower.
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(4, 3))
+	await get_tree().create_timer(1.0).timeout
+	# The class gate, both halves from one line: a Paladin run places the
+	# brazier, any other class is refused as "Class exclusive". Which outcome
+	# is correct depends on --class, so run this smoke as both.
+	build_manager.request_place.rpc_id(1, &"hallowed_brazier", Vector2i(2, 3))
 	await get_tree().create_timer(2.0).timeout
 	build_manager.request_sell.rpc_id(1, Vector2i(3, 3))
 

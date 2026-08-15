@@ -13,6 +13,11 @@ signal player_list_changed
 signal connection_failed
 signal server_ended
 
+## A specific peer's roster entry has just arrived — its name and class are now
+## known. `peer_connected` fires strictly earlier and carries neither, so the
+## host waits for this before spawning a joiner's character (see game.gd).
+signal player_registered(peer_id: int)
+
 enum StartMode { NONE, HOST, JOIN }
 
 const DEFAULT_PORT := 24565
@@ -27,9 +32,11 @@ var pending_address := "127.0.0.1"
 ## Set by the main menu before hosting/joining.
 var local_player_name := "Player"
 
-## Chosen class. Only Ranger exists until the session-5 roster lands; a class
-## select screen will set this later.
-var local_player_class := &"ranger"
+## Chosen class, set by the class-select screen (or `--class=` on the command
+## line) before hosting or joining, so it is in the roster from the first
+## packet. Everything downstream keys off it: the character you spawn as, which
+## exclusive towers you may build, and which class banks the run's XP.
+var local_player_class := Classes.ALL[0].id
 
 ## Shown on the menu after being bounced back there (failed join, host quit).
 var last_error := ""
@@ -91,7 +98,11 @@ func _register_player(player_name: String, player_class: StringName) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	players[sender] = {"name": player_name, "class_id": player_class}
 	player_list_changed.emit()
-	print("[Network] Player joined: '%s' (peer %d)" % [player_name, sender])
+	print("[Network] Player joined: '%s' (peer %d) as %s"
+			% [player_name, sender, player_class])
+	# Last: this is what makes the host spawn them, and the spawn logs too —
+	# announcing the arrival first keeps the log in causal order.
+	player_registered.emit(sender)
 
 
 func _on_peer_disconnected(id: int) -> void:

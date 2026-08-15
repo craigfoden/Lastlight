@@ -80,6 +80,9 @@ and cast the kit), `--hurt-test` (host chips every player's hp on a timer — ex
 downed/revive/respawn), `--auto-walk` (the local player strolls in a circle when idle),
 `--log-players-after-sec=a,b` (print every player's position at those times — assert a
 remote player's position changed between stamps to prove replication),
+`--class=<id>` (pick a class without the select screen — scripted `--host`/`--join` skip
+that screen entirely, so this is the only way to choose one headlessly; unknown ids are
+refused loudly and leave the default in place),
 `--spawn-at=x,z` (start the local player at that cell — playtest distance-based things
 like the glow edge and roamers without the walk),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
@@ -176,12 +179,20 @@ hp sync, and wave composition all follow. (Contract: group `"enemies"` + `hp` +
 `host_take_damage()` + `host_send_snapshot()`.)
 
 **Add an ability:** create `data/abilities/<id>.tres` (script `ability_type.gd`; `kind` =
-projectile or deployable + stats) and slot it into a class resource.
+projectile, deployable, melee arc, or self buff + that kind's stat group) and slot it into a
+class resource. A new *kind* is the one part that needs code: a scene under `scenes/abilities/`
+following `projectile.gd` (spawned on every peer, host-only damage) plus an arm in
+`Player.request_cast`, the HUD tooltip's `match`, and the class screen's stat line. `Kind` is
+append-only — the enum is stored as an int in every `.tres`.
 
-**Add a class:** create `data/classes/<id>.tres` (script `class_type.gd`; sprite, speed, dodge
-stats, three ability slots) → mark its exclusive towers via `BuildingType.class_id` → set
-`Network.local_player_class` from the (future) class-select screen. Player combat, gating,
-HUD, talents, and XP banking all key off the class id.
+**Add a class:** create `data/classes/<id>.tres` (script `class_type.gd`; sprite, `description`,
+speed, hp, dodge stats, three ability slots) → add its preload to `Classes.ALL` in
+`data/classes/classes.gd` → mark its exclusive towers via `BuildingType.class_id`. That is all:
+the select screen builds its own card, spawn data carries the id, and player combat, build
+gating, the hotbar filter, the HUD, talents, and XP banking all key off it. `Classes.by_id()`
+never returns null — an unknown id warns and falls back to `ALL[0]`.
+Give a class a **fourth** placeable and it appears in the hotbar but stays click-only until a
+`build_select_4` action is added to `project.godot` (see `BuildController.HOTBAR_KEYS`).
 
 **Add a talent:** create `data/talents/<id>.tres` (script `talent_type.gd`; `class_id`,
 `modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys.
@@ -253,6 +264,22 @@ HUD, talents, and XP banking all key off the class id.
 - `--fast-cycle`'s 6 s night ends before enemies can cross the ~46 cells from an opening to
   the tower — a combat smoke on it "passes" with zero combat. Use `--cycle=8:60`-style
   pacing (long night) when asserting on `[Enemy]`/`[Trap]`/`[Tower]` logs.
+- A freshly `add_child`ed **Area3D reports no overlaps on its first `_physics_process` tick** —
+  it has not been through a physics step yet. Anything that spawns and immediately asks
+  `get_overlapping_bodies()` (a melee hitbox, a burst) silently hits nothing while every log
+  says the cast fired. Poll for the whole lifetime and track already-hit bodies instead
+  (`melee_arc.gd`, `snare_trap.gd`).
+- `multiplayer.peer_connected` fires when the **transport** connects, which is strictly before
+  the joiner's `Network._register_player` RPC lands — so `Network.players[peer_id]` is still
+  empty there. Anything that needs a joiner's name or class must wait for the
+  `Network.player_registered` signal (that is why the host defers spawning; see the decision
+  log 2026-08-15).
+- Sub-resources authored in a `.tscn` (shapes, meshes, materials) are **shared across every
+  instance** of that scene unless `resource_local_to_scene` is set. Sizing one from per-instance
+  data resizes every other live instance too — build it in code instead.
+- Windowed runs on this Windows box log `WASAPI: init_output_device error` and fall back to the
+  dummy audio driver — there is no audio device over RDP. Environmental, not a code fault; it
+  does not appear in `--headless` runs.
 
 ## Team rules
 

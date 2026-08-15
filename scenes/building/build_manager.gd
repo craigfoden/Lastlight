@@ -17,7 +17,8 @@ const BuildingScene := preload("res://scenes/building/building.tscn")
 ## anything following a path should recompute it.
 signal grid_changed
 
-## Everything placeable this run, in hotbar order.
+## Everything placeable this run, in hotbar order. Includes every class's
+## exclusives — see `types_for_class()` for the per-player view.
 @export var buildable_types: Array[BuildingType] = []
 
 ## Grid half-extent in cells; the region spans [-half, half). Matches the 2D
@@ -141,6 +142,18 @@ func _nearest_open_neighbor(cell: Vector2i) -> Vector2i:
 		if _astar.region.has_point(neighbor) and not _astar.is_point_solid(neighbor):
 			return neighbor
 	return cell
+
+
+## The subset of `buildable_types` a given class may place: everything shared,
+## plus that class's own exclusives. The hotbar, its number keys, and the ghost
+## all index into THIS list, so slot numbers stay contiguous per class and the
+## keys can never point at a different building than the buttons show.
+func types_for_class(class_id: StringName) -> Array[BuildingType]:
+	var result: Array[BuildingType] = []
+	for type in buildable_types:
+		if type.class_id == &"" or type.class_id == class_id:
+			result.append(type)
+	return result
 
 
 ## "" when placement is legal, otherwise a human-readable reason. Runs

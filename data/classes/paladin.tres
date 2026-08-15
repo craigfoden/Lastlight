@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ClassType" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://data/classes/class_type.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/placeholder/player_paladin.svg" id="2"]
+[ext_resource type="Resource" path="res://data/abilities/cleave.tres" id="3"]
+[ext_resource type="Resource" path="res://data/abilities/consecration.tres" id="4"]
+[ext_resource type="Resource" path="res://data/abilities/bulwark.tres" id="5"]
+
+[resource]
+script = ExtResource("1")
+id = &"paladin"
+display_name = "Paladin"
+description = "Slow, heavy, and hard to put down. Everything it does happens within a pace of its own feet, so it holds the gap in the maze rather than covering the field. Bring it where the horde has to come to you."
+sprite = ExtResource("2")
+move_speed = 120.0
+max_hp = 140
+basic_attack = ExtResource("3")
+ability_1 = ExtResource("4")
+ability_2 = ExtResource("5")
+dodge_speed = 380.0
+dodge_duration = 0.16
+dodge_cooldown = 2.0

@@ -10,6 +10,7 @@
 script = ExtResource("1")
 id = &"ranger"
 display_name = "Ranger"
+description = "Fast and fragile. Fights at arm's length, kites what it cannot kill, and shapes the night with traps. Rewards footwork; punishes standing still."
 sprite = ExtResource("2")
 move_speed = 150.0
 max_hp = 90

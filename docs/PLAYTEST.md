@@ -30,8 +30,12 @@ PROJ=~/Documents/SourceControl/Lastlight
 "$GODOT" --path "$PROJ" -- --join=127.0.0.1 --name=Guest --cycle=90:60 &
 ```
 
+Since session 12 both windows land on a **class-select screen** first — pick there, then the
+run starts. Add `--class=ranger` or `--class=paladin` to skip it (that also bypasses the screen
+entirely, which is how the smoke tests run).
+
 `--cycle=90:60` = 90-second days / 60-second nights so a whole run fits the session. Drop the
-flag for real pacing (5 min / 3 min) once when judging pacing specifically. Other useful flags:
+flag for real pacing (3 min / 3 min) once when judging pacing specifically. Other useful flags:
 `--grant-materials=wood:30,stone:20` (skip harvesting when testing building),
 `--final-day=2` (short runs), `--tower-hp=10` (fast defeat to see the lose screen).
 
@@ -59,8 +63,9 @@ flag for real pacing (5 min / 3 min) once when judging pacing specifically. Othe
       Give the radar a *feel* check while moving anyway.
 - [ ] Real 2-machine test (not loopback): one hosts, the other joins by LAN IP.
 
-Controls: WASD/arrows move · mouse aims · **LMB** shoot · **Q** Piercing Arrow · **F** Snare
-Trap · **Space** dodge · **E** harvest (a prompt appears in range) · **1/2/3** build hotbar ·
+Controls: WASD/arrows move · mouse aims · **LMB** basic attack · **Q** and **F** the other two
+abilities (Ranger: Piercing Arrow / Snare Trap; Paladin: Consecration / Bulwark) ·
+**Space** dodge · **E** harvest (a prompt appears in range) · **1/2/3** build hotbar ·
 **LMB** place · **RMB/Esc** cancel build · **X** (or the hotbar's Sell button) toggles sell
 mode — hovered buildings highlight orange with a refund preview, LMB sells. Hover any hotbar
 slot or ability for a tooltip. Gamepad: left stick move, right stick aim, RT shoot, RB/LB
@@ -138,6 +143,36 @@ a 60 s night — that harness aims badly and isn't proof, but go in expecting it
       replace it and charge cost minus the wall's refund. Wall onto a tower must refuse.
       Known cosmetic gap: the hotbar slot greys on full cost, so a tower you can only afford
       *because* of the wall refund looks unaffordable but still places.
+
+### 5c. The Paladin and class select (session 12 — new)
+
+There are two classes now. The screen between the menu and the game is where you pick; run the
+two windows as **different classes** at least once. Nothing below has been played by a human —
+the numbers are a first draft, so react to how it feels, not to whether it's balanced.
+
+- [ ] **Class select**: both cards read clearly? Do the stats and ability lines tell you enough
+      to choose, or do you just pick the picture? Back returns to the menu; your last pick is
+      still highlighted when you come back.
+- [ ] **Does melee work at all in this camera?** The Paladin's whole kit lands within ~2 cells
+      and the view is a fixed 45° ortho. Can you tell what you're about to hit, or does the
+      angle make range guesswork? This is the headline question — if it's bad, the fix is
+      probably `cleave.melee_range`/`arc_degrees`, not the camera.
+- [ ] **Cleave** (LMB, 5 damage, 1.75 cells, 100° arc): does the wedge read where you aimed?
+      It outranges a wretch's 1.5 cells on purpose — does that gap feel like it exists?
+- [ ] **Consecration** (Q, 9 damage, 3 cells, all around, 7 s): worth wading into a pack for,
+      or a panic button you never get to use?
+- [ ] **Bulwark** (F, −45% damage for 5 s, 14 s): the sprite washes gold while it's up. Long
+      enough to matter? Note that dodge still grants no i-frames, so this is currently the
+      Paladin's only defensive answer.
+- [ ] **140 hp and 120 speed vs the Ranger's 90 and 150** — does the Paladin feel *sturdy*, or
+      just slow? Walking the map at 120 is a real tax now days are 3 minutes.
+- [ ] **Hallowed Brazier** (4 stone, 4 wood; 7 damage, 2.5 cells, every 1.5 s): a Paladin-only
+      slot 3, replacing the Ranger's Arrow Turret. Its reach is deliberately tiny — does
+      building a maze that forces enemies past it feel like a plan, or a gimmick?
+- [ ] **Two classes at once**: with one of each, does the party divide work naturally (Paladin
+      holds the gap, Ranger kites and traps), or do you both end up doing the same thing?
+- [ ] Confirm each player sees the *other's* class correctly — the right sprite over the right
+      name. (Asserted in the smoke tests, but eyes on it once.)
 
 ### 6b. World, daytime danger & survival (session 5 — new)
 - [ ] The map no longer feels empty: resource nodes are plentiful and scenery (boulders, dead

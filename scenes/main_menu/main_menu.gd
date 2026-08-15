@@ -5,8 +5,14 @@ extends Control
 ##   godot -- --host             host immediately
 ##   godot -- --join=127.0.0.1   join immediately
 ##   godot -- --name=Craig       set the player name
+##   godot -- --class=paladin    pick a class without the select screen
+##
+## A human goes menu -> class select -> game. A scripted run skips the select
+## screen entirely (it would sit there waiting for a click that never comes)
+## and takes its class from `--class=`, defaulting to the first class.
 
 const GAME_SCENE := "res://scenes/game/game.tscn"
+const CLASS_SELECT_SCENE := "res://scenes/class_select/class_select.tscn"
 
 ## Cmdline autostart must run once per launch, not every time we come back to
 ## the menu — otherwise a failed scripted --join retries in a loop forever.
@@ -38,6 +44,13 @@ func _apply_cmdline_args() -> void:
 	for arg in args:
 		if arg.begins_with("--name="):
 			name_edit.text = arg.get_slice("=", 1)
+		elif arg.begins_with("--class="):
+			var wanted := StringName(arg.get_slice("=", 1))
+			if Classes.has_id(wanted):
+				Network.local_player_class = wanted
+			else:
+				push_error("--class=%s is not a known class; staying as %s."
+						% [wanted, Network.local_player_class])
 		elif arg.begins_with("--quit-after-sec="):
 			# For scripted smoke tests: headless frames run uncapped, so
 			# --quit-after (frames) is useless for timing — quit on wall clock.
@@ -46,26 +59,32 @@ func _apply_cmdline_args() -> void:
 			get_tree().create_timer(seconds).timeout.connect(get_tree().quit)
 	for arg in args:
 		if arg == "--host":
-			_start_host()
+			_start_host(true)
 			return
 		if arg.begins_with("--join"):
 			if arg.begins_with("--join="):
 				address_edit.text = arg.get_slice("=", 1)
-			_start_join()
+			_start_join(true)
 			return
 
 
-func _start_host() -> void:
+func _start_host(scripted := false) -> void:
 	_store_player_name()
 	Network.start_mode = Network.StartMode.HOST
-	get_tree().change_scene_to_file(GAME_SCENE)
+	_leave_menu(scripted)
 
 
-func _start_join() -> void:
+func _start_join(scripted := false) -> void:
 	_store_player_name()
 	Network.start_mode = Network.StartMode.JOIN
 	Network.pending_address = address_edit.text.strip_edges()
-	get_tree().change_scene_to_file(GAME_SCENE)
+	_leave_menu(scripted)
+
+
+# A human picks a class first; a scripted run already has one from --class=
+# and must not stall on a screen waiting for a click.
+func _leave_menu(scripted: bool) -> void:
+	get_tree().change_scene_to_file(GAME_SCENE if scripted else CLASS_SELECT_SCENE)
 
 
 func _store_player_name() -> void:

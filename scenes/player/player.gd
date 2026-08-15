@@ -12,6 +12,7 @@ extends CharacterBody3D
 
 const ProjectileScene := preload("res://scenes/abilities/projectile.tscn")
 const SnareTrapScene := preload("res://scenes/abilities/snare_trap.tscn")
+const MeleeArcScene := preload("res://scenes/abilities/melee_arc.tscn")
 
 ## 2D data resources carry over untouched; speeds there are px/s on 32 px
 ## cells, so 3D consumers convert to world units at the boundary.
@@ -21,6 +22,10 @@ const PX_PER_UNIT := 32.0
 ## stick aim, and dodge directions all rotate through this.
 const CAMERA_YAW := 45.0
 
+## The character you chose. Deliberately NOT defaulted in player.tscn: the
+## spawner sets it from the owner's roster entry before we enter the tree
+## (game.gd `_build_player`), and a scene-level default would silently paper
+## over a spawn that forgot to.
 @export var class_type: ClassType
 
 @export_group("Survival")
@@ -54,6 +59,14 @@ var downed := false:
 		downed = value
 		_update_survival_appearance()
 
+## Share of incoming damage shrugged off by an active SELF_BUFF. The host owns
+## the timer and pushes this on both edges (see _process), so no peer counts
+## down its own copy — the same shape as `downed`, for the same reason.
+var damage_reduction := 0.0:
+	set(value):
+		damage_reduction = value
+		_update_survival_appearance()
+
 ## Dev hook (--auto-walk): with no input held, the local player strolls in a
 ## circle so movement replication can be asserted from headless smoke runs.
 var auto_walk := false
@@ -64,6 +77,7 @@ var _light_tint := Color.WHITE  # day/night tint, driven by WorldLight
 var _hurt_cd := 0.0        # host-only: time until damage can land again
 var _down_time := 0.0      # host-only: seconds spent downed
 var _revive_progress := 0.0  # host-only: seconds a teammate has been reviving
+var _buff_time := 0.0      # host-only: seconds the self-buff has left to run
 
 var _cooldowns := {}  # ability id -> seconds remaining
 var _dodge_cooldown := 0.0
@@ -101,8 +115,8 @@ func _ready() -> void:
 	set_process(multiplayer.is_server())
 	Network.player_list_changed.connect(_refresh_name)
 	_refresh_name()
-	print("[Player] Spawned peer %d (local: %s) at %s"
-			% [get_multiplayer_authority(), is_local, position])
+	print("[Player] Spawned peer %d as %s (local: %s) at %s"
+			% [get_multiplayer_authority(), class_type.display_name, is_local, position])
 
 
 func _physics_process(delta: float) -> void:
@@ -219,6 +233,17 @@ func request_cast(ability_id: StringName, aim: Vector3) -> void:
 		AbilityType.Kind.DEPLOYABLE:
 			_deploy_seq += 1
 			_spawn_deployable.rpc(global_position, ability_id, _deploy_seq)
+		AbilityType.Kind.MELEE_ARC:
+			_spawn_melee_arc.rpc(global_position, aim, ability_id)
+		AbilityType.Kind.SELF_BUFF:
+			# Nothing is spawned: the buff is host state on this player, and
+			# the host times it out (see _process) rather than each peer
+			# counting down its own copy.
+			_buff_time = ability.buff_duration
+			_sync_buff.rpc(ability.damage_reduction)
+			print("[Player] %s raised %s (-%d%% damage for %.0f s)" % [name,
+					ability.id, int(roundf(ability.damage_reduction * 100.0)),
+					ability.buff_duration])
 
 
 # Every peer spawns an identical local copy; only the host's deals damage.
@@ -231,6 +256,15 @@ func _spawn_projectile(from: Vector3, direction: Vector3, ability_id: StringName
 	var shot: Projectile = ProjectileScene.instantiate()
 	shot.setup(_ability_by_id(ability_id), from, direction)
 	get_parent().add_child(shot)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _spawn_melee_arc(from: Vector3, direction: Vector3, ability_id: StringName) -> void:
+	if not _sender_is_host():
+		return
+	var swing: MeleeArc = MeleeArcScene.instantiate()
+	swing.setup(_ability_by_id(ability_id), from, direction)
+	get_parent().add_child(swing)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -258,6 +292,10 @@ func _process(delta: float) -> void:
 	if not multiplayer.is_server():
 		return
 	_hurt_cd = maxf(_hurt_cd - delta, 0.0)
+	if _buff_time > 0.0:
+		_buff_time = maxf(_buff_time - delta, 0.0)
+		if _buff_time == 0.0:
+			_sync_buff.rpc(0.0)
 	if not downed:
 		return
 	_down_time += delta
@@ -278,7 +316,9 @@ func host_take_damage(amount: int) -> void:
 	if not multiplayer.is_server() or downed or hp <= 0 or _hurt_cd > 0.0:
 		return
 	_hurt_cd = hurt_cooldown
-	var new_hp := maxi(hp - amount, 0)
+	# A bulwark-style buff soaks its share before anything reaches hp.
+	var bite := int(round(amount * (1.0 - damage_reduction)))
+	var new_hp := maxi(hp - bite, 0)
 	_sync_hp.rpc(new_hp)
 	if new_hp == 0:
 		_down_time = 0.0
@@ -291,6 +331,7 @@ func host_take_damage(amount: int) -> void:
 func host_send_snapshot(peer_id: int) -> void:
 	_sync_hp.rpc_id(peer_id, hp)
 	_sync_downed.rpc_id(peer_id, downed)
+	_sync_buff.rpc_id(peer_id, damage_reduction)
 
 
 # Host only: back on your feet with a share of max hp; a village respawn also
@@ -339,6 +380,13 @@ func _sync_downed(is_downed: bool) -> void:
 	downed = is_downed
 
 
+@rpc("any_peer", "call_local", "reliable")
+func _sync_buff(reduction: float) -> void:
+	if not _sender_is_host():
+		return
+	damage_reduction = reduction
+
+
 ## Called by WorldLight every frame — unshaded billboards don't react to
 ## lights, so the day/night tint is handed to us and composed with the
 ## survival tint below.
@@ -356,7 +404,12 @@ func _update_survival_appearance() -> void:
 		sprite.modulate = _light_tint * Color(0.5, 0.5, 0.6, 0.7)
 	else:
 		var fraction := float(hp) / float(maxi(max_hp, 1))
-		sprite.modulate = _light_tint * Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
+		var tint := Color(1, 1, 1).lerp(Color(1, 0.5, 0.5), 1.0 - fraction)
+		if damage_reduction > 0.0:
+			# Warded: a gold wash over the hurt tint, so a buffed-and-bloodied
+			# player still reads as both.
+			tint = tint.lerp(Color(1.0, 0.85, 0.35), damage_reduction)
+		sprite.modulate = _light_tint * tint
 
 
 func _ability_by_id(ability_id: StringName) -> AbilityType:

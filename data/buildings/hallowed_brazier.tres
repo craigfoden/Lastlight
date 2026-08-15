@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingType" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/building/visuals/brazier_visual.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"hallowed_brazier"
+display_name = "Hallowed Brazier"
+description = "Paladin exclusive. Hits far harder than a sentry but barely reaches past its own cell — set it where the maze forces them close, not on the perimeter."
+cost = {
+&"stone": 4,
+&"wood": 4
+}
+visual_3d = ExtResource("2")
+refund_fraction = 0.5
+class_id = &"paladin"
+attacks = true
+damage = 7
+attack_range = 80.0
+fire_interval = 1.5

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/abilities/ability_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cleave"
+display_name = "Cleave"
+description = "Your basic attack: a wide swing toward the cursor that hits everything in front of you. Reaches a little further than a wretch can, so lead with it."
+cooldown = 0.55
+kind = 2
+damage = 5
+melee_range = 56.0
+arc_degrees = 100.0
+swing_time = 0.18
