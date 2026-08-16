@@ -30,7 +30,8 @@ same scene file.
 | 14 | **Tower upgrades, and a sink for the dead essences** — three-tier upgrade lines for all four towers (Sentry/Turret/Brazier/Spire), built as `BuildingType` resources chained by a new `upgrades_to` and hidden from the hotbar by `placeable = false`. No new input mode and no new keys: you hold the base tower's hotbar slot and click a tower already standing, and `BuildManager.resolve_placement` walks it one tier up its line — the session-11 wall→tower replacement path with its rule widened, so upgrades needed no new sync at all. Tier II costs **Bright Essence** and tier III **Radiant Essence**, which before this session were harvestable from the outer rings and bought *nothing whatsoever*. Ghost turns gold over a legal upgrade; the hotbar hint quotes the netted price; base-tower tooltips spell out the whole line. The host now logs what it actually charged. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
 | 15 | **Camps: something to do with a day** — the day loop was walk out, hold E, walk back; all the danger and every decision lived at night. Guarded sites now sit out in the wilds: a footprint of ruined walls stamped by WorldGen, a leashed garrison posted by the host through the WaveDirector's spawner, and a `LootCache` at the middle that refuses to open while a guard still stands. New `CampType` resource (three tiers — Bandit Camp / Ruined Hamlet / Warband Barrow, 10 sites), new `Marauder` enemy kept out of the wave roster, new `Enemy.Behavior.GUARD` with a leash and an `Enemy.died` signal, `ResourceNode` grown three extension points so the cache reuses the whole harvest RPC lane rather than inventing one. **Ambient Radiant Essence cut 15 % → 4 %**: tier-III towers are now gated on clearing a barrow instead of on walking far enough. HUD prompt, minimap camp rings, `--auto-camp` / `--auto-camp-clear`. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
 | 16 | **Visual overhaul: pixel art** — the game's whole look, in three parts. (1) **Art is text**: a single shared palette plus every character/decal authored as rows of palette characters in `tools/art/art_sprites.gd`, compiled to PNGs by a `--script` generator that also forces the import settings pixel art cannot survive (`detect_3d/compress_to`), with a contact-sheet previewer for reviewing it. All 15 sprites redrawn — 3 classes, 3 enemies, 5 decals, shadow, wisp, 2 projectiles. (2) **The world is pixelated too**: `PixelRender` sets the root Viewport's `SCALING_3D_MODE_NEAREST` and derives the scale from the live camera so one sprite texel = one rendered pixel, so meshes and sprites share one grid — no SubViewport, so no node paths moved. (3) **Procedural animation**: `SpriteAnimator` adds a walk bob, facing flip, hit flash and attack recoil from already-replicated state, at zero network cost. Also closed: projectiles get per-ability textures (`AbilityType.projectile_texture`) instead of every shot being the same yellow dart, and the dead `BuildingType.texture` field and the whole placeholder SVG folder are gone. | ✅ 2026-08-15 (green solo + host/client incl. mixed classes, zero errors/warnings; **art quality is placeholder and deliberately so** — see gaps) | Craig + Claude |
-| 17+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; per-run map seeds + map-generation depth; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 17 | **Five carried gaps, closed** — a deliberate sweep of the small open items rather than one new system. (1) **The ground is drawn**: repeating 32×32 village-turf and wilds-dirt tiles authored in the same text pipeline as the sprites (`ArtSprites.TILES`), sampled by `ground.gdshader` at one texel per rendered pixel with a per-tile brightness jitter to break the repeat — the largest smooth surface left in frame is gone. (2) **Every run gets its own map**: `WorldGen.generate(seed)` replaces the baked constant and generation on `_ready`; the host rolls a seed, sends it on connect, and holds a joiner's spawn until they acknowledge having built it (`--world-seed=N` pins one). (3) **Talents can be spent**: a screen off the main menu, the first caller of `Profile.unlock_talent()`, plus three talents per class on keys that are safe to keep local. (4) **The hotbar prices per cell**: slots grey on `net_cost` at the hovered cell, so a tower you can afford only because of the wall's refund no longer looks unaffordable. (5) **A `Buildings` registry**, replacing the exported array inside `game.tscn` — which is what finally let the class-select screen name the tower your class unlocks. | ✅ 2026-08-16 (green solo + host/client, zero errors/warnings; ground checked in-frame at the village and out in the wilds) | Craig + Claude |
+| 18+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; map-generation depth (the per-run *seed* landed in session 17; the layout rules behind it did not); balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -57,8 +58,9 @@ same scene file.
 - Enemy spawn data carries the original spawn position; a day-phase late joiner briefly sees
   live enemies at stale positions until the first sync tick (~0.05 s). Harmless today (enemies
   despawn at dawn and night joins are refused), noted for completeness.
-- No talent-spending UI yet — points accrue and show on the run-end screen; `Profile.unlock_talent()`
-  works but nothing calls it. Session 5 menu work.
+- ~~No talent-spending UI yet — points accrue and show on the run-end screen;~~ Fixed
+  session 17: a talent screen off the main menu, three talents per class. Still open: the
+  screen is reachable only from the menu, and the run-end screen does not link to it.
 - Ability cooldowns are client-enforced (host checks ownership only) — add a host-side rate
   limit if cheating ever matters.
 - ~~No class-select screen (Ranger hardcoded as the only class)~~ Fixed session 12: menu →
@@ -69,9 +71,11 @@ same scene file.
   are the same yellow dart.~~ Fixed session 16: `AbilityType.projectile_texture`, and the
   projectile is a billboard sprite rather than a mesh. Bow Shot and Piercing Arrow share the
   default arrow deliberately — they *are* both arrows.
-- The class-select screen lists a class's stats and its three abilities but not its exclusive
-  tower — there is no `Buildings` registry to enumerate, and `buildable_types` lives on a node
-  in `game.tscn`. The build hotbar's tooltip still says "Paladin exclusive." (session 12).
+- ~~The class-select screen lists a class's stats and its three abilities but not its
+  exclusive tower — there is no `Buildings` registry to enumerate.~~ Fixed session 17:
+  `Buildings.ALL` is now the single roster and the screen lists the exclusive tower with its
+  cost, stats and the names of its upgrade tiers (not their prices — those are netted
+  against what they replace, so a gross number on this screen would be a lie).
 - ~~`BuildingType.texture` is dead in the 3D game — nothing reads it.~~ Removed session 16,
   along with the three `.tres` references and the whole `assets/sprites/placeholder/` folder,
   which the pixel art superseded.
@@ -80,8 +84,11 @@ same scene file.
   assertion if buffs multiply (session 12).
 - Dodge grants no invulnerability yet — it's a burst move only. Host applies damage and does
   not know a client's dodge state; i-frames need a cheap dodge-state signal to the host (polish).
-- World seed is a baked constant: every run has the same map. Per-run variety needs a seed
-  synced before WorldGen runs (map-generation work).
+- ~~World seed is a baked constant: every run has the same map.~~ Fixed session 17: the
+  host rolls a seed per run and sends it before any peer generates. What this does *not*
+  buy is generation *depth* — the layout rules are unchanged, so every run is still the
+  same map shape with the props shuffled. Real variety (biomes, differing openings, camp
+  density by run) is still map-generation work.
 - Mini-map is functional but untuned (fixed range, no zoom, no fog); verified headless only —
   give it a visual pass when real art lands.
 - Depleted resource nodes never respawn; day-phase respawn/scatter belongs to map-gen work.
@@ -96,11 +103,12 @@ same scene file.
   plus a slightly bulkier base. Tier III reads clearly in-frame; **II vs III has never been seen
   side by side**, and an orb over a tower looks a little like a wisp resource node. Placeholder
   art — revisit when real art lands.
-- The hotbar greys a slot on its **full** cost, so a tower you can only afford because of the
-  refund from what's already on the cell looks unaffordable but still places. Pre-existing for
-  wall→tower (session 11); upgrades inherit it, and it bites harder now that every tier is a
-  net-cost placement. Fix is to tint per hovered cell, which means the hotbar needs the ghost's
-  cell — deliberately not done in session 14.
+- ~~The hotbar greys a slot on its **full** cost, so a tower you can only afford because of
+  the refund from what's already on the cell looks unaffordable but still places.~~ Fixed
+  session 17: `BuildController` publishes the hovered cell and the bar prices every slot
+  through `net_cost` at it. One rough edge left: a tower already at its final tier greys
+  its slot on the top tier's full price, which is the right answer for the wrong reason
+  (the click would be refused as "fully upgraded" anyway).
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.
 - **Camp numbers are wholly unplayed** (session 15). In order: is a 3-wretch bandit camp worth
   a third of a 3-minute day; is a 5-marauder barrow survivable at all before the tower has
@@ -133,10 +141,23 @@ same scene file.
   because the whole 3D buffer is rendered low-res and nearest-upscaled. That works well, but
   it means their silhouettes are still modelled, not drawn, and no amount of sprite work will
   change their shapes (session 16).
-- The ground is a flat untextured shader plane, which is the largest remaining smooth surface
-  in frame. A pixel ground/detail texture is probably the next-biggest visual win (session 16).
+- ~~The ground is a flat untextured shader plane, which is the largest remaining smooth
+  surface in frame.~~ Fixed session 17: two hand-authored 32×32 tiles, blended by the same
+  village→wilds gradient the shader always painted. Still open: it is *one* tile per zone
+  with no paths, no rock, no transition detail, and nothing marks where the safe zone ends.
 - A cleared cache leaves the camp standing and empty for the rest of the run — there is no
   "looted" state on the site itself beyond the minimap ring turning green.
+- **Talents are unbalanced and untested by a human** (session 17). Nine talents, three shapes,
+  all flat multipliers on the same three numbers — deliberately dull, because the interesting
+  ones (max hp, damage) are exactly the ones the local-only model forbids. The open question is
+  whether a talent tree can be interesting at all under that constraint, or whether talents are
+  the feature that finally forces profile state onto the host.
+- A joining client now waits on the host's seed before it builds anything, so **a joiner sees an
+  empty world for a moment longer than before** — measured in packets, not seconds, but on a
+  bad connection it is a visible blank. The HUD's "connecting" overlay covers it (it now lifts
+  when the world is built rather than when the transport connects) (session 17).
+- The talent screen is reachable only from the main menu. The run-end screen is where you
+  actually *earn* a point and it does not offer a way there (session 17).
 
 ## Post-v1 parking lot
 

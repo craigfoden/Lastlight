@@ -12,7 +12,8 @@ extends Node3D
 ## --auto-build / --auto-block-test / --grant-materials=... / --auto-fight /
 ## --auto-camp / --auto-camp-clear /
 ## --hurt-test / --tower-hp=N / --fast-cycle / --cycle=day:night /
-## --final-day=N / --spawn-at=x,z (start the local player out in the wilds).
+## --final-day=N / --spawn-at=x,z (start the local player out in the wilds) /
+## --world-seed=N (host: rebuild one particular map instead of rolling one).
 ## Class comes from --class=<id>, parsed on the main menu before we load.
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
@@ -56,11 +57,22 @@ const HEART_CELL := Vector2i(0, 0)
 @export var xp_victory_bonus := 300
 
 var run_over := false
+## True once WorldGen has run and everything downstream of it is wired. The host
+## reaches this during _ready; a client only after the seed arrives.
+var world_ready := false
 var _auto_walk := false
 var _spawn_at_override := Vector3.ZERO
+## Dev override (--world-seed=N): reproduce one particular map. Zero means roll
+## a fresh one, which is what a real run does.
+var _seed_override := 0
 
-## Host only: peers that connected and passed the join rules but whose roster
-## entry (name + class) has not arrived yet. peer_id -> true.
+## Host only: peers that connected and passed the join rules but are not yet
+## ready to receive a character. peer_id -> { "registered": bool, "world": bool }
+## — a joiner needs BOTH before it can be spawned into, and the two arrive
+## independently and in either order. `registered` is their name and class
+## reaching the roster; `world` is their acknowledgement that they have built
+## the map from our seed, without which the snapshot RPCs below would target
+## world nodes that do not exist on them yet.
 var _pending_spawns := {}
 
 @onready var players: Node3D = $Players
@@ -85,46 +97,19 @@ func _ready() -> void:
 	# correct before the node enters the tree, no sync race.
 	player_spawner.spawn_function = _build_player
 	hud.setup(day_night, team_materials, glow_tower)
-
-	var opening_cells: Array[Vector2i] = []
-	var spawn_positions: Array[Vector3] = []
-	for marker in spawn_openings.get_children():
-		opening_cells.append(build_manager.world_to_cell(marker.global_position))
-		spawn_positions.append(marker.global_position)
-	# The tower footprint plus every solid prop WorldGen scattered are permanent
-	# unbuildable, unwalkable cells (WorldGen already ran — it is a child).
-	var scenery_cells: Array[Vector2i] = TOWER_CELLS.duplicate()
-	for node in get_tree().get_nodes_in_group("obstacles"):
-		scenery_cells.append(build_manager.world_to_cell(node.global_position))
-	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
-	build_controller.setup(build_manager)
-	build_menu.setup(build_manager, build_controller, team_materials)
-	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
-			world_gen.safe_radius)
-	world_light.setup(day_night, $Sun, $WorldEnvironment, glow_tower)
-	# Camps last of the world wiring: they need the WaveDirector already holding
-	# the build grid and the tower, which is the line above. WorldGen built the
-	# camps themselves during its own _ready. Garrisons are NOT posted here —
-	# that is host-only work and we do not yet know whether we are the host (see
-	# the host branch below, and GOTCHAS).
-	for node in get_tree().get_nodes_in_group("camps"):
-		node.setup(wave_director)
-		node.cleared.connect(_on_camp_cleared.bind(node))
 	wave_director.night_survived.connect(_on_night_survived)
 	glow_tower.destroyed.connect(_on_tower_destroyed)
 	run_end_screen.menu_requested.connect(_return_to_menu.bind(""))
 
 	_parse_dev_args()
-	# Harvests announce themselves; the game routes them to the shared pool
-	# (signals up, calls down). The signal only fires on the host.
-	for node in get_tree().get_nodes_in_group("resource_nodes"):
-		node.harvested.connect(_on_resource_harvested)
 	Network.connection_failed.connect(_return_to_menu.bind("Could not reach the host."))
 	Network.server_ended.connect(_return_to_menu.bind("The host ended the game."))
 	match Network.start_mode:
 		Network.StartMode.JOIN:
+			# Nothing world-shaped happens here: the map this client builds has
+			# to be the host's map, and we do not know its seed until we have
+			# connected. _receive_world_seed picks the thread up.
 			hud.show_connecting(true)
-			multiplayer.connected_to_server.connect(hud.show_connecting.bind(false))
 			Network.join_game(Network.pending_address)
 			_start_join_timeout()
 		_:
@@ -137,14 +122,8 @@ func _ready() -> void:
 			multiplayer.peer_connected.connect(_on_peer_connected)
 			multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 			Network.player_registered.connect(_on_player_registered)
-			# Our own roster entry was written by host_game(), so no wait here.
-			_spawn_player(1)
-			# Camp garrisons: host-only, and only safe to post now. Until
-			# host_game() assigned a peer, `multiplayer.is_server()` answered
-			# TRUE on a joining client too, so a self-guarded version had every
-			# client spawning its own guards into a spawner it does not own.
-			for node in get_tree().get_nodes_in_group("camps"):
-				node.host_post_garrison()
+			# The host is the one who decides what this run's world looks like.
+			_begin_world(_seed_override if _seed_override != 0 else _roll_seed())
 			for arg in OS.get_cmdline_user_args():
 				# Dev cheat for testing builds: --grant-materials=wood:10,stone:10
 				if arg.begins_with("--grant-materials="):
@@ -159,6 +138,90 @@ func _ready() -> void:
 	print("[Game] World shell ready (%s / %s)" % [
 			RenderingServer.get_current_rendering_method(),
 			RenderingServer.get_current_rendering_driver_name()])
+
+
+# A run's map. `randomize()` seeds the global rng from the clock; WorldGen's own
+# RandomNumberGenerator is separate and takes this number, so generation itself
+# stays a pure function of the seed and every peer still lands on the same map
+# (the determinism rule in GOTCHAS is about *generation*, not about where the
+# seed came from). Kept positive because it also has to read well in a log — a
+# player reporting a good map should be able to type it back in.
+func _roll_seed() -> int:
+	randomize()
+	return randi() & 0x7fffffff
+
+
+# Everything downstream of the world existing, on host and client alike. Split
+# out of _ready because a client cannot do any of it until the host's seed has
+# arrived — before this runs it has a scene but no map.
+func _begin_world(seed_value: int) -> void:
+	world_gen.generate(seed_value)
+
+	var opening_cells: Array[Vector2i] = []
+	var spawn_positions: Array[Vector3] = []
+	for marker in spawn_openings.get_children():
+		opening_cells.append(build_manager.world_to_cell(marker.global_position))
+		spawn_positions.append(marker.global_position)
+	# The tower footprint plus every solid prop WorldGen scattered are permanent
+	# unbuildable, unwalkable cells (generate() has just run).
+	var scenery_cells: Array[Vector2i] = TOWER_CELLS.duplicate()
+	for node in get_tree().get_nodes_in_group("obstacles"):
+		scenery_cells.append(build_manager.world_to_cell(node.global_position))
+	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
+	build_controller.setup(build_manager)
+	build_menu.setup(build_manager, build_controller, team_materials)
+	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
+			world_gen.safe_radius)
+	world_light.setup(day_night, $Sun, $WorldEnvironment, glow_tower)
+	# Camps last of the world wiring: they need the WaveDirector already holding
+	# the build grid and the tower, which is the line above. WorldGen built the
+	# camps themselves. Garrisons are host-only — see below.
+	for node in get_tree().get_nodes_in_group("camps"):
+		node.setup(wave_director)
+		node.cleared.connect(_on_camp_cleared.bind(node))
+	# Harvests announce themselves; the game routes them to the shared pool
+	# (signals up, calls down). The signal only fires on the host.
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		node.harvested.connect(_on_resource_harvested)
+	world_ready = true
+
+	if multiplayer.is_server():
+		# Our own roster entry was written by host_game(), so no wait here.
+		_spawn_player(1)
+		# Camp garrisons: host-only, and only safe to post now. Until
+		# host_game() assigned a peer, `multiplayer.is_server()` answered TRUE
+		# on a joining client too, so a self-guarded version had every client
+		# spawning its own guards into a spawner it does not own.
+		for node in get_tree().get_nodes_in_group("camps"):
+			node.host_post_garrison()
+	else:
+		# Tell the host we can be spawned into. Until this lands it holds our
+		# character (and every state snapshot that goes with it) back.
+		hud.show_connecting(false)
+		_request_spawn.rpc_id(1)
+
+
+# Received by a joiner the moment it connects: the host's map, as one number.
+# The game root's authority is the server, so plain "authority" mode is right
+# here (unlike player nodes — see GOTCHAS).
+@rpc("authority", "reliable")
+func _receive_world_seed(seed_value: int) -> void:
+	if world_ready:
+		return
+	_begin_world(seed_value)
+
+
+# Host only: a client has finished building the world and can now be sent
+# things that live in it.
+@rpc("any_peer", "reliable")
+func _request_spawn() -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _pending_spawns.has(peer_id):
+		return
+	_pending_spawns[peer_id]["world"] = true
+	_try_spawn_pending(peer_id)
 
 
 # Host only. Vets the join, then puts the peer on the pending list rather than
@@ -180,15 +243,30 @@ func _on_peer_connected(peer_id: int) -> void:
 		_receive_join_refusal.rpc_id(peer_id, reason)
 		_kick_after_grace(peer_id)
 		return
-	_pending_spawns[peer_id] = true
+	_pending_spawns[peer_id] = {"registered": false, "world": false}
+	# First thing a joiner gets: this run's map. It has a game scene loaded but
+	# deliberately no world in it until this arrives.
+	_receive_world_seed.rpc_id(peer_id, world_gen.world_seed)
 
 
-# Host only: the joiner's class is now in the roster, so build their character
-# and push the state that synchronizers do not cover. A refused peer never made
-# the pending list, and one that dropped mid-handshake was taken off it.
+# Host only: the joiner's class is now in the roster. That is one of the two
+# things we wait for — see `_pending_spawns`.
 func _on_player_registered(peer_id: int) -> void:
-	if not _pending_spawns.erase(peer_id):
+	if not _pending_spawns.has(peer_id):
 		return
+	_pending_spawns[peer_id]["registered"] = true
+	_try_spawn_pending(peer_id)
+
+
+# Host only: build the joiner's character and push the state that synchronizers
+# do not cover, once they are registered AND holding a copy of the world. A
+# refused peer never made the pending list, and one that dropped mid-handshake
+# was taken off it.
+func _try_spawn_pending(peer_id: int) -> void:
+	var pending: Dictionary = _pending_spawns.get(peer_id, {})
+	if not pending.get("registered", false) or not pending.get("world", false):
+		return
+	_pending_spawns.erase(peer_id)
 	_spawn_player(peer_id)
 	team_materials.host_send_snapshot(peer_id)
 	glow_tower.host_send_snapshot(peer_id)
@@ -379,6 +457,10 @@ func _parse_dev_args() -> void:
 			# Dev helper: custom pacing, e.g. --cycle=8:60 (day:night seconds).
 			day_night.day_length = float(arg.get_slice("=", 1).get_slice(":", 0))
 			day_night.night_length = float(arg.get_slice("=", 1).get_slice(":", 1))
+		elif arg.begins_with("--world-seed="):
+			# Dev: reproduce one particular map (a run rolls a fresh seed). Host
+			# only — a client takes whatever the host sends and ignores this.
+			_seed_override = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--final-day="):
 			# Dev helper: shorter runs, e.g. --final-day=1 to win after night 1.
 			day_night.final_day = int(arg.get_slice("=", 1))

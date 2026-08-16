@@ -1112,6 +1112,59 @@ A billboarded sprite **ignores node scale** (`billboard_keep_scale` is false and
 not expose it), so the squash-and-stretch went to the un-billboarded drop shadow instead — it
 would have compiled, run, and done nothing on the sprite.
 
+### The world is generated from a seed the host sends, not a constant (2026-08-16)
+`WorldGen` no longer generates in `_ready()`. It exposes `generate(seed)`, and the Game scene
+decides when: a host rolls a seed and calls it immediately; a **client builds nothing until the
+host's seed arrives** over `_receive_world_seed`, sent the moment the transport connects.
+
+**Why:** every run shared one baked map, and the constant was there because generation is a
+child's `_ready` and a client has no host contact at that point. Deferring generation is the
+only ordering that keeps the determinism contract (see GOTCHAS): identical code + identical
+seed on every peer, because harvest RPCs resolve by the seed-derived node paths.
+
+Three consequences that were not obvious going in, all found by reasoning about what already
+replicates on connect rather than by a failing test:
+
+- **A joiner now has to be acknowledged twice.** The host holds its spawn until the peer is
+  both *registered* (name and class in the roster — session 12's fix) and *world-ready* (an
+  explicit `_request_spawn` back). Without the second, `_on_player_registered`'s snapshot
+  RPCs — resource nodes, camps — target world nodes the client has not built yet. The two
+  acknowledgements arrive independently and in either order, hence a dictionary of two flags
+  rather than a sequence.
+- **The A\* region moved out of `BuildManager.setup()` into its `_ready()`.** A client joining
+  on day 2 gets the host's standing buildings replicated the instant the transport connects,
+  strictly before its world exists, and each one marks its cell solid on the way in. The region
+  depends on nothing but an export, so it belongs before the wait; only the parts that need
+  WorldGen's output still wait for it.
+- **A refused joiner never generates at all**, which is a small free win: the night-join
+  refusal now costs the refused peer nothing.
+
+`--world-seed=N` reproduces one particular map on the host. The old constant, 20260713, still
+names the map every session up to this one played on.
+
+### Meta-progression may only scale numbers the owning peer already owns (2026-08-16)
+The talent screen is the first thing in the game to call `Profile.unlock_talent()`, and the
+three modifier keys it can spend points on are `move_speed_mult`, `cooldown_mult` and
+`dodge_cooldown_mult`.
+
+**Why:** talents are read from the **local** profile on spawn and are never networked — which
+is what makes meta-progression free. That only holds while a talent touches state the owning
+peer alone simulates: movement is client-authoritative, and both cooldowns are client-enforced
+by design (the host checks ownership, not timing). A talent on max hp or damage dealt would put
+the host's copy of a character out of step with the owner's, and the first one that wants that
+is the change that has to answer how a local profile reaches the host. `max_hp_mult` was
+rejected for exactly this reason: it reads as the most natural talent in the game and it is the
+one that breaks the model.
+
+### Buildings are a registry, not an export on a node in game.tscn (2026-08-16)
+`Buildings.ALL` joins `Materials`, `Classes` and `Talents` as a script-as-namespace registry;
+`BuildManager.buildable_types` reads it instead of carrying an exported array.
+
+**Why:** the roster was unreadable from anywhere outside a live game scene, which is why the
+class-select screen could describe a class's three abilities but not the tower only that class
+can raise. It also made "add a building" an edit to the most merge-hostile file in the repo,
+against the team rule about `.tscn` files. The recipe in CLAUDE.md changed in the same commit.
+
 ---
 
 ## Template for new entries

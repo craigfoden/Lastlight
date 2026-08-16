@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TalentType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/talents/talent_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"paladin_long_march"
+class_id = &"paladin"
+display_name = "Long March"
+description = "Plate stops being a burden somewhere around the second week. +10% move speed."
+modifiers = {
+&"move_speed_mult": 1.1
+}

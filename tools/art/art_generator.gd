@@ -39,7 +39,11 @@ static func generate_all() -> int:
 	var failed := false
 	for group: Dictionary in [
 			{"size": CHARACTER_SIZE, "sprites": ArtSprites.CHARACTERS},
-			{"size": SMALL_SIZE, "sprites": ArtSprites.SMALL}]:
+			{"size": SMALL_SIZE, "sprites": ArtSprites.SMALL},
+			# Ground tiles are the same 32x32 and go through the same validator
+			# and the same import settings; only how they are *used* differs
+			# (a repeating shader sampler rather than a Sprite3D texture).
+			{"size": SMALL_SIZE, "sprites": ArtSprites.TILES}]:
 		var size: Vector2i = group["size"]
 		for sprite_name: String in group["sprites"]:
 			var rows: Array = group["sprites"][sprite_name]

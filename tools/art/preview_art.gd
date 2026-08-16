@@ -21,7 +21,7 @@ func _initialize() -> void:
 			out = arg.get_slice("=", 1)
 
 	var names: Array[String] = []
-	for group: Dictionary in [ArtSprites.CHARACTERS, ArtSprites.SMALL]:
+	for group: Dictionary in [ArtSprites.CHARACTERS, ArtSprites.SMALL, ArtSprites.TILES]:
 		for sprite_name: String in group:
 			names.append(sprite_name)
 

@@ -56,6 +56,13 @@ placeholder_text = "Host IP address"
 unique_name_in_owner = true
 text = "Join Game"
 
+[node name="TalentsSpacer" type="Control" parent="Center/Column"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="TalentsButton" type="Button" parent="Center/Column"]
+unique_name_in_owner = true
+text = "Talents"
+
 [node name="StatusLabel" type="Label" parent="Center/Column"]
 unique_name_in_owner = true
 modulate = Color(1, 0.6, 0.6, 1)

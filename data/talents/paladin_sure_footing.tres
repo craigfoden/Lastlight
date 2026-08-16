@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TalentType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/talents/talent_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"paladin_sure_footing"
+class_id = &"paladin"
+display_name = "Sure Footing"
+description = "Plate learns to move. Dodge is ready 15% sooner."
+modifiers = {
+&"dodge_cooldown_mult": 0.85
+}

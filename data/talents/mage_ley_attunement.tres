@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TalentType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/talents/talent_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mage_ley_attunement"
+class_id = &"mage"
+display_name = "Ley Attunement"
+description = "The ley lines answer faster each time. Abilities come back 12% sooner."
+modifiers = {
+&"cooldown_mult": 0.88
+}

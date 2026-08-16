@@ -676,3 +676,98 @@ const SMALL := {
 	"................................",
 ],
 }
+
+## Ground tiles. 32x32, fully opaque, and sampled by ground.gdshader rather than
+## drawn on a Sprite3D — the ground is the one surface in the game big enough
+## that a repeating tile is the only sane way to texture it.
+##
+## Two rules are specific to tiles and neither applies to any sprite above:
+##
+##  1. **They must wrap.** The shader repeats them, so column 31 sits against
+##     column 0 and row 31 against row 0. Scattered speckle wraps for free;
+##     anything with a shape (a rut, a paving stone) has to be drawn across the
+##     seam by hand.
+##  2. **Keep the contrast low.** A tile the player sees several thousand times
+##     in a frame is texture, not decoration — any feature strong enough to
+##     notice on its own becomes a visible grid at a distance. What actually
+##     breaks the repeat is the per-cell brightness jitter in the shader, not
+##     the drawing.
+##
+## The pair is the gradient the ground shader has always painted, now with a
+## surface on it: living grass near the tower, dead ground out in the wilds.
+const TILES := {
+
+# --- Village turf: the lit ground inside the glow. Mid green with a light
+# --- step for catching blades and the dark step for the gaps between. -------
+"ground_village": [
+	"GGGGhGGGGgGhGGGGGGGGGGGGGGGGGGGG",
+	"GGGGGGGGGGghGGGGggGGGgGGGGGGGGGG",
+	"GggGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+	"GGgGGGGGGGGgGGGGGGGGGGGGGGGGGGGG",
+	"GGgGGGGGGGgGGGGGgGGgGGGGgGGGGGGG",
+	"GGGGGGGGGGGGGGGhGGGgGGGhhhgGGGGG",
+	"GGGGGGhGGGGGGGGGGGGGGGGGGgGGGGGG",
+	"GGGgGGGgGGGGGGGGGGGGGGgGGGGGGGGG",
+	"GGGGGGhhGGGGGGGGGGhhGGGGGGGgGGGG",
+	"GGGgGGGGGGGGGGGGGGgGGGGGGGGgGGGG",
+	"GGGGGGGGGGGGGGGGGGGGGGGGhGGGGGGG",
+	"GGGgGGGGGGGGGGGGGGGGGGGhGGGGGhhh",
+	"GGgGGGGGGgGGhGGGGGGGGGGGGGGGGGGG",
+	"GGgGGGGGGGGGGgGGGGGGGGGGGGGGGGGG",
+	"hhGGGGGGGGGGGGGGGGgGGGGGGGGGGGGg",
+	"GGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGG",
+	"gGGGGGGGGGGGGGGGGGGGhGgGGGGGGGGG",
+	"GGggGGGGGGGggGGGhGGGGGGhGGGGGGGG",
+	"GGGGGgGGGGGgGGGGGGGgGGGGhGGGGGgG",
+	"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGgGG",
+	"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+	"GgGGGGgGGGGGGGGGGGGGGGGGGGGGGGGh",
+	"hGGGGGgGhGGGGGGGGGGGGGGGGGGhGGGG",
+	"GGGGGGGGGGGGGGGGGGGGGGGGGGhhGGGG",
+	"GggGGhGGGGGGGGGGGGGGGGGGGGGhGGGG",
+	"GGGGGGGGGGhGGGGGGGGGhGGGGGGGhhGG",
+	"GGGGGGGGGGGGGGGGGGGGGhGGGGGhhGGG",
+	"GggGGGGGGGGGghGGGGGGGGGGgGGGGGGh",
+	"GGGGGGGGGGGGgGGGgghGGGGGGGGGGGGG",
+	"GGGGGGGGGGGGGGhGGhGgGGGGGGGGGGGG",
+	"GGGGGGGGGGGGGGGGGGGGGGGGGGgGggGG",
+	"GGGGGGGGGgGGGGGGGGGGgGGGGGGGGGGG",
+],
+
+# --- Wilds dirt: dry, dead ground beyond the light. Same speckle density as
+# --- the turf so the two blend without a visible change of texture. ---------
+"ground_wilds": [
+	"TTTTTtzTzTTTTTTTTTTTTTTTTTTTTTTT",
+	"TTTTTTzTTzTTTTTTTTTTTTTTTTTzTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+	"TTTTTTTTTTTTTTTTTTTTtTTTTttTTTTT",
+	"TTTTTtTTTTTTTTTTTTzzTTTTTTTTTTTT",
+	"TzTTTTzTTtTTTTTTTTTTTTTTTtTTTTTT",
+	"ttzTTTTTTTTTTTtTTTTTTTTTTTTTTTtT",
+	"TTtttTTTTTttTTTzTTtTTTTTTTtTTTTT",
+	"TTTTTTtTTTTTTTzTTTTTTTTTTTTtTTTT",
+	"TTTTTTTTTTttTTzTTTzTTTTTTtTTTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTzTTTTTTTT",
+	"TTTTzTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+	"TTTTTTtTTTTTTTTTTTTTTTTTtTTTTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+	"zTTTTTTTTTTtTTtTTTzTTzTTTTTTTTTz",
+	"TTTTTTTTTTTTTTTTTTTTzTTTTTTTTTTT",
+	"TTTTTtTTTTTTTTtTTTTzTTTTTTTTTTTT",
+	"TTzTTTTTTTTTTTtTTTTTTTTTTTTTTTTT",
+	"TTTTTTTTTTTTzzTtTTTTTTTTTTTzTTTT",
+	"TTTTTTTTTTTTTTTzTTTTTTTTTTTzttTT",
+	"zTzTtTTTTTTTTTTTtTTTTTTTTTzTTTtT",
+	"TTTTtTTTTTzTTTTTTTTTTTTTTTTTTTTz",
+	"TTTTTTTTTTzTTTTTTTTTTTTTTtTTTzTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTtTTTzTTT",
+	"TTzTTTTTTTTTTTTTTTTTttTTTTTTTzTT",
+	"TTTzTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+	"TTTTTTTTtTTTTTTzTTTTTTTTTTTTTTTt",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTTzTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTzTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTzTTTTTT",
+	"TtTTTTTTTTtTtTTTTTTTTTzzTTzTTTTT",
+	"TTtTTTTTTTTTTTTttTTTTTTTTTTTTTTT",
+],
+}

@@ -65,7 +65,42 @@ func _describe(class_type: ClassType) -> String:
 				_ability_stats(ability)])
 		if ability.description != "":
 			lines.append("[i]%s[/i]\n" % ability.description)
+	lines.append_array(_describe_exclusives(class_type))
 	return "\n".join(lines)
+
+
+# The tower only this class can raise, with the line it upgrades into. Until the
+# `Buildings` registry existed there was nothing to enumerate — the roster lived
+# on a node inside game.tscn — so the screen sold you a class without mentioning
+# the building half of it.
+func _describe_exclusives(class_type: ClassType) -> Array[String]:
+	var exclusives := Buildings.exclusives_for(class_type.id)
+	if exclusives.is_empty():
+		return []
+	var lines: Array[String] = ["[b]Builds[/b]"]
+	for type in exclusives:
+		lines.append("[b]%s[/b]  (%s · %s)" % [type.display_name,
+				Materials.cost_text(type.cost), _building_stats(type)])
+		if type.description != "":
+			lines.append("[i]%s[/i]" % type.description)
+		var chain := type.upgrade_chain()
+		if chain.size() > 1:
+			# Named, not costed: the tier prices are netted against what they
+			# replace, and quoting a gross number here would misprice them.
+			var tiers: Array[String] = []
+			for i in range(1, chain.size()):
+				tiers.append(chain[i].display_name)
+			lines.append("[i]Upgrades in place: %s[/i]" % ", ".join(tiers))
+		lines.append("")
+	return lines
+
+
+# Same fields the tower fires on, like the ability lines above.
+func _building_stats(type: BuildingType) -> String:
+	if not type.attacks:
+		return "does not attack"
+	return "%d damage, %.1f cells, every %.1f s" % [type.damage,
+			type.attack_range / PX_PER_UNIT, type.fire_interval]
 
 
 # Composed from the same fields the game runs on, so the screen cannot promise

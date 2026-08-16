@@ -23,6 +23,11 @@ var _build_controller: BuildController
 var _team_materials: TeamMaterials
 var _buttons := {}  # BuildingType -> Button
 var _sell_button: Button
+## Cell under the mouse, from BuildController. Slots are priced against it, so
+## the bar answers "can I afford this *here*" rather than "can I afford this at
+## full price on bare ground" — the two differ on every cell that already holds
+## something, which since upgrades landed is most of the cells you click.
+var _hover_cell := BuildController.CELL_NOWHERE
 
 @onready var _slots: HBoxContainer = %Slots
 @onready var _hint: Label = %Hint
@@ -63,6 +68,7 @@ func setup(
 	build_controller.sell_mode_changed.connect(_on_sell_mode_changed)
 	build_controller.sell_hover_changed.connect(_on_sell_hover_changed)
 	build_controller.placement_preview_changed.connect(_on_placement_preview_changed)
+	build_controller.hover_cell_changed.connect(_on_hover_cell_changed)
 	team_materials.pool_changed.connect(_refresh_affordability)
 	_refresh_affordability()
 
@@ -120,9 +126,21 @@ func _show_hint(text: String, color: Color) -> void:
 	_hint.add_theme_color_override(&"font_color", color)
 
 
+func _on_hover_cell_changed(cell: Vector2i) -> void:
+	_hover_cell = cell
+	_refresh_affordability()
+
+
+# Priced at the hovered cell through the same `net_cost` the host charges, so a
+# tower you can only afford because the wall under it refunds no longer looks
+# unaffordable while placing perfectly well. The slot's *label* keeps quoting the
+# gross cost — that is the building's price, and the discount belongs to the cell
+# rather than to the slot; the hint under the dock spells out the netted number
+# once you are actually holding that hammer.
 func _refresh_affordability() -> void:
 	for type in _buttons:
-		_buttons[type].disabled = not _team_materials.can_afford(type.cost)
+		_buttons[type].disabled = not _team_materials.can_afford(
+				_build_manager.net_cost(type, _hover_cell))
 
 
 # Hover tooltip: the type's own description plus its stats, composed here so

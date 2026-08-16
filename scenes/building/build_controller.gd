@@ -17,6 +17,12 @@ signal sell_hover_changed(building: Building)
 ## over a cell that already holds a Sentry. `type` is null when nothing is
 ## selected; `error` is placement_error's verdict for that cell.
 signal placement_preview_changed(type: BuildingType, cell: Vector2i, error: String)
+## The cell under the mouse changed. Emitted whatever mode we are in — unlike
+## `placement_preview_changed`, which needs a selection — because the hotbar
+## prices every slot against the hovered cell, including the slots you have not
+## picked up yet (a tower is affordable over a wall you own and not over bare
+## ground, and the bar has to say so before you click).
+signal hover_cell_changed(cell: Vector2i)
 
 const GHOST_VALID := Color(0.55, 1.0, 0.55, 0.45)
 const GHOST_INVALID := Color(1.0, 0.4, 0.4, 0.45)
@@ -48,6 +54,9 @@ var _sell_hover: Building
 var _preview_type: BuildingType
 var _preview_cell := CELL_NOWHERE
 var _preview_error := ""
+## Last cell pushed through `hover_cell_changed`, so the hotbar re-prices on a
+## change of cell rather than every frame.
+var _hover_cell := CELL_NOWHERE
 var _ghost: MeshInstance3D
 var _ghost_material: StandardMaterial3D
 
@@ -117,6 +126,13 @@ func _set_sell_hover(building: Building) -> void:
 	sell_hover_changed.emit(building)
 
 
+func _set_hover_cell(cell: Vector2i) -> void:
+	if cell == _hover_cell:
+		return
+	_hover_cell = cell
+	hover_cell_changed.emit(cell)
+
+
 func _set_preview(type: BuildingType, cell: Vector2i, error: String) -> void:
 	if type == _preview_type and cell == _preview_cell and error == _preview_error:
 		return
@@ -158,8 +174,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _build_manager == null:
+		return
+	_set_hover_cell(_mouse_cell())
 	if _selected != null:
-		var cell := _mouse_cell()
+		var cell := _hover_cell
 		_ghost.position = _build_manager.cell_to_world(cell) + Vector3(0, 0.45, 0)
 		var error := _build_manager.placement_error(
 				_selected, cell, Network.local_player_class)
@@ -171,7 +190,7 @@ func _process(_delta: float) -> void:
 			_ghost_material.albedo_color = GHOST_UPGRADE if upgrading else GHOST_VALID
 		_set_preview(placed, cell, error)
 	elif _sell_mode:
-		var building := _build_manager.building_at(_mouse_cell())
+		var building := _build_manager.building_at(_hover_cell)
 		_set_sell_hover(building)
 		_ghost.visible = building != null
 		if building != null:

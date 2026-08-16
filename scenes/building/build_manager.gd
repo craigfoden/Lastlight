@@ -18,8 +18,10 @@ const BuildingScene := preload("res://scenes/building/building.tscn")
 signal grid_changed
 
 ## Everything placeable this run, in hotbar order. Includes every class's
-## exclusives — see `types_for_class()` for the per-player view.
-@export var buildable_types: Array[BuildingType] = []
+## exclusives — see `types_for_class()` for the per-player view. Read straight
+## off the `Buildings` registry rather than exported into game.tscn, so the
+## roster is one list that the class-select screen can read too.
+var buildable_types: Array[BuildingType] = Buildings.ALL
 
 ## Grid half-extent in cells; the region spans [-half, half). Matches the 2D
 ## grid (200x200 cells) and comfortably contains WorldGen's 93.75-cell extent.
@@ -51,6 +53,22 @@ func _ready() -> void:
 	_spawner.spawn_function = _build_building
 	_buildings.child_entered_tree.connect(_on_building_added)
 	_buildings.child_exiting_tree.connect(_on_building_removed)
+	# The grid region is laid out here rather than in setup(), which now waits
+	# on the world seed arriving from the host. A client that joins on day 2 has
+	# the host's already-placed buildings replicated to it the moment the
+	# transport connects — strictly before its world exists — and every one of
+	# them marks its cell solid on the way in. With the region still empty that
+	# is an out-of-bounds write per building; it depends on nothing but an
+	# export, so it belongs before the wait.
+	var extent := grid_half_extent
+	_astar.region = Rect2i(-extent, -extent, extent * 2, extent * 2)
+	# 1 unit = 1 cell; point paths return cell centers (x.5, y.5) which ARE
+	# world XZ coordinates in the 3D scene.
+	_astar.cell_size = Vector2.ONE
+	_astar.offset = Vector2(0.5, 0.5)
+	# Orthogonal movement only: corridors and mazes behave predictably.
+	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	_astar.update()
 
 
 ## Injected by the Game scene once the world exists.
@@ -62,16 +80,6 @@ func setup(
 	_team_materials = team_materials
 	_opening_cells = opening_cells
 	_heart_cell = heart_cell
-
-	var extent := grid_half_extent
-	_astar.region = Rect2i(-extent, -extent, extent * 2, extent * 2)
-	# 1 unit = 1 cell; point paths return cell centers (x.5, y.5) which ARE
-	# world XZ coordinates in the 3D scene.
-	_astar.cell_size = Vector2.ONE
-	_astar.offset = Vector2(0.5, 0.5)
-	# Orthogonal movement only: corridors and mazes behave predictably.
-	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
-	_astar.update()
 
 	for cell in scenery_cells:
 		_scenery[cell] = true

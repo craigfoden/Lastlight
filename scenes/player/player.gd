@@ -43,8 +43,16 @@ const CAMERA_YAW := 45.0
 ## Host-side floor between damage instances, so a swarm can't instantly melt you.
 @export var hurt_cooldown := 0.4
 
-## Talent hook (applied from the local profile on spawn).
+## Talent hooks, applied from the local profile on spawn (see `_ready`). Every
+## one of them deliberately scales something this peer already owns outright:
+## movement is simulated by the owner and both cooldowns are client-enforced by
+## design (the host checks only ownership). A talent that touched a
+## host-authoritative number — max hp, damage dealt — would put the two copies
+## of the same character out of step, and meta-progression is the one system in
+## the game with no networking at all.
 var move_speed_mult := 1.0
+var cooldown_mult := 1.0
+var dodge_cooldown_mult := 1.0
 
 ## Host-authoritative survival state, replicated to every peer (this node's
 ## authority is the owning CLIENT, so host broadcasts use "any_peer" + a
@@ -106,7 +114,10 @@ func _ready() -> void:
 	if is_local:
 		# Talents come from MY profile and only affect the character I
 		# simulate — meta-progression needs no networking at all.
-		move_speed_mult = Profile.modifiers_for(class_type.id).get(&"move_speed_mult", 1.0)
+		var modifiers := Profile.modifiers_for(class_type.id)
+		move_speed_mult = modifiers.get(&"move_speed_mult", 1.0)
+		cooldown_mult = modifiers.get(&"cooldown_mult", 1.0)
+		dodge_cooldown_mult = modifiers.get(&"dodge_cooldown_mult", 1.0)
 	camera.current = is_local
 	max_hp = class_type.max_hp
 	hp = max_hp
@@ -202,14 +213,14 @@ func try_cast_toward(ability: AbilityType, direction: Vector3) -> void:
 	if ability == null or cooldown_remaining(ability) > 0.0:
 		return
 	_aim = direction.normalized() if direction != Vector3.ZERO else _aim
-	_cooldowns[ability.id] = ability.cooldown
+	_cooldowns[ability.id] = ability.cooldown * cooldown_mult
 	request_cast.rpc_id(1, ability.id, _aim)
 
 
 func _try_dodge() -> void:
 	if _dodge_cooldown > 0.0 or _dodge_time > 0.0:
 		return
-	_dodge_cooldown = class_type.dodge_cooldown
+	_dodge_cooldown = class_type.dodge_cooldown * dodge_cooldown_mult
 	_dodge_time = class_type.dodge_duration
 	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	_dodge_direction = _camera_relative(Vector3(input.x, 0.0, input.y)).normalized() \

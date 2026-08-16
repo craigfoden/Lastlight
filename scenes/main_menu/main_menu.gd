@@ -1,5 +1,6 @@
 extends Control
-## Title screen: pick a name, then host a game or join one by IP.
+## Title screen: pick a name, then host a game or join one by IP — or step into
+## the talent screen to spend what earlier runs banked.
 ##
 ## Scripted startup for automated testing (args go after `--` on the command line):
 ##   godot -- --host             host immediately
@@ -13,6 +14,7 @@ extends Control
 
 const GAME_SCENE := "res://scenes/game/game.tscn"
 const CLASS_SELECT_SCENE := "res://scenes/class_select/class_select.tscn"
+const TALENT_SCREEN_SCENE := "res://scenes/talents/talent_screen.tscn"
 
 ## Cmdline autostart must run once per launch, not every time we come back to
 ## the menu — otherwise a failed scripted --join retries in a loop forever.
@@ -26,6 +28,10 @@ static var _cmdline_applied := false
 func _ready() -> void:
 	%HostButton.pressed.connect(_start_host)
 	%JoinButton.pressed.connect(_start_join)
+	# Talents are spent between runs, not during one — the character reads them
+	# once on spawn (see player.gd), so the menu is where they belong.
+	%TalentsButton.pressed.connect(
+			get_tree().change_scene_to_file.bind(TALENT_SCREEN_SCENE))
 	name_edit.text = "Player %d" % randi_range(1, 99)
 	if Network.last_error != "":
 		status_label.text = Network.last_error

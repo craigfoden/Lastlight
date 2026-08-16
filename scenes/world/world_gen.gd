@@ -1,8 +1,8 @@
 class_name WorldGen
 extends Node3D
-## Deterministic 3D world populator. From one baked seed it lays out the whole
-## map — camps first, then resources, then scenery — identically on every peer,
-## and none of it is synced. Node *state* still syncs through each node's own
+## Deterministic 3D world populator. From one seed it lays out the whole map —
+## camps first, then resources, then scenery — identically on every peer, and
+## none of it is synced. Node *state* still syncs through each node's own
 ## RPC lane, which resolves by NodePath, so the deterministic
 ## `Camp_%d`/`Res_%d`/`Prop_%d` names below are that contract (see GOTCHAS).
 ##
@@ -23,10 +23,13 @@ extends Node3D
 const ResourceNodeScene := preload("res://scenes/world/resource_node.tscn")
 const SceneryPropScene := preload("res://scenes/world/scenery_prop.tscn")
 
-## Baked constant, not randomised per run: every peer must generate the same
-## world. A per-run seed would have to be synced before generation — a later
-## map-generation step (see ROADMAP), not this one.
-@export var world_seed := 20260713
+## The seed this run was generated from, for logs and the determinism hash. It
+## is *given*, never chosen here: the host rolls one per run and every client
+## builds its world only once that number has arrived (game.gd). Generation is
+## driven by `generate()` rather than `_ready()` for exactly that reason — a
+## client that generated on its own would have a different map from the host,
+## and every harvest RPC resolves by node path (see GOTCHAS).
+var world_seed := 0
 
 ## All radii are the 2D pixel radii / 32 — exact binary divisions, which keeps
 ## the float math (and therefore every cell choice) identical to the 2D game.
@@ -81,10 +84,12 @@ var _camp_centers: Array[Vector2i] = []
 var _layout := PackedStringArray()  # per-node summary; hashed for the determinism smoke
 
 
-func _ready() -> void:
-	# Runs on host and clients alike; identical seed -> identical world. The
-	# layout hash printed below must match on every peer — the smoke tests'
-	# cheap cross-peer determinism check.
+## Lays out the world. Called by the Game scene on host and clients alike, with
+## the same seed on both; identical seed -> identical world. The layout hash
+## printed below must match on every peer — the smoke tests' cheap cross-peer
+## determinism check, and now also the check that the seed itself travelled.
+func generate(seed_value: int) -> void:
+	world_seed = seed_value
 	var rng := RandomNumberGenerator.new()
 	rng.seed = world_seed
 	var camps := _scatter_camps(rng)

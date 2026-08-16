@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TalentType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/talents/talent_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"paladin_vigil"
+class_id = &"paladin"
+display_name = "Vigil"
+description = "A watch kept standing. Abilities come back 12% sooner."
+modifiers = {
+&"cooldown_mult": 0.88
+}

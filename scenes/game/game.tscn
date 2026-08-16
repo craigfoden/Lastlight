@@ -1,7 +1,9 @@
-[gd_scene load_steps=55 format=3]
+[gd_scene load_steps=43 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
 [ext_resource type="Shader" path="res://scenes/world/ground.gdshader" id="34_groundshader"]
+[ext_resource type="Texture2D" uid="uid://b7wy4vcsx6ybc" path="res://assets/sprites/pixel/ground_village.png" id="45_tilevillage"]
+[ext_resource type="Texture2D" uid="uid://b83r5ca4n6ucw" path="res://assets/sprites/pixel/ground_wilds.png" id="46_tilewilds"]
 [ext_resource type="Script" path="res://scenes/game/world_light.gd" id="33_worldlight"]
 [ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="27_daynight"]
 [ext_resource type="Script" path="res://scenes/game/wave_director.gd" id="28_wavedir"]
@@ -14,20 +16,6 @@
 [ext_resource type="Script" path="res://scenes/building/build_manager.gd" id="20_buildmgr"]
 [ext_resource type="Script" path="res://scenes/building/build_controller.gd" id="21_buildctl"]
 [ext_resource type="PackedScene" path="res://scenes/building/build_menu.tscn" id="22_buildmenu"]
-[ext_resource type="Script" path="res://data/buildings/building_type.gd" id="23_buildingtype"]
-[ext_resource type="Resource" path="res://data/buildings/wall.tres" id="24_wall"]
-[ext_resource type="Resource" path="res://data/buildings/sentry_tower.tres" id="25_sentry"]
-[ext_resource type="Resource" path="res://data/buildings/arrow_turret.tres" id="26_turret"]
-[ext_resource type="Resource" path="res://data/buildings/hallowed_brazier.tres" id="35_brazier"]
-[ext_resource type="Resource" path="res://data/buildings/arcane_spire.tres" id="36_spire"]
-[ext_resource type="Resource" path="res://data/buildings/sentry_tower_ii.tres" id="37_sentry2"]
-[ext_resource type="Resource" path="res://data/buildings/sentry_tower_iii.tres" id="38_sentry3"]
-[ext_resource type="Resource" path="res://data/buildings/arrow_turret_ii.tres" id="39_turret2"]
-[ext_resource type="Resource" path="res://data/buildings/arrow_turret_iii.tres" id="40_turret3"]
-[ext_resource type="Resource" path="res://data/buildings/hallowed_brazier_ii.tres" id="41_brazier2"]
-[ext_resource type="Resource" path="res://data/buildings/hallowed_brazier_iii.tres" id="42_brazier3"]
-[ext_resource type="Resource" path="res://data/buildings/arcane_spire_ii.tres" id="43_spire2"]
-[ext_resource type="Resource" path="res://data/buildings/arcane_spire_iii.tres" id="44_spire3"]
 [ext_resource type="PackedScene" path="res://scenes/world/glow_tower.tscn" id="2_tower"]
 [ext_resource type="Script" path="res://scenes/world/world_gen.gd" id="3_worldgen"]
 [ext_resource type="Resource" path="res://data/materials/wood.tres" id="4_wood"]
@@ -74,6 +62,8 @@ ambient_light_energy = 0.5
 
 [sub_resource type="ShaderMaterial" id="ground_mat"]
 shader = ExtResource("34_groundshader")
+shader_parameter/village_tile = ExtResource("45_tilevillage")
+shader_parameter/wilds_tile = ExtResource("46_tilewilds")
 
 [sub_resource type="PlaneMesh" id="ground_mesh"]
 material = SubResource("ground_mat")
@@ -155,7 +145,6 @@ spawn_path = NodePath("../Enemies")
 
 [node name="BuildManager" type="Node3D" parent="."]
 script = ExtResource("20_buildmgr")
-buildable_types = Array[ExtResource("23_buildingtype")]([ExtResource("24_wall"), ExtResource("25_sentry"), ExtResource("26_turret"), ExtResource("35_brazier"), ExtResource("36_spire"), ExtResource("37_sentry2"), ExtResource("38_sentry3"), ExtResource("39_turret2"), ExtResource("40_turret3"), ExtResource("41_brazier2"), ExtResource("42_brazier3"), ExtResource("43_spire2"), ExtResource("44_spire3")])
 
 [node name="Buildings" type="Node3D" parent="BuildManager"]
 

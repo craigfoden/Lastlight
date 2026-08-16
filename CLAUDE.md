@@ -92,6 +92,9 @@ client is how the two-instance smoke proves a client-initiated loot travels the 
 can be exercised without a real fight — pair it with `--auto-camp`),
 `--no-pixel-render` (render the 3D world at native resolution instead of low-res + nearest
 upscale — the A/B for the pixel look; ignored headless, which renders no frames),
+`--world-seed=N` (host only: rebuild one particular map instead of rolling a fresh one — a
+run's map is now random per run, so this is how a smoke test or a bug report gets the same
+world twice; clients ignore it and take whatever the host sends),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
 windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
@@ -123,7 +126,10 @@ A system is done when ALL of:
   as a pixel map in `tools/art/art_sprites.gd` — one character per pixel, keyed by the single
   shared palette in `tools/art/art_palette.gd` — and compiled to PNGs in
   `assets/sprites/pixel/` (characters 32×48 with feet on the last row, everything else 32×32).
-  The PNGs are committed; edit the text and re-run the generator, never the PNGs. World
+  The PNGs are committed; edit the text and re-run the generator, never the PNGs.
+  `ArtSprites.TILES` is the same 32×32 through the same validator, for the repeating **ground**
+  tiles `ground.gdshader` samples — those must wrap edge-to-edge and stay low-contrast, because
+  a tile drawn boldly becomes a visible grid across the whole map. World
   solids, buildings, and towers remain small mesh scenes under `scenes/world/visuals/` and
   `scenes/building/visuals/`. No packed spritesheets until real art.
 - **The 3D world renders at low resolution and is nearest-upscaled** (`scenes/game/pixel_render.gd`,
@@ -160,8 +166,11 @@ never-to-change `id`, a `display_name`, `hud_color`) → add a `preload` to `Mat
 in `data/materials/materials.gd` (both HUDs build their rows from it) → point `ResourceNode`s
 at it via WorldGen's material slots.
 
-**Populate the world (materials & scenery):** the map is scattered at load by `World/WorldGen`
-(`scenes/world/world_gen.gd`) from a fixed seed — identical on every peer, never synced. Tune
+**Populate the world (materials & scenery):** the map is scattered by `World/WorldGen`
+(`scenes/world/world_gen.gd`) when the Game scene calls `generate(seed)` — identical on every
+peer, never synced. **The seed is per-run and comes from the host** (`--world-seed=N` pins it);
+a client generates nothing until that number arrives, which is what keeps the determinism
+contract in GOTCHAS true. Tune
 its exports for density/rarity/amounts (`resource_count`, the ring radii,
 `plaza_radius`/`safe_radius` — all in cells). Note `near_amount`/`far_amount` are **chops to
 fell**, not income: harvesting pays nothing per chop and banks `yield_per_node` (flat 4) when
@@ -182,8 +191,8 @@ decor is a flat 32×32 SVG decal texture (add to `decor_textures`, visual only).
 `id`, `display_name`, `cost` dict, attack stats — walls just leave `attacks` false;
 set `class_id` for class exclusives; set `refund_fraction` for salvage-on-removal — defaults to
 1.0/full, towers use 0.5; set `visual_3d` to a small mesh scene under
-`scenes/building/visuals/`) → add the resource to `buildable_types` on the BuildManager node
-in `game.tscn`. Hotbar, ghost, costs, path validation, removal refund, and sync all follow
+`scenes/building/visuals/`) → add its preload to `Buildings.ALL` in
+`data/buildings/buildings.gd`. Hotbar, ghost, costs, path validation, removal refund, and sync all follow
 from the data. `attacks` also decides **wall replacement**: anything that attacks may be built
 straight over anything that doesn't (tower replaces wall, charged at cost minus the wall's
 refund), never the reverse — so a new non-attacking building is automatically replaceable and
@@ -193,7 +202,7 @@ a new tower automatically replaces walls, with no code change.
 `placeable = false` on it (tiers are reached by upgrading, never from the hotbar — and
 `placement_error` refuses a direct request for one) and point the tier *below* it at it via
 `upgrades_to`. Build the line top-down so each `.tres` can reference the next. Add **every**
-tier to `buildable_types` in `game.tscn` regardless — `type_by_id` has to resolve them out of
+tier to `Buildings.ALL` regardless — `type_by_id` has to resolve them out of
 spawn packets — and give each its own `visual_3d` so a tower's rank is readable on the ground.
 In play you hold the base tower's hotbar slot and click a tower already standing: it walks one
 tier up its line per click (`BuildManager.resolve_placement`). **Costs are authored gross and
@@ -276,7 +285,12 @@ black box on its chest. And a held weapon needs an arm of solid pixels reaching 
 hangs in space (this is exactly what happened, twice).
 
 **Add a talent:** create `data/talents/<id>.tres` (script `talent_type.gd`; `class_id`,
-`modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys.
+`modifiers` dict) → add its preload to `Talents.ALL`. Player.gd consumes the modifier keys
+(`move_speed_mult`, `cooldown_mult`, `dodge_cooldown_mult` today) and the talent screen builds
+its own rows. **A modifier may only scale something the owning peer simulates alone** — talents
+are read from the *local* profile on spawn and never networked, so a key touching a
+host-authoritative number (max hp, damage dealt) desynchronises the two copies of a character
+rather than buffing it. Keys ending `_mult` stack multiplicatively; anything else overwrites.
 
 ## GOTCHAS (append whenever a session loses time to a pitfall)
 
