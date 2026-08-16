@@ -91,12 +91,17 @@ func setup(
 	# Live resource nodes block building; their cells free up when depleted.
 	# amount is replicated, so this stays identical on every peer.
 	for node in get_tree().get_nodes_in_group("resource_nodes"):
-		if node.amount == 0 and not node.visible:
-			continue
 		var cell: Vector2i = world_to_cell(node.global_position)
-		_scenery[cell] = true
-		_astar.set_point_solid(cell)
+		var standing: bool = node.amount > 0
+		if standing:
+			_scenery[cell] = true
+			_astar.set_point_solid(cell)
 		node.depleted.connect(_on_scenery_cleared.bind(cell))
+		# ...and takes it back when the world grows over it again (session 18).
+		# Both edges are wired here, once, for every node — including the ones
+		# that are already empty at this moment, which is why the loop above no
+		# longer skips them.
+		node.regrown.connect(_on_scenery_restored.bind(cell))
 
 
 func world_to_cell(pos: Vector3) -> Vector2i:
@@ -133,6 +138,49 @@ func path_to(from: Vector3, to: Vector3) -> PackedVector2Array:
 	return _astar.get_point_path(
 			_walkable_cell(world_to_cell(from)),
 			_walkable_cell(world_to_cell(to)), true)
+
+
+## Is it safe for the world to grow something solid back on this cell? Asked by
+## Regrowth before a depleted node returns: the cell may have been built on,
+## walked onto, or become the last route to the tower while it stood empty, and
+## a tree that sprouts through a wall (or seals the map) is worse than a bare
+## patch of ground. Everything after the occupancy checks is the same rule
+## `placement_error` enforces, asked of the world instead of a player.
+func can_grow_at(cell: Vector2i) -> bool:
+	if not _astar.region.has_point(cell):
+		return false
+	if _occupied.has(cell) or _scenery.has(cell) or _reserved.has(cell):
+		return false
+	if _player_on(cell):
+		return false
+	return not _would_block_path(cell)
+
+
+## Every structure standing right now. The host uses it to bring a late joiner
+## up to date on damage (the buildings themselves are replayed by the spawner).
+func all_buildings() -> Array[Building]:
+	var result: Array[Building] = []
+	for building: Building in _occupied.values():
+		result.append(building)
+	return result
+
+
+## The first structure standing between two points, or null if the way is clear.
+## Walked cell by cell along the straight line rather than along a path, because
+## the caller asking this has already decided the path is not worth taking —
+## this is "what is in my way if I go through", which is a different question.
+func first_building_toward(from: Vector3, to: Vector3) -> Building:
+	var start := Vector2(from.x, from.z)
+	var delta := Vector2(to.x, to.z) - start
+	var steps := int(ceilf(delta.length() * 2.0))
+	if steps <= 0:
+		return null
+	for i in range(1, steps + 1):
+		var point := start + delta * (float(i) / float(steps))
+		var building := building_at(Vector2i(point.floor()))
+		if building != null:
+			return building
+	return null
 
 
 func _walkable_cell(cell: Vector2i) -> Vector2i:
@@ -396,4 +444,10 @@ func _on_building_removed(node: Node) -> void:
 func _on_scenery_cleared(cell: Vector2i) -> void:
 	_scenery.erase(cell)
 	_astar.set_point_solid(cell, false)
+	grid_changed.emit()
+
+
+func _on_scenery_restored(cell: Vector2i) -> void:
+	_scenery[cell] = true
+	_astar.set_point_solid(cell, true)
 	grid_changed.emit()

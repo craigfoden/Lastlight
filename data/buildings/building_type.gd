@@ -40,6 +40,14 @@ extends Resource
 ## until then everything is placeable by everyone.
 @export var class_id: StringName = &""
 
+## How much punishment this structure takes before it falls. Enemies only ever
+## turn on buildings when the way round is much longer than the way through
+## (Enemy `breach_ratio`), so this is the number that decides how long a maze
+## buys you once the horde has decided to chew it rather than walk it — not how
+## long a wall survives being attacked from the first night, which is not a
+## thing that happens.
+@export var max_hp := 60
+
 @export_group("Attack")
 @export var attacks := false
 @export var damage := 0

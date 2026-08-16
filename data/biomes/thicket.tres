@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BiomeType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/biomes/biome_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"thicket"
+display_name = "Thicket"
+description = "Crowded, unlogged woodland. Good timber, poor sightlines, and plenty for something to hide behind."
+weight = 1.3
+ground_color = Color(0.82, 1.0, 0.78, 1)
+material_weights = {
+&"stone": 0.45,
+&"wood": 2.4
+}
+resource_density = 1.3
+solid_density = 1.5
+decor_density = 1.2

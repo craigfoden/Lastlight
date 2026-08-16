@@ -25,6 +25,11 @@ signal cleared
 var type: CampType
 ## Guards still standing. Host-authoritative, mirrored to clients by _sync_guards.
 var guards_remaining := 0
+## Host only: the day this site last fell, or -1 while it still stands. What
+## Regrowth measures `CampType.repopulate_days` against. Deliberately not
+## synced — a client never needs to know *when* a camp fell, only whether it is
+## garrisoned now, which `guards_remaining` already tells it.
+var cleared_on_day := -1
 
 var _wave_director: WaveDirector
 var _cache: LootCache
@@ -90,6 +95,25 @@ func host_post_garrison() -> void:
 	print("[Camp] %s garrisoned at %v with %d %s"
 			% [type.id, global_position, posted,
 			type.guard_type.id if type.guard_type != null else &"<none>"])
+
+
+## Host only: something has moved back into the ruin. Restocks the cache and
+## posts a fresh garrison — the site becomes exactly what it was before the
+## players took it, which is the honest version of "repopulated": you pay the
+## same price for the same reward, you just get the chance again.
+##
+## Called by Regrowth at dawn once `CampType.repopulate_days` have passed. Safe
+## to call on a site that was never cleared (it does nothing) — the guard below
+## is the one that matters, because posting a second garrison over a live one
+## would double a camp's strength every day.
+func host_repopulate() -> void:
+	if not multiplayer.is_server() or guards_remaining > 0:
+		return
+	cleared_on_day = -1
+	if _cache != null:
+		_cache.host_regrow(1)
+	host_post_garrison()
+	print("[Camp] %s at %v has been reoccupied" % [type.id, global_position])
 
 
 ## Host only: bring a late joiner's cache lock up to date. Guards themselves

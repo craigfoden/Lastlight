@@ -139,8 +139,26 @@ func _on_hover_cell_changed(cell: Vector2i) -> void:
 # once you are actually holding that hammer.
 func _refresh_affordability() -> void:
 	for type in _buttons:
-		_buttons[type].disabled = not _team_materials.can_afford(
-				_build_manager.net_cost(type, _hover_cell))
+		_buttons[type].disabled = not _team_materials.can_afford(_price_at_hover(type))
+
+
+# What a slot is priced at right now.
+#
+# Normally the netted cost at the hovered cell. The exception is a cell holding
+# something this click could not replace — a tower already at its final tier, or
+# simply another building in the way. `net_cost` still answers there (it prices
+# the resolved building, which is whatever is already standing), and the answers
+# it gives are misleading in both directions: a maxed tower greys its own slot on
+# the top tier's full price, and a wall over a wall prices at nothing at all.
+# Both cells refuse the click regardless, so pricing them as bare ground keeps
+# the grey meaning exactly one thing: you cannot afford this building.
+func _price_at_hover(type: BuildingType) -> Dictionary:
+	var existing := _build_manager.building_at(_hover_cell)
+	if existing != null:
+		var placed := _build_manager.resolve_placement(type, _hover_cell)
+		if _build_manager.replaceable_at(_hover_cell, placed) == null:
+			return type.cost
+	return _build_manager.net_cost(type, _hover_cell)
 
 
 # Hover tooltip: the type's own description plus its stats, composed here so

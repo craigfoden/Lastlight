@@ -7,8 +7,9 @@
 script = ExtResource("1")
 id = &"wall"
 display_name = "Wall"
-description = "A cheap barrier. Enemies never attack it — they walk around, so use walls to steer them through your towers' reach. Sells back in full."
+description = "A cheap barrier. Enemies would rather walk around than break through, so use walls to steer them into your towers' reach — but shut every way through and they will chew a hole instead. Sells back in full."
 cost = {
 &"wood": 2
 }
+max_hp = 90
 visual_3d = ExtResource("3")

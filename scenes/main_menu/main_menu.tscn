@@ -63,6 +63,10 @@ custom_minimum_size = Vector2(0, 8)
 unique_name_in_owner = true
 text = "Talents"
 
+[node name="QuitButton" type="Button" parent="Center/Column"]
+unique_name_in_owner = true
+text = "Quit"
+
 [node name="StatusLabel" type="Label" parent="Center/Column"]
 unique_name_in_owner = true
 modulate = Color(1, 0.6, 0.6, 1)

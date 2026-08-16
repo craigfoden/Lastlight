@@ -11,7 +11,10 @@ extends SceneTree
 
 const ZOOM := 6
 const PAD := 4
-const COLUMNS := 8
+## Four across rather than eight since sprites became multi-frame strips: a
+## character is now three frames wide, and the point of the sheet is that a
+## whole walk cycle sits on one row where the eye can compare the steps.
+const COLUMNS := 4
 
 
 func _initialize() -> void:
@@ -25,18 +28,14 @@ func _initialize() -> void:
 		for sprite_name: String in group:
 			names.append(sprite_name)
 
-	# Every cell is sized for the tallest sprite so the sheet stays a grid and
-	# the eye can compare heights down a column — which is exactly the thing
-	# that goes wrong when a roster is drawn one sprite at a time.
-	var cell := Vector2i(32 * ZOOM + PAD * 2, 48 * ZOOM + PAD * 2)
-	var rows: int = ceili(float(names.size()) / COLUMNS)
-	var sheet := Image.create_empty(cell.x * COLUMNS, cell.y * rows, false,
-			Image.FORMAT_RGBA8)
-	_fill_checker(sheet)
-
-	for i in names.size():
-		var origin := Vector2i((i % COLUMNS) * cell.x + PAD, (i / COLUMNS) * cell.y + PAD)
-		var path := "%s/%s.png" % [ArtGenerator.OUTPUT_DIR, names[i]]
+	# Loaded up front so the cell can be sized for the widest strip in the set:
+	# every cell the same size is what keeps the sheet a grid, and the grid is
+	# what lets the eye compare heights down a column — exactly the thing that
+	# goes wrong when a roster is drawn one sprite at a time.
+	var images: Array[Image] = []
+	var widest := 32
+	for sprite_name in names:
+		var path := "%s/%s.png" % [ArtGenerator.OUTPUT_DIR, sprite_name]
 		# Read the PNG bytes rather than Image.load_from_file: the latter warns
 		# that loading a res:// image at runtime will not survive an export,
 		# which is true and irrelevant for a tool, but the project's rule is
@@ -47,6 +46,18 @@ func _initialize() -> void:
 			quit(1)
 			return
 		src.convert(Image.FORMAT_RGBA8)
+		widest = maxi(widest, src.get_width())
+		images.append(src)
+
+	var cell := Vector2i(widest * ZOOM + PAD * 2, 48 * ZOOM + PAD * 2)
+	var rows: int = ceili(float(names.size()) / COLUMNS)
+	var sheet := Image.create_empty(cell.x * COLUMNS, cell.y * rows, false,
+			Image.FORMAT_RGBA8)
+	_fill_checker(sheet)
+
+	for i in names.size():
+		var origin := Vector2i((i % COLUMNS) * cell.x + PAD, (i / COLUMNS) * cell.y + PAD)
+		var src := images[i]
 		for y in src.get_height():
 			for x in src.get_width():
 				var c := src.get_pixel(x, y)

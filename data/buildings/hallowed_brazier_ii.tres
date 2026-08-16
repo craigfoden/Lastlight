@@ -19,6 +19,7 @@ upgrades_to = ExtResource("3")
 placeable = false
 refund_fraction = 0.5
 class_id = &"paladin"
+max_hp = 75
 attacks = true
 damage = 11
 attack_range = 96.0

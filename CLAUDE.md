@@ -95,6 +95,13 @@ upscale — the A/B for the pixel look; ignored headless, which renders no frame
 `--world-seed=N` (host only: rebuild one particular map instead of rolling a fresh one — a
 run's map is now random per run, so this is how a smoke test or a bug report gets the same
 world twice; clients ignore it and take whatever the host sends),
+`--auto-siege` (host cheat: ring the tower's heart with walls leaving one cell open — a legal
+maze and a preposterous one, so the horde must breach it; assert on
+`[Building] wall ... was destroyed`),
+`--strip-nodes=N` (host cheat: fell N resource nodes outright, so a run reaches the
+picked-over state Regrowth exists for without twenty minutes of harvesting),
+`--log-crowding-after-sec=a,b` (print how tightly the monsters are packed — the *closest pair*,
+because a stack is a pair at distance zero and never shows up in a mean),
 `--screenshot-at=a,b` (save the viewport to `user://game_shot_<t>.png` at those times;
 windowed runs only — headless renders no frames; on macOS add `--always-on-top`).
 
@@ -126,6 +133,12 @@ A system is done when ALL of:
   as a pixel map in `tools/art/art_sprites.gd` — one character per pixel, keyed by the single
   shared palette in `tools/art/art_palette.gd` — and compiled to PNGs in
   `assets/sprites/pixel/` (characters 32×48 with feet on the last row, everything else 32×32).
+  A character entry may be **several** pixel maps instead of one: they compile to a horizontal
+  strip and become `Sprite3D.hframes`, and **frame 0 is the standing pose while every frame
+  after it is a step**. Nothing is hand-drawn in frames yet — ArtGenerator derives a two-step
+  walk from the single authored pose, and stops doing so for any sprite that declares real
+  frames (decision log 2026-08-16). `SpriteAnimator` reads the frame count off the texture, so
+  no scene ever has to be told how many frames a character has.
   The PNGs are committed; edit the text and re-run the generator, never the PNGs.
   `ArtSprites.TILES` is the same 32×32 through the same validator, for the repeating **ground**
   tiles `ground.gdshader` samples — those must wrap edge-to-edge and stay low-contrast, because
@@ -167,12 +180,18 @@ in `data/materials/materials.gd` (both HUDs build their rows from it) → point 
 at it via WorldGen's material slots.
 
 **Populate the world (materials & scenery):** the map is scattered by `World/WorldGen`
-(`scenes/world/world_gen.gd`) when the Game scene calls `generate(seed)` — identical on every
-peer, never synced. **The seed is per-run and comes from the host** (`--world-seed=N` pins it);
-a client generates nothing until that number arrives, which is what keeps the determinism
-contract in GOTCHAS true. Tune
+(`scenes/world/world_gen.gd`) when the Game scene calls `generate(seed, heart_cell)` —
+identical on every peer, never synced. **The seed is per-run and comes from the host**
+(`--world-seed=N` pins it); a client generates nothing until that number arrives, which is what
+keeps the determinism contract in GOTCHAS true. What the seed decides is the map's *shape* —
+how many approach openings and where (`opening_count_min/max`, the radius band), which biome
+each stretch of wilds is, and how rich the world is (`density_jitter`, `camp_count_jitter`).
+What it must never decide is the **rarity-by-distance bands** in `_material_for`: those are what
+the economy is balanced against (decision log 2026-08-16). Tune
 its exports for density/rarity/amounts (`resource_count`, the ring radii,
-`plaza_radius`/`safe_radius` — all in cells). Note `near_amount`/`far_amount` are **chops to
+`plaza_radius`/`safe_radius` — all in cells). Note `resource_count`/`scenery_count` are
+*rolls*, not node counts — a roll can be dropped by a blocked cell or a thin biome, and the
+`[WorldGen]` log prints what was actually placed. Note `near_amount`/`far_amount` are **chops to
 fell**, not income: harvesting pays nothing per chop and banks `yield_per_node` (flat 4) when
 the node falls, so those two dials set how *fast* a node pays, and `yield_per_node` sets how
 *much*. Or point its slots at new resources:
@@ -188,7 +207,8 @@ decor is a flat 32×32 SVG decal texture (add to `decor_textures`, visual only).
 `scenes/world/scenery_prop.tscn` is the shared body; solid vs decor is one export.
 
 **Add a building/tower:** create `data/buildings/<id>.tres` (script `building_type.gd`; stable
-`id`, `display_name`, `cost` dict, attack stats — walls just leave `attacks` false;
+`id`, `display_name`, `cost` dict, `max_hp` — enemies break a building when the way round is
+absurd, see `Enemy.breach_ratio` — attack stats, walls just leave `attacks` false;
 set `class_id` for class exclusives; set `refund_fraction` for salvage-on-removal — defaults to
 1.0/full, towers use 0.5; set `visual_3d` to a small mesh scene under
 `scenes/building/visuals/`) → add its preload to `Buildings.ALL` in
@@ -244,10 +264,19 @@ the new *behaviours*, not the new classes. Cheapest first: a new number on an ex
 Give a class a **fourth** placeable and it appears in the hotbar but stays click-only until a
 `build_select_4` action is added to `project.godot` (see `BuildController.HOTBAR_KEYS`).
 
+**Add a biome:** create `data/biomes/<id>.tres` (script `biome_type.gd`; stable `id`,
+`display_name`, a `weight` for how much of the map it claims, a `ground_color` the ground
+shader tints its country with, `material_weights` and the three densities) → add its preload to
+`Biomes.ALL`. WorldGen draws every biome site from that list, so a new entry starts appearing in
+worlds immediately. Two rules: `material_weights` reweights *within* the distance band and can
+never enlarge it, and `essence_radiant` is ignored there on purpose (see the recipe above).
+A density above 1.0 is genuinely denser than baseline — acceptance is measured against the
+highest density any biome asks for.
+
 **Add a camp:** create `data/camps/<id>.tres` (script `camp_type.gd`; stable `id`,
 `display_name`, `description`, `site_count`, the `radius_min`/`radius_max` ring band in cells,
-`footprint_radius`, a `guard_type` + `guard_count` + `guard_leash`, and a `loot` dict) → add it
-to `camp_types` on `World/WorldGen` in `game.tscn`. Placement, the ruined-wall footprint, the
+`footprint_radius`, a `guard_type` + `guard_count` + `guard_leash`, a `loot` dict and
+`repopulate_days`) → add its preload to `Camps.ALL`. Placement, the ruined-wall footprint, the
 cache, the lock, the garrison, the minimap ring and all the sync follow from the data.
 **If the guard is a new enemy**, add its `.tres` to `guard_types` on the WaveDirector — *not*
 `enemy_types`, which is the night's composition and would draft your guard into the horde.
@@ -388,6 +417,11 @@ rather than buffing it. Keys ending `_mult` stack multiplicatively; anything els
 - `class_name` globals are not registered until the project has been imported, so a
   `--script` tool that references one dies with "Identifier not declared in the current scope"
   on a fresh clone. Run `--headless --import` first.
+- A diagnostic that reports an **average** over a map-wide population hides exactly the fault
+  it was written to find. The first crowding hook printed mean pairwise distance and read a
+  reassuring 70 cells while every camp garrison in the game was stacked in one cell; the
+  *closest pair* found it immediately, because a stack is a pair at distance zero. Report the
+  extreme, not the middle.
 - Windowed runs on this Windows box log `WASAPI: init_output_device error` and fall back to the
   dummy audio driver — there is no audio device over RDP. Environmental, not a code fault; it
   does not appear in `--headless` runs.

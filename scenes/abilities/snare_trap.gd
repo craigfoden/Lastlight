@@ -13,6 +13,13 @@ extends Area3D
 
 var ability: AbilityType
 
+## Who laid this and which of their casts it was. Kept because a deployable
+## outlives the moment it was created by a long way, so it is the one ability
+## effect a player who joins mid-day genuinely needs told about (see
+## `host_replay_to`).
+var caster: Player
+var seq := 0
+
 var _burn_cd := 0.0  # host-only: seconds until the next burn tick
 
 @onready var _lifetime_timer: Timer = $LifetimeTimer
@@ -25,6 +32,7 @@ func setup(new_ability: AbilityType, at: Vector3) -> void:
 
 
 func _ready() -> void:
+	add_to_group("deployables")
 	if ability.decal_texture != null:
 		# A fresh material per instance, not the scene's: sub-resources
 		# authored in a .tscn are shared across every instance, so swapping the
@@ -69,6 +77,21 @@ func _physics_process(delta: float) -> void:
 		# A snare spends itself on the first thing it catches.
 		print("[Trap] %s triggered" % name)
 		_consume.rpc()
+
+
+## Host only: rebuild this deployable on a peer that joined after it was laid.
+## Routed back through the player who laid it, because their `_spawn_deployable`
+## is the RPC every peer already builds deployables from — and a joiner has that
+## player node but does not yet have this one, so an RPC on *this* node would
+## have nowhere to land.
+##
+## Only the visual is rebuilt, which is all a client ever has: the lifetime
+## timer, the overlap polling and the damage are host-only, and the host's copy
+## has been running all along.
+func host_replay_to(peer_id: int) -> void:
+	if not multiplayer.is_server() or caster == null or not is_instance_valid(caster):
+		return
+	caster.host_replay_deployable(peer_id, position, ability.id, seq)
 
 
 # Host only.

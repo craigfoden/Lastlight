@@ -17,6 +17,7 @@ visual_3d = ExtResource("3")
 upgrades_to = ExtResource("4")
 class_id = &"ranger"
 refund_fraction = 0.5
+max_hp = 55
 attacks = true
 damage = 4
 attack_range = 180.0

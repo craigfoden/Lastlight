@@ -18,6 +18,7 @@ visual_3d = ExtResource("2")
 placeable = false
 refund_fraction = 0.5
 class_id = &"mage"
+max_hp = 100
 attacks = true
 damage = 7
 attack_range = 320.0

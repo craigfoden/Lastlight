@@ -17,6 +17,7 @@ visual_3d = ExtResource("2")
 upgrades_to = ExtResource("3")
 refund_fraction = 0.5
 class_id = &"mage"
+max_hp = 55
 attacks = true
 damage = 3
 attack_range = 260.0

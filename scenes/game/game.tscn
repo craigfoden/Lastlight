@@ -1,9 +1,12 @@
-[gd_scene load_steps=43 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
 [ext_resource type="Shader" path="res://scenes/world/ground.gdshader" id="34_groundshader"]
 [ext_resource type="Texture2D" uid="uid://b7wy4vcsx6ybc" path="res://assets/sprites/pixel/ground_village.png" id="45_tilevillage"]
 [ext_resource type="Texture2D" uid="uid://b83r5ca4n6ucw" path="res://assets/sprites/pixel/ground_wilds.png" id="46_tilewilds"]
+[ext_resource type="Texture2D" uid="uid://bb83v1f46b8og" path="res://assets/sprites/pixel/ground_path.png" id="47_tilepath"]
+[ext_resource type="Script" path="res://scenes/world/ground.gd" id="48_ground"]
+[ext_resource type="Script" path="res://scenes/world/regrowth.gd" id="54_regrowth"]
 [ext_resource type="Script" path="res://scenes/game/world_light.gd" id="33_worldlight"]
 [ext_resource type="Script" path="res://scenes/game/day_night_cycle.gd" id="27_daynight"]
 [ext_resource type="Script" path="res://scenes/game/wave_director.gd" id="28_wavedir"]
@@ -32,10 +35,6 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/pixel/grass_tuft.png" id="15_grass"]
 [ext_resource type="Texture2D" path="res://assets/sprites/pixel/bones.png" id="16_bones"]
 [ext_resource type="Texture2D" path="res://assets/sprites/pixel/rubble.png" id="17_rubble"]
-[ext_resource type="Script" path="res://data/camps/camp_type.gd" id="45_camptype"]
-[ext_resource type="Resource" path="res://data/camps/bandit_camp.tres" id="46_bandit"]
-[ext_resource type="Resource" path="res://data/camps/ruined_hamlet.tres" id="47_hamlet"]
-[ext_resource type="Resource" path="res://data/camps/warband_barrow.tres" id="48_barrow"]
 [ext_resource type="Resource" path="res://data/enemies/marauder.tres" id="49_marauder"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/camp_wall_visual.tscn" id="50_campwall"]
 [ext_resource type="PackedScene" path="res://scenes/world/visuals/camp_hut_visual.tscn" id="51_camphut"]
@@ -64,6 +63,7 @@ ambient_light_energy = 0.5
 shader = ExtResource("34_groundshader")
 shader_parameter/village_tile = ExtResource("45_tilevillage")
 shader_parameter/wilds_tile = ExtResource("46_tilewilds")
+shader_parameter/path_tile = ExtResource("47_tilepath")
 
 [sub_resource type="PlaneMesh" id="ground_mesh"]
 material = SubResource("ground_mat")
@@ -85,6 +85,7 @@ shadow_enabled = true
 
 [node name="Ground" type="MeshInstance3D" parent="World"]
 mesh = SubResource("ground_mesh")
+script = ExtResource("48_ground")
 
 [node name="GlowTower" parent="World" instance=ExtResource("2_tower")]
 
@@ -100,17 +101,11 @@ rock_scene = ExtResource("10_rock")
 wisp_scene = ExtResource("11_wisp")
 solid_scenes = Array[PackedScene]([ExtResource("12_boulder"), ExtResource("13_deadtree"), ExtResource("14_pillar")])
 decor_textures = Array[Texture2D]([ExtResource("15_grass"), ExtResource("16_bones"), ExtResource("17_rubble")])
-camp_types = Array[ExtResource("45_camptype")]([ExtResource("46_bandit"), ExtResource("47_hamlet"), ExtResource("48_barrow")])
 camp_wall_scenes = Array[PackedScene]([ExtResource("50_campwall"), ExtResource("51_camphut")])
 cache_visual = ExtResource("52_cache")
 
-[node name="SpawnOpenings" type="Node3D" parent="World"]
-
-[node name="WestOpening" type="Marker3D" parent="World/SpawnOpenings"]
-position = Vector3(-49.5, 0, 0.5)
-
-[node name="EastOpening" type="Marker3D" parent="World/SpawnOpenings"]
-position = Vector3(49.5, 0, 0.5)
+[node name="Regrowth" type="Node" parent="World"]
+script = ExtResource("54_regrowth")
 
 [node name="Players" type="Node3D" parent="."]
 

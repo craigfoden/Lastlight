@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/biomes/biome_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"barrens"
+display_name = "Barrens"
+description = "Stripped ground and broken rock. Nothing grows, but the stone is right there on the surface."
+weight = 1.0
+ground_color = Color(1.05, 0.95, 0.8, 1)
+material_weights = {
+&"essence_faint": 0.7,
+&"stone": 2.2,
+&"wood": 0.3
+}
+resource_density = 0.9
+solid_density = 1.3
+decor_density = 0.4

@@ -1,8 +1,8 @@
 class_name CampType
 extends Resource
 ## One kind of guarded site out in the wilds — a bandit camp, a ruined hamlet,
-## a barrow. Data-driven: adding a camp = a .tres file + adding it to
-## `camp_types` on World/WorldGen, no new code (see the recipe in CLAUDE.md).
+## a barrow. Data-driven: adding a camp = a .tres file + a preload in the
+## `Camps` registry, no new code (see the recipe in CLAUDE.md).
 ##
 ## A camp is three things authored together: a **footprint** of ruined walls
 ## stamped into the world, a **garrison** of leashed guards standing in it, and
@@ -47,6 +47,14 @@ extends Resource
 @export var guard_leash := 12.0
 
 @export_group("Reward")
+## Days after a site is cleared before something moves back into it and the
+## cache is worth walking to again. Zero means never — a one-shot site.
+##
+## The point is that a long run should not end with a strip-mined map and
+## nothing left to do by day (session 15's carried gap). The point is NOT free
+## money: a repopulated camp posts a full garrison again, so the loot is paid
+## for a second time at the same price.
+@export var repopulate_days := 3
 ## material id -> amount, paid into the shared pool in one lump when the cache
 ## is looted. Authored gross: there is no per-player scaling, the same as every
 ## other material payout in the game.

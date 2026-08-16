@@ -54,7 +54,10 @@ const EnemyScene := preload("res://scenes/enemy/enemy.tscn")
 ## Share of fast enemies (index 1) rises each night up to the cap.
 @export var fast_share_per_night := 0.1
 @export var fast_share_max := 0.5
-## Spawn-point jitter along the opening's row, in cells (2D: 24 px).
+## Spawn-point jitter ACROSS the opening, in cells (2D: 24 px). Applied along
+## the tangent rather than a fixed axis: openings are rolled per run now
+## (session 18), so "sideways" depends on which quarter of the map this one is
+## on — a fixed z-jitter would spread a north opening along its own lane.
 @export var spawn_jitter := 0.75
 
 @export_group("Daytime threats")
@@ -196,13 +199,23 @@ func _spawn_one_assault() -> void:
 	if enemy_types.size() > 1 and randf() < fast_share:
 		type = enemy_types[1]
 	var spawn_position := _spawn_positions[_spawn_seq % _spawn_positions.size()]
-	spawn_position += Vector3(0, 0, randf_range(-spawn_jitter, spawn_jitter))
+	spawn_position += _opening_jitter(spawn_position)
 	_spawner.spawn({
 		"type_id": type.id,
 		"position": spawn_position,
 		"seq": _spawn_seq,
 		"behavior": Enemy.Behavior.ASSAULT,
 	})
+
+
+# Sideways scatter at an opening: perpendicular to the line in toward the
+# tower, so a spawn never lands behind or in front of its own opening.
+func _opening_jitter(spawn_position: Vector3) -> Vector3:
+	var outward := Vector3(spawn_position.x, 0.0, spawn_position.z)
+	if outward.length_squared() < 0.01:
+		return Vector3.ZERO
+	var tangent := outward.normalized().cross(Vector3.UP)
+	return tangent * randf_range(-spawn_jitter, spawn_jitter)
 
 
 # Daytime top-up: keep the roamer population at target while it is day.

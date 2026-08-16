@@ -31,7 +31,8 @@ same scene file.
 | 15 | **Camps: something to do with a day** — the day loop was walk out, hold E, walk back; all the danger and every decision lived at night. Guarded sites now sit out in the wilds: a footprint of ruined walls stamped by WorldGen, a leashed garrison posted by the host through the WaveDirector's spawner, and a `LootCache` at the middle that refuses to open while a guard still stands. New `CampType` resource (three tiers — Bandit Camp / Ruined Hamlet / Warband Barrow, 10 sites), new `Marauder` enemy kept out of the wave roster, new `Enemy.Behavior.GUARD` with a leash and an `Enemy.died` signal, `ResourceNode` grown three extension points so the cache reuses the whole harvest RPC lane rather than inventing one. **Ambient Radiant Essence cut 15 % → 4 %**: tier-III towers are now gated on clearing a barrow instead of on walking far enough. HUD prompt, minimap camp rings, `--auto-camp` / `--auto-camp-clear`. | ✅ 2026-08-15 (green solo + host/client, zero errors/warnings; **numbers wholly unplayed** — see gaps) | Craig + Claude |
 | 16 | **Visual overhaul: pixel art** — the game's whole look, in three parts. (1) **Art is text**: a single shared palette plus every character/decal authored as rows of palette characters in `tools/art/art_sprites.gd`, compiled to PNGs by a `--script` generator that also forces the import settings pixel art cannot survive (`detect_3d/compress_to`), with a contact-sheet previewer for reviewing it. All 15 sprites redrawn — 3 classes, 3 enemies, 5 decals, shadow, wisp, 2 projectiles. (2) **The world is pixelated too**: `PixelRender` sets the root Viewport's `SCALING_3D_MODE_NEAREST` and derives the scale from the live camera so one sprite texel = one rendered pixel, so meshes and sprites share one grid — no SubViewport, so no node paths moved. (3) **Procedural animation**: `SpriteAnimator` adds a walk bob, facing flip, hit flash and attack recoil from already-replicated state, at zero network cost. Also closed: projectiles get per-ability textures (`AbilityType.projectile_texture`) instead of every shot being the same yellow dart, and the dead `BuildingType.texture` field and the whole placeholder SVG folder are gone. | ✅ 2026-08-15 (green solo + host/client incl. mixed classes, zero errors/warnings; **art quality is placeholder and deliberately so** — see gaps) | Craig + Claude |
 | 17 | **Five carried gaps, closed** — a deliberate sweep of the small open items rather than one new system. (1) **The ground is drawn**: repeating 32×32 village-turf and wilds-dirt tiles authored in the same text pipeline as the sprites (`ArtSprites.TILES`), sampled by `ground.gdshader` at one texel per rendered pixel with a per-tile brightness jitter to break the repeat — the largest smooth surface left in frame is gone. (2) **Every run gets its own map**: `WorldGen.generate(seed)` replaces the baked constant and generation on `_ready`; the host rolls a seed, sends it on connect, and holds a joiner's spawn until they acknowledge having built it (`--world-seed=N` pins one). (3) **Talents can be spent**: a screen off the main menu, the first caller of `Profile.unlock_talent()`, plus three talents per class on keys that are safe to keep local. (4) **The hotbar prices per cell**: slots grey on `net_cost` at the hovered cell, so a tower you can afford only because of the wall's refund no longer looks unaffordable. (5) **A `Buildings` registry**, replacing the exported array inside `game.tscn` — which is what finally let the class-select screen name the tower your class unlocks. | ✅ 2026-08-16 (green solo + host/client, zero errors/warnings; ground checked in-frame at the village and out in the wilds) | Craig + Claude |
-| 18+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; map-generation depth (the per-run *seed* landed in session 17; the layout rules behind it did not); balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 18 | **Everything that didn't need a playtest** — a deliberate sweep of every carried gap whose acceptance is a log line or a screenshot rather than a human verdict, done in one session on Craig's call. (1) **Map-generation depth**: the seed now chooses the map's *shape* — 2–4 approach openings rolled per run with a cleared corridor each (the openings left `game.tscn`, because a lane has to be cleared by the pass that decides where it runs), a Voronoi partition of the wilds into four new `BiomeType`s that reweight what grows there and tint the ground to match, and per-run richness and camp counts. The rarity-by-distance bands are deliberately *not* rolled. (2) **Ground detail**: a third hand-authored tile, drawn as beaten roads along every approach corridor and as a trodden ring at the village boundary — the first thing in the world to say where the safe zone ends — plus a dithered biome border so the partition doesn't read as a seam. (3) **Enemies break buildings** when the way round is more than `breach_ratio` times the way through: mazing still works, sealing the map or walling a camp's doorway no longer does. (4) **Separation steering**, which immediately found that every camp garrison had been standing in one stacked cell since session 15 (`_post` vs `_home`). (5) **Regrowth**: felled nodes come back a share per dawn and emptied camps are reoccupied, both host-only and both down existing RPC lanes. (6) **Frame animation** as a pipeline — strip PNGs, `hframes`, a walk cycle derived from the single authored pose until real art lands. (7) Six small gaps: run-end → talents link, menu Quit, enemy death fade, deployable replay to late joiners, the hotbar's fully-upgraded mispricing, and a host-side cast rate limit. | ✅ 2026-08-16 (green solo + host/client, zero errors/warnings; every new number is unplayed — see gaps) | Craig + Claude |
+| 19+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; map-generation depth (the per-run *seed* landed in session 17; the layout rules behind it did not); balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -44,13 +45,17 @@ same scene file.
   trap the player).~~ Fixed session 6: `placement_error` rejects a cell any player occupies.
 - No health bars on dummies (they fade with damage); enemies proper get bars in session 3.
 - No grid overlay while in build mode — ghost + tint only.
-- Night-assault enemies attack only the tower (walls stay pure maze); daytime ROAM enemies
-  now attack players (session 5) but never cross into the safe zone / light (session 6).
-  Enemies still never attack buildings. (Design ok for v1.)
-- Night approach openings are fixed at ±1584 even though the map now reaches ±3000 (session 6):
-  the outer ring is deliberately daytime-only territory. If night should threaten from the far
-  edge too, add more openings or a spawn-distance tunable (map-generation work).
-- Enemies stack on the same cell (no separation steering) — crowds overlap visually.
+- Night-assault enemies attack the tower; daytime ROAM enemies attack players (session 5) but
+  never cross into the safe zone / light (session 6). ~~Enemies still never attack buildings.~~
+  Fixed session 18: any enemy breaks a building when its path is more than `breach_ratio`
+  (2.5×) the straight line to its goal. Walls are still a maze — they are just no longer an
+  absolute.
+- ~~Night approach openings are fixed at ±1584 even though the map now reaches ±3000~~ Fixed
+  session 18: 2–4 openings per run, rolled around the whole compass on a 46–58 cell radius
+  band. The outer ring beyond that is still deliberately daytime-only territory.
+- ~~Enemies stack on the same cell (no separation steering) — crowds overlap visually.~~ Fixed
+  session 18 (and the fix found a worse stacking bug in the camp garrisons — see the decision
+  log). Measured: with 47 monsters alive, no pair closer than the separation radius.
 - ~~A kicked night-joiner sees "The host ended the game" rather than "locked during night
   assaults" — a proper refusal message needs an auth-stage handshake (polish).~~ Fixed
   session 10 without the handshake: the host RPCs the reason first and kicks on a grace
@@ -61,12 +66,19 @@ same scene file.
 - ~~No talent-spending UI yet — points accrue and show on the run-end screen;~~ Fixed
   session 17: a talent screen off the main menu, three talents per class. Still open: the
   screen is reachable only from the menu, and the run-end screen does not link to it.
-- Ability cooldowns are client-enforced (host checks ownership only) — add a host-side rate
-  limit if cheating ever matters.
+- ~~Ability cooldowns are client-enforced (host checks ownership only)~~ Softened session 18:
+  the host now refuses a cast that arrives sooner than `host_cooldown_floor` (60 %) of the
+  authored cooldown. It cannot be 100 % — talents shorten cooldowns and are never networked —
+  so this turns "a modified client can fire every frame" into "a modified client can fire a bit
+  faster than intended", which is the right amount of paranoia for a friends' co-op game.
 - ~~No class-select screen (Ranger hardcoded as the only class)~~ Fixed session 12: menu →
-  class select → game, built from `Classes.ALL`, with `--class=<id>` for scripted runs. Still
-  open: in-flight projectiles/traps are not replayed to late joiners. (Player HP +
-  downed/respawn landed in session 5.)
+  class select → game, built from `Classes.ALL`, with `--class=<id>` for scripted runs.
+  ~~Still open: in-flight projectiles/traps are not replayed to late joiners.~~ Half-fixed
+  session 18: **traps are** replayed (they sit there for their whole lifetime, so a joiner
+  would otherwise walk over an invisible one). Projectiles are deliberately **not** — a shot is
+  airborne for well under a second, which is shorter than the join handshake that would carry
+  it, so a replayed one would arrive somewhere it no longer is. (Player HP + downed/respawn
+  landed in session 5.)
 - ~~Every projectile in the game shares one mesh and material, so an Arcane Bolt and an arrow
   are the same yellow dart.~~ Fixed session 16: `AbilityType.projectile_texture`, and the
   projectile is a billboard sprite rather than a mesh. Bow Shot and Piercing Arrow share the
@@ -84,16 +96,17 @@ same scene file.
   assertion if buffs multiply (session 12).
 - Dodge grants no invulnerability yet — it's a burst move only. Host applies damage and does
   not know a client's dodge state; i-frames need a cheap dodge-state signal to the host (polish).
-- ~~World seed is a baked constant: every run has the same map.~~ Fixed session 17: the
-  host rolls a seed per run and sends it before any peer generates. What this does *not*
-  buy is generation *depth* — the layout rules are unchanged, so every run is still the
-  same map shape with the props shuffled. Real variety (biomes, differing openings, camp
-  density by run) is still map-generation work.
+- ~~World seed is a baked constant: every run has the same map.~~ Fixed session 17 (the seed),
+  and the generation *depth* it did not buy was fixed session 18: biomes, 2–4 rolled openings,
+  per-run richness and camp counts. Still open, and now the obvious next layer: the map has no
+  *landmarks* — no rivers, cliffs, ruins-that-aren't-camps, nothing that makes one biome
+  navigable by sight rather than by minimap.
 - Mini-map is functional but untuned (fixed range, no zoom, no fog); verified headless only —
   give it a visual pass when real art lands.
-- Depleted resource nodes never respawn; day-phase respawn/scatter belongs to map-gen work.
-  (Softened by session 5: there are ~130 nodes now, so running dry mid-run is unlikely.)
-- Menu has no dedicated Quit button; window close only.
+- ~~Depleted resource nodes never respawn~~ Fixed session 18: `Regrowth` brings back a share
+  of the felled nodes each dawn, at reduced stock, and only onto cells that are still free and
+  still safe to block (`BuildManager.can_grow_at`).
+- ~~Menu has no dedicated Quit button; window close only.~~ Fixed session 18.
 - **Upgrade tier numbers are a first draft nobody has played** (session 14). The open questions,
   in order: can you reach Bright Essence early enough for tier II to matter on a night that
   isn't the last one, and is Radiant so far out that tier III is theoretical? The dial is the
@@ -106,22 +119,23 @@ same scene file.
 - ~~The hotbar greys a slot on its **full** cost, so a tower you can only afford because of
   the refund from what's already on the cell looks unaffordable but still places.~~ Fixed
   session 17: `BuildController` publishes the hovered cell and the bar prices every slot
-  through `net_cost` at it. One rough edge left: a tower already at its final tier greys
-  its slot on the top tier's full price, which is the right answer for the wrong reason
-  (the click would be refused as "fully upgraded" anyway).
+  through `net_cost` at it. ~~One rough edge left: a tower already at its final tier greys
+  its slot on the top tier's full price.~~ Also fixed, session 18: a cell holding something
+  this click could not replace is priced as bare ground, so the grey means exactly one thing.
 - Main menu is developer-grade (join by IP). Fine until the Steam lobby session.
 - **Camp numbers are wholly unplayed** (session 15). In order: is a 3-wretch bandit camp worth
   a third of a 3-minute day; is a 5-marauder barrow survivable at all before the tower has
   towers; and — the one the whole feature turns on — does cutting ambient Radiant to 4 % make
   tier III *earned* or *unreachable*? The dial for the last one is the 4 %, not the camp loot.
-- Camps never repopulate: 10 sites, cleared once each, and a long run strip-mines them exactly
-  as it does resource nodes. Fine at 7 nights; belongs with the map-generation/respawn work.
-- Guards ignore buildings, like every other enemy (pre-existing gap). Nothing stops a party
-  walling a camp's doorway and shooting the garrison through the gap — the guards will stand
-  there and take it. Only matters if players actually find it.
-- 39 guards stand host-simulated from the first frame of every run. Cheap now (`_guard` is a
-  distance check and an idle branch), but it is the first content that scales enemy count with
-  *map* size rather than with the wave, and worth remembering if camps ever multiply.
+- ~~Camps never repopulate~~ Fixed session 18: a site emptied `repopulate_days` (3) ago is
+  reoccupied with a full garrison and a restocked cache — the same price for the same reward,
+  you just get the chance again. A cleared-but-unlooted site is left alone.
+- ~~Guards ignore buildings, like every other enemy.~~ Fixed session 18 by the same breach rule
+  the horde uses: seal a camp's doorway and the garrison takes the wall down.
+- ~40 guards stand host-simulated from the first frame of every run. Still cheap, but session
+  18 added a per-monster separation pass that asks every other monster where it is (staggered
+  to ~10 Hz, and skipped by a squared-distance test). It is the first thing in the game whose
+  cost is quadratic in enemy count, and the number to watch if camps ever multiply.
 - Camp footprints are stamped from two placeholder meshes (palisade, hut) picked per cell, so
   every camp is architecturally the same ruin in a different order. Tier is readable from the
   garrison and the cache, not from the buildings. Revisit when real art lands.
@@ -131,12 +145,15 @@ same scene file.
   same dimensions into `assets/sprites/pixel/` (or editing the text and regenerating), and
   nothing else changes. Weakest first: the Marauder's axe reads as a cleaver, the Mage's arms
   are stubs, and the undead still read as green people more than as corpses.
-- **No frame animation** (session 16). Characters have a procedural walk bob, facing flip, hit
-  flash and attack recoil, but a single frame — so the bow never draws and a swing never
-  swings, the character just kicks. `ArtSprites` extends to frames trivially (a sprite becomes
-  an array of pixel maps) but the drawing is the cost, and it should wait for real art.
-- No death animation: enemies vanish on death rather than fading or falling. Deferring the
-  free has network implications, so it was left alone (session 16).
+- ~~**No frame animation**~~ Half-fixed session 18: the *pipeline* is done — a sprite may be
+  authored as several pixel maps, they compile to a strip, and `SpriteAnimator` walks it. What
+  is still open is the **drawing**: no character has a hand-drawn walk cycle, so every one of
+  them uses the generator's derived two-step (one leg lifted a pixel). It reads as walking at
+  gameplay distance and it reads as a stopgap on the contact sheet. Also still true: the bow
+  never draws and a swing never swings — attacks are carried by the recoil alone.
+- ~~No death animation: enemies vanish on death.~~ Fixed session 18: the corpse fades and sinks
+  for `death_fade` (0.5 s) before the host frees it. The network implication turned out to be
+  nothing — everything that counts monsters already tests `hp > 0`.
 - Buildings, towers, trees and rocks are still smooth meshes — they *read* as pixel art only
   because the whole 3D buffer is rendered low-res and nearest-upscaled. That works well, but
   it means their silhouettes are still modelled, not drawn, and no amount of sprite work will
@@ -156,8 +173,41 @@ same scene file.
   empty world for a moment longer than before** — measured in packets, not seconds, but on a
   bad connection it is a visible blank. The HUD's "connecting" overlay covers it (it now lifts
   when the world is built rather than when the transport connects) (session 17).
-- The talent screen is reachable only from the main menu. The run-end screen is where you
-  actually *earn* a point and it does not offer a way there (session 17).
+- ~~The talent screen is reachable only from the main menu.~~ Fixed session 18: the run-end
+  screen offers a "Spend Talent Points" button, shown only when there is something to spend.
+- ~~The ground is one tile per zone with nothing marking where the safe zone ends.~~ Fixed
+  session 18: a third tile drawn as roads along every approach corridor and as a trodden ring
+  at the safe radius. Still open: no paths *between* places (camps are not connected to
+  anything), and no rock, water or transition detail inside a biome.
+
+## Known gaps carried out of session 18
+
+- **Every number in session 18 is unplayed**, and they are unusually load-bearing because
+  several of them change how the game is *played* rather than how it looks. In rough order of
+  how badly a human verdict is needed:
+  1. `Enemy.breach_ratio` = 2.5 and wall hp = 90. Together they decide whether mazing is still
+     worth doing. Too low a ratio and walls stop working at all; too high and the exploit is
+     back. Neither has been seen by a player.
+  2. Openings: a run with four approaches spreads the same living-cap across four lanes, which
+     may be *easier* rather than harder. `opening_count_max` is the dial.
+  3. `Regrowth.regrow_share` (22 % a dawn) and `repopulate_days` (3). The point was that a
+     seven-night run should not end with a strip-mined map — but regrowth that outpaces
+     harvesting removes the reason to walk further out, which is the thing camps exist for.
+  4. Biome weights and densities: an ashfield is deliberately a poor place, and a run whose
+     nearest country is all ashfield may simply be a bad run.
+- Biome colour reads clearly in the band around the village and barely at all far out in the
+  wilds, because the wilds are genuinely dark by design and the tint is multiplicative. That
+  is arguably correct — you cannot see the colour of the ground at night — but it means a lot
+  of the biome work is only visible on the walk out.
+- The scatter uses a hard Voronoi border while the ground shader dithers it over ~5 cells, so
+  right at a boundary the trees belong to one biome and the ground to a mix of both. Deliberate
+  (borders interleave), but nobody has looked at whether it reads that way.
+- Nothing in the UI ever *names* a biome. The data carries a `display_name` and a description
+  and no screen shows either.
+- A breaching enemy walks straight at the building in its way, ignoring the pathfinder. If
+  something solid sits between it and that building it will grind against it until the recheck
+  timer picks a different target. Not seen in testing; the geometry that would cause it (a
+  prop directly between a monster and the wall it chose) is rare and self-correcting.
 
 ## Post-v1 parking lot
 

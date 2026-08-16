@@ -32,6 +32,10 @@ func _ready() -> void:
 	# once on spawn (see player.gd), so the menu is where they belong.
 	%TalentsButton.pressed.connect(
 			get_tree().change_scene_to_file.bind(TALENT_SCREEN_SCENE))
+	# `quit()` rather than closing the window: it runs the same shutdown path the
+	# window's close button does, so autoloads still get their notifications and
+	# the profile is written out.
+	%QuitButton.pressed.connect(get_tree().quit)
 	name_edit.text = "Player %d" % randi_range(1, 99)
 	if Network.last_error != "":
 		status_label.text = Network.last_error

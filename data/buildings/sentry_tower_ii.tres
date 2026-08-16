@@ -18,6 +18,7 @@ visual_3d = ExtResource("2")
 upgrades_to = ExtResource("3")
 placeable = false
 refund_fraction = 0.5
+max_hp = 75
 attacks = true
 damage = 5
 attack_range = 140.0

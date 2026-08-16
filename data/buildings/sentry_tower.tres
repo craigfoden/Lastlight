@@ -16,6 +16,7 @@ cost = {
 visual_3d = ExtResource("3")
 upgrades_to = ExtResource("4")
 refund_fraction = 0.5
+max_hp = 55
 attacks = true
 damage = 3
 attack_range = 120.0

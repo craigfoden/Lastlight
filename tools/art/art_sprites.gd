@@ -693,8 +693,10 @@ const SMALL := {
 ##     breaks the repeat is the per-cell brightness jitter in the shader, not
 ##     the drawing.
 ##
-## The pair is the gradient the ground shader has always painted, now with a
-## surface on it: living grass near the tower, dead ground out in the wilds.
+## The first pair is the gradient the ground shader has always painted, now with
+## a surface on it: living grass near the tower, dead ground out in the wilds.
+## The third is bare trodden ground, used everywhere the world has been walked
+## flat — the approach roads and the ring at the village boundary (session 18).
 const TILES := {
 
 # --- Village turf: the lit ground inside the glow. Mid green with a light
@@ -769,5 +771,44 @@ const TILES := {
 	"TTTTTTTTTTTTTTTTTTTTTTTTTzTTTTTT",
 	"TtTTTTTTTTtTtTTTTTTTTTzzTTzTTTTT",
 	"TTtTTTTTTTTTTTTttTTTTTTTTTTTTTTT",
+],
+
+# --- Trodden path: bare, scuffed earth, one step LIGHTER than the wilds dirt
+# --- so a road reads against both the turf and the dark ground. Ruts run
+# --- across the tile and wrap, but only in the dark step: a rut with any real
+# --- contrast turns the whole road into a ladder at map scale. --------------
+"ground_path": [
+	"tttTtttttttzttttttttttttTttttttt",
+	"ttttttTttttttttttzttttttttttttnt",
+	"ttzttttttttttttttttttTtttttttttt",
+	"ttttttttttTttttttttttttttzttttTt",
+	"tTttttttttttttzttttttttttttttttt",
+	"tttttztttttttttttttTtttttttttttt",
+	"ntttttttttttTtttttttttttttzttttt",
+	"tttttttttztttttttttttttttttttttt",
+	"tttTttttttttttttTtttttztttttttTt",
+	"ttttttttttttztttttttttttttttnttt",
+	"tzttttTtttttttttttttttTttttttttt",
+	"ttttttttttttttttztttttttttttzttt",
+	"tttttttttttTtttttttttttttttttttt",
+	"ttTtttztttttttttttTttttztttttttt",
+	"tttttttttttttttttttttttttttTtttt",
+	"tttztttttttnttttttttztttttttttzt",
+	"Tttttttttttttttttttttttttttttttt",
+	"tttttttTtttttztttttttttTtttttttt",
+	"ttttttttttttttttttttttttttttzttt",
+	"tzttttttttTtttttttztttttttttttTt",
+	"ttttTttttttttttttttttttttttttttt",
+	"tttttttttzttttTttttttttttznttttt",
+	"tttztttttttttttttttttttttttttttt",
+	"tttttttttttttttztttTtttttttttttt",
+	"tTtttttztttttttttttttttttttTtttt",
+	"tttttttttttttttttttttztttttttttt",
+	"ttttztttTtttttttttttttttttttttzt",
+	"ttttttttttttttztttttttTttttttttt",
+	"tttTtttttttttttttttttttttttttttt",
+	"ttttttttztttttttttztttttttttTttt",
+	"tttttttttttttTtttttttttttttttttt",
+	"tzttTttttttttttttttttttztttttttt",
 ],
 }

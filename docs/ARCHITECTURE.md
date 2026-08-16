@@ -1165,6 +1165,93 @@ class-select screen could describe a class's three abilities but not the tower o
 can raise. It also made "add a building" an edit to the most merge-hostile file in the repo,
 against the team rule about `.tscn` files. The recipe in CLAUDE.md changed in the same commit.
 
+### The seed chooses the map's *shape*, never its rarity curve (2026-08-16)
+WorldGen now rolls, per run: how many approach openings there are (2–4), where they sit and how
+far out, which stretches of wilds are which **biome**, and how rich the world is overall
+(`density_jitter`, `camp_count_jitter`). It does **not** roll the distance bands that decide
+which material a resource node is, and biome material weights are renormalised so that
+Radiant Essence's 4 % ambient share is arithmetically untouchable.
+
+**Why:** session 17 gave every run its own seed and admitted in the same breath that the seed
+only shuffled props. The two candidate axes for real variety were *shape* and *economy*, and
+they are not equally safe. A run whose map is a different place is a different map; a run that
+hands out Radiant Essence at the village is a different game, and it would silently undo the
+one number the whole camp economy was balanced against (session 15). So biomes reweight
+*within* the band distance already chose, and Radiant is exempt from the reweighting entirely.
+
+Two structural consequences:
+
+- **Openings moved out of `game.tscn` into WorldGen.** They were two `Marker3D`s, and they
+  cannot be authored in a scene any more: the lane from an opening to the tower's heart has to
+  be *kept clear by the same pass that decides where it runs*. WorldGen rasterises a corridor
+  per opening (filling the elbow of every diagonal step, because the A\* grid is
+  orthogonal-only) and nothing solid is ever placed on one. The old rule — "keep the `y == 0`
+  row clear" — was that same guarantee, hardcoded for openings nailed to that row.
+- **Scatter density is rejection sampling, not a keep-or-drop filter.** Acceptance is a biome's
+  density over the highest density any biome asks for, so a thicket really is twice the
+  thickness of an ashfield rather than both clamping to "everything". It always draws exactly
+  one random number whatever it answers, which is what keeps generation a pure function of the
+  seed.
+
+### Enemies break a building when the way round is absurd, not when it is inconvenient (2026-08-16)
+`Building` gained hp and `host_take_damage`. An enemy compares the length of its actual path to
+the straight-line distance to its goal, and if the path is more than `breach_ratio` (2.5×) as
+long, it stops walking and attacks whatever stands between it and where it wants to be.
+
+**Why:** "enemies never attack buildings" made walls an absolute, which is two bugs wearing one
+coat. A party could funnel every night through one corridor forever, and a camp's doorway could
+be sealed with two walls while the garrison stood and watched itself be shot. But simply making
+walls breakable throws out the tower defence with the exploit — mazing is the *point* of a wall.
+A ratio is the middle, and it is self-balancing: a modest detour is what walls are for and is
+walked without complaint; a detour several times the straight line is a wall being used as a
+cheat. The dial is the ratio, not the wall's hp.
+
+Falling needs no new sync: `queue_free()` on the host despawns through the existing spawner,
+and BuildManager's child-exiting hook frees the cell and emits `grid_changed`, which every
+enemy already repaths on.
+
+### Regrowth is a node of its own, deliberately outside WorldGen (2026-08-16)
+A share of felled resource nodes return each dawn and a camp cleared `repopulate_days` ago is
+reoccupied. All of it lives in `Regrowth`, not in `WorldGen`.
+
+**Why:** WorldGen is a pure function of the seed, runs identically on every peer and syncs
+nothing. Regrowth is the opposite of all three — host-only, deliberately random, and every
+effect travelling to clients down an existing lane (`ResourceNode._sync_amount`,
+`Camp._sync_guards`, the enemy spawner). Putting host-authoritative dice inside the
+deterministic generator is precisely the mistake GOTCHAS warns about, and the two would have
+had to share a file for no reason beyond both being "the world".
+
+The one genuinely new rule is `BuildManager.can_grow_at()`: a cell that stood empty may have
+been built on, walked onto, or become the last route to the tower, and a tree that sprouts
+through a wall — or seals the map — is a worse outcome than a bare patch of ground. It is
+`placement_error`'s rule asked of the world instead of a player.
+
+### Frame animation ships as a pipeline with a derived stopgap (2026-08-16)
+`ArtGenerator` writes every character as a horizontal strip of frames (`Sprite3D.hframes`),
+`SpriteAnimator` reads the frame count off the texture width and walks the strip, and the
+convention is **frame 0 is the standing pose, everything after it is a step**. Since nobody has
+hand-drawn a walk cycle, the generator *derives* two frames from the single authored pose by
+lifting one leg a pixel clear of the ground.
+
+**Why:** the roadmap has said since session 16 that frames are cheap to support and expensive
+to draw, and that the drawing should wait for real art. Waiting for the drawing meant waiting
+for the plumbing too, and the plumbing is the part that has to be right: reading the count from
+the texture (rather than configuring it per scene) is what makes hand-drawn frames a drop-in
+later, and it is what makes the derived stopgap disappear the moment a sprite declares real
+ones. The stopgap looks like a stopgap at 6× on the contact sheet, and at gameplay distance it
+is the difference between a figure walking and a figure sliding.
+
+### A guard holds its post; the leash holds the site (2026-08-16)
+`Enemy` now keeps `_post` (where this one guard stands) separately from `_home` (the middle of
+the camp). It walks back to the former; the leash measures against the latter.
+
+**Why:** they used to be the same value, so every guard measured "am I home" against the camp
+centre, walked into the middle of its own courtyard on the first tick, and stood there. Every
+garrison in the game was a single stack of sprites in one cell. Found by the crowding hook
+written for separation steering — which is the point of a diagnostic that reports the closest
+pair rather than the mean: a stack *is* a pair at distance zero, and it never showed up in an
+average across a map-wide population.
+
 ---
 
 ## Template for new entries

@@ -17,6 +17,7 @@ extends Node3D
 ## Class comes from --class=<id>, parsed on the main menu before we load.
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu/main_menu.tscn"
+const TALENT_SCREEN_SCENE := "res://scenes/talents/talent_screen.tscn"
 const PlayerScene := preload("res://scenes/player/player.tscn")
 
 ## Ability data is px-denominated; convert at the boundary (32 px = 1 cell).
@@ -84,9 +85,10 @@ var _pending_spawns := {}
 @onready var build_manager: BuildManager = $BuildManager
 @onready var build_controller: BuildController = $BuildController
 @onready var build_menu: BuildMenu = $BuildMenu
-@onready var spawn_openings: Node3D = $World/SpawnOpenings
 @onready var wave_director: WaveDirector = $WaveDirector
 @onready var world_gen: WorldGen = $World/WorldGen
+@onready var ground: Ground = $World/Ground
+@onready var regrowth: Regrowth = $World/Regrowth
 @onready var glow_tower: GlowTower = $World/GlowTower
 @onready var run_end_screen: RunEndScreen = $RunEndScreen
 
@@ -100,6 +102,7 @@ func _ready() -> void:
 	wave_director.night_survived.connect(_on_night_survived)
 	glow_tower.destroyed.connect(_on_tower_destroyed)
 	run_end_screen.menu_requested.connect(_return_to_menu.bind(""))
+	run_end_screen.talents_requested.connect(_leave_run_for.bind(TALENT_SCREEN_SCENE))
 
 	_parse_dev_args()
 	Network.connection_failed.connect(_return_to_menu.bind("Could not reach the host."))
@@ -155,24 +158,30 @@ func _roll_seed() -> int:
 # out of _ready because a client cannot do any of it until the host's seed has
 # arrived — before this runs it has a scene but no map.
 func _begin_world(seed_value: int) -> void:
-	world_gen.generate(seed_value)
+	# The heart is handed to the generator rather than assumed by it: the
+	# approach corridors have to *end* somewhere, and this scene is what decides
+	# where the tower stands.
+	world_gen.generate(seed_value, HEART_CELL)
 
-	var opening_cells: Array[Vector2i] = []
-	var spawn_positions: Array[Vector3] = []
-	for marker in spawn_openings.get_children():
-		opening_cells.append(build_manager.world_to_cell(marker.global_position))
-		spawn_positions.append(marker.global_position)
+	# Openings are per-run and WorldGen owns them (they used to be two Marker3Ds
+	# in this scene, which cannot work once the lane to the tower has to be
+	# cleared by the same pass that chooses where it runs).
+	var opening_cells := world_gen.opening_cells
+	var spawn_positions := world_gen.opening_positions
 	# The tower footprint plus every solid prop WorldGen scattered are permanent
 	# unbuildable, unwalkable cells (generate() has just run).
 	var scenery_cells: Array[Vector2i] = TOWER_CELLS.duplicate()
 	for node in get_tree().get_nodes_in_group("obstacles"):
 		scenery_cells.append(build_manager.world_to_cell(node.global_position))
 	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
+	ground.setup(world_gen)
 	build_controller.setup(build_manager)
 	build_menu.setup(build_manager, build_controller, team_materials)
 	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,
 			world_gen.safe_radius)
 	world_light.setup(day_night, $Sun, $WorldEnvironment, glow_tower)
+	# Wired on every peer, silent on all but the host (see its class doc).
+	regrowth.setup(day_night, build_manager)
 	# Camps last of the world wiring: they need the WaveDirector already holding
 	# the build grid and the tower, which is the line above. WorldGen built the
 	# camps themselves. Garrisons are host-only — see below.
@@ -280,7 +289,15 @@ func _try_spawn_pending(peer_id: int) -> void:
 		node.host_send_snapshot(peer_id)
 	for node in get_tree().get_nodes_in_group("players"):
 		node.host_send_snapshot(peer_id)
-	# Placed buildings need no snapshot: their spawner replays them.
+	# Buildings are replayed by their spawner, but the damage they have taken
+	# since is not in the spawn data — a joiner would otherwise see a battered
+	# wall at full health and watch it vanish a second later.
+	for building in build_manager.all_buildings():
+		building.host_send_snapshot(peer_id)
+	# Deployables outlive the moment they were cast by a long way, so a joiner
+	# who arrives mid-day would otherwise walk over an invisible trap.
+	for node in get_tree().get_nodes_in_group("deployables"):
+		node.host_replay_to(peer_id)
 
 
 # Received by a refused joiner: bounce to the menu with the real reason
@@ -349,6 +366,9 @@ func _on_resource_harvested(material_type: MaterialType, count: int) -> void:
 # Host only. The cache unlocks itself (Camp pushes the tally); this is the run's
 # record that a site fell, which is the thing worth reading back in a log.
 func _on_camp_cleared(camp: Camp) -> void:
+	# Stamped here rather than inside Camp because the day number lives on this
+	# scene's cycle; Regrowth measures the site's repopulate delay against it.
+	camp.cleared_on_day = day_night.day_number
 	print("[Camp] %s at %v cleared on day %d - %s waiting in the cache"
 			% [camp.type.id, camp.global_position, day_night.day_number,
 			Materials.cost_text(camp.type.loot)])
@@ -412,8 +432,15 @@ func _on_join_timeout() -> void:
 func _return_to_menu(reason: String) -> void:
 	print("[Game] Returning to menu: %s" % reason)
 	Network.last_error = reason
+	_leave_run_for(MAIN_MENU_SCENE)
+
+
+# Leaving the run, whatever the destination. The peer is always released first:
+# a scene change does not close a connection, and a lingering one would hold the
+# port against the next host attempt.
+func _leave_run_for(scene_path: String) -> void:
 	Network.leave_game()
-	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+	get_tree().change_scene_to_file(scene_path)
 
 
 # --- dev harness (mirrors game.gd's hooks) -----------------------------------
@@ -440,6 +467,10 @@ func _parse_dev_args() -> void:
 			_run_auto_build()
 		elif arg == "--auto-block-test":
 			_run_auto_block_test()
+		elif arg == "--auto-siege":
+			_run_auto_siege()
+		elif arg.begins_with("--strip-nodes="):
+			_run_strip_nodes(int(arg.get_slice("=", 1)))
 		elif arg == "--auto-fight":
 			_start_auto_fight()
 		elif arg == "--auto-camp":
@@ -467,6 +498,9 @@ func _parse_dev_args() -> void:
 		elif arg.begins_with("--log-players-after-sec="):
 			for stamp in arg.get_slice("=", 1).split(","):
 				_log_players_after(float(stamp))
+		elif arg.begins_with("--log-crowding-after-sec="):
+			for stamp in arg.get_slice("=", 1).split(","):
+				_log_crowding_after(float(stamp))
 
 
 # Smoke-test hook (godot -- --auto-fight): stand on the eastern approach lane
@@ -484,12 +518,15 @@ func _auto_fight_tick() -> void:
 	var me: Player = players.get_node_or_null(str(multiplayer.get_unique_id()))
 	if me == null or not me.is_multiplayer_authority():
 		return
-	# Stand ON the eastern approach lane (ask the pathfinder — a rock makes
-	# A* detour a row, so a hardcoded spot misses the actual lane).
-	var lane := build_manager.path_to_heart(Vector3(49.5, 0.0, 0.5))
+	# Stand ON the first approach lane, a few cells out from the heart. Asked of
+	# the pathfinder rather than hardcoded: openings are rolled per run now, and
+	# a rock can make A* detour a row even on the lane it was handed.
+	if world_gen.opening_positions.is_empty():
+		return
+	var lane := build_manager.path_to_heart(world_gen.opening_positions[0])
 	var stand := Vector3(3.125, 0.0, 0.5)
 	for point in lane:
-		if absf(point.x - 3.125) < 0.53:
+		if Vector2(point).length() < 4.0:
 			stand = Vector3(point.x, 0.0, point.y)
 			break
 	me.global_position = stand
@@ -688,6 +725,49 @@ func _run_auto_block_test() -> void:
 	build_manager.request_place.rpc_id(1, &"wall", Vector2i(-1, 0))
 
 
+# Smoke-test hook (godot -- --auto-siege): ring the tower's heart with walls,
+# leaving exactly one cell open. That is a legal maze — the never-block rule
+# only requires *a* path — but it is a preposterous one, so the horde must stop
+# walking it and break in instead. Assert on "[Building] wall ... was
+# destroyed": no such line means the breach rule never fired. Pair it with
+# --grant-materials (the ring costs about 50 wood) and a long night.
+func _run_auto_siege() -> void:
+	await get_tree().create_timer(3.0).timeout
+	var radius := 3
+	for x in range(-radius, radius + 1):
+		for z in range(-radius, radius + 1):
+			if maxi(absi(x), absi(z)) != radius:
+				continue
+			# The gap. Left on the south side, away from the tower's own
+			# footprint, so the ring is legal however the openings fell.
+			if x == 0 and z == radius:
+				continue
+			build_manager.request_place.rpc_id(1, &"wall", Vector2i(x, z))
+			await get_tree().process_frame
+	print("[Game] auto-siege: the heart is ringed, one cell left open")
+
+
+# Smoke-test hook (godot -- --strip-nodes=N): host cheat that fells N resource
+# nodes outright, so a run can reach the picked-over state Regrowth exists for
+# without spending twenty real minutes harvesting to get there. Goes through the
+# ordinary payout so the pool and the build grid both see it exactly as they
+# would a player's last chop.
+func _run_strip_nodes(count: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	if not multiplayer.is_server():
+		return
+	var stripped := 0
+	for node in get_tree().get_nodes_in_group("resource_nodes"):
+		if stripped >= count:
+			break
+		var resource := node as ResourceNode
+		if resource == null or resource is LootCache or resource.amount <= 0:
+			continue
+		resource.host_fell()
+		stripped += 1
+	print("[Game] strip-nodes: felled %d node(s)" % stripped)
+
+
 # Smoke-test hook (godot -- --auto-harvest): every 2 s, teleport the local
 # player to the nearest stocked resource node and harvest it. Exercises
 # movement sync + the whole request -> validate -> broadcast chain headlessly.
@@ -726,6 +806,34 @@ func _log_players_after(delay_sec: float) -> void:
 	await get_tree().create_timer(delay_sec).timeout
 	for player in players.get_children():
 		print("[Game] t=%d player %s at %v" % [int(delay_sec), player.name, player.position])
+
+
+# Dev hook: report how tightly the monsters are packed, so a headless run can
+# assert that separation steering is doing something. The number that matters is
+# the closest pair — stacking shows up there long before it shows up in an
+# average, because a stack IS a pair at distance zero.
+func _log_crowding_after(delay_sec: float) -> void:
+	await get_tree().create_timer(delay_sec).timeout
+	var living: Array[Node] = []
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if node.hp > 0:
+			living.append(node)
+	var closest := INF
+	var closest_pair := "none"
+	var overlapping := 0
+	for i in living.size():
+		for j in range(i + 1, living.size()):
+			var dist: float = living[i].global_position.distance_to(living[j].global_position)
+			if dist < 0.4:
+				overlapping += 1
+			if dist < closest:
+				closest = dist
+				closest_pair = "%s(%d)/%s(%d)" % [
+						living[i].name, living[i].behavior,
+						living[j].name, living[j].behavior]
+	print("[Game] t=%d crowding: %d alive, %d pair(s) closer than 0.4, closest %.2f (%s)" % [
+			int(delay_sec), living.size(), overlapping,
+			0.0 if closest == INF else closest, closest_pair])
 
 
 func _save_screenshot_after(delay_sec: float) -> void:

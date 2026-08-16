@@ -19,6 +19,11 @@ signal harvested(material_type: MaterialType, count: int)
 ## derived state — like the build grid freeing this cell — stays in lockstep.
 signal depleted
 
+## The other half of `depleted`: fired on every peer when a node that had run
+## dry comes back (see `host_regrow`). The build grid takes its cell back on
+## this, which is the whole reason it is a signal and not just a number change.
+signal regrown
+
 ## How close the harvesting player must be, in world units (1 unit = 1 cell;
 ## this is the 2D game's 64 px). Checked on the host — never trust the
 ## client's own overlap test.
@@ -45,9 +50,18 @@ var amount := 0:
 		_update_appearance()
 		if previous > 0 and amount <= 0:
 			depleted.emit()
+		elif previous <= 0 and amount > 0 and _grown_once:
+			# Guarded on having grown before, so the initial `amount =
+			# starting_amount` in _ready is a birth rather than a regrowth — a
+			# node that announced itself regrown on the frame it was created
+			# would have the build grid block a cell it never freed.
+			regrown.emit()
 
 var _visual: Node3D
 var _sprite: Sprite3D
+## False until this node has been stocked for the first time — see the `amount`
+## setter.
+var _grown_once := false
 
 @onready var _collision: CollisionShape3D = $CollisionShape3D
 
@@ -64,6 +78,32 @@ func _ready() -> void:
 		if _sprite != null:
 			add_to_group("billboards")
 	amount = starting_amount
+	_grown_once = true
+
+
+## Host only: fell this node without anyone chopping it. Exists for the
+## `--strip-nodes` smoke hook, and deliberately shares the ordinary path — the
+## same broadcast and the same payout — so what it produces is indistinguishable
+## from a player's last chop.
+func host_fell() -> void:
+	if not multiplayer.is_server() or amount <= 0:
+		return
+	_sync_amount.rpc(0)
+	harvested.emit(material_type, depleted_yield)
+
+
+## Host only: this node comes back. Travels down the same `_sync_amount` lane a
+## chop does, so a client learns about regrowth exactly the way it learns about
+## everything else that happens to a resource node — there is no second path.
+##
+## The caller (Regrowth) is responsible for checking that the cell is still
+## FREE: a node that regrows under a wall, under a player, or across the last
+## remaining route to the tower would be a worse bug than a bare map.
+func host_regrow(stock: int) -> void:
+	if not multiplayer.is_server() or amount > 0 or stock <= 0:
+		return
+	_sync_amount.rpc(stock)
+	print("[ResourceNode] %s regrew (%s, %d to fell)" % [name, material_type.id, stock])
 
 
 ## Called by WorldLight every frame (billboard visuals only — meshes are lit

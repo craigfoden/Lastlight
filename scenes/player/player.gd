@@ -43,6 +43,19 @@ const CAMERA_YAW := 45.0
 ## Host-side floor between damage instances, so a swarm can't instantly melt you.
 @export var hurt_cooldown := 0.4
 
+## Fraction of an ability's authored cooldown the host insists on before it will
+## accept another cast of it. Cooldowns are still *enforced* by the owning client
+## (an accepted friends-co-op trade-off); this is the backstop that turns "a
+## modified client can fire every frame" into "a modified client can fire a bit
+## faster than intended".
+##
+## It cannot be 1.0. Talents shorten cooldowns, talents are read from the owner's
+## LOCAL profile and are deliberately never networked (see the talent recipe in
+## CLAUDE.md), so the host genuinely does not know how fast this character is
+## allowed to be. This sits far below anything the tree can reach — and far, far
+## above the zero a spamming client would send.
+@export_range(0.1, 1.0, 0.05) var host_cooldown_floor := 0.6
+
 ## Talent hooks, applied from the local profile on spawn (see `_ready`). Every
 ## one of them deliberately scales something this peer already owns outright:
 ## movement is simulated by the owner and both cooldowns are client-enforced by
@@ -88,6 +101,9 @@ var _revive_progress := 0.0  # host-only: seconds a teammate has been reviving
 var _buff_time := 0.0      # host-only: seconds the self-buff has left to run
 
 var _cooldowns := {}  # ability id -> seconds remaining
+## Host-only mirror of the above: ability id -> the wall-clock millisecond at
+## which the host will accept this ability again (see `host_cooldown_floor`).
+var _host_next_cast := {}
 var _dodge_cooldown := 0.0
 var _dodge_time := 0.0
 var _dodge_direction := Vector3.ZERO
@@ -239,6 +255,8 @@ func request_cast(ability_id: StringName, aim: Vector3) -> void:
 	var ability := _ability_by_id(ability_id)
 	if ability == null:
 		return
+	if not _host_allows_cast(ability):
+		return
 	aim = aim.normalized() if aim != Vector3.ZERO else Vector3.RIGHT
 	match ability.kind:
 		AbilityType.Kind.PROJECTILE:
@@ -291,11 +309,50 @@ func _spawn_melee_arc(from: Vector3, direction: Vector3, ability_id: StringName)
 func _spawn_deployable(at: Vector3, ability_id: StringName, seq: int) -> void:
 	if not _sender_is_host():
 		return
+	# A replay to a late joiner lands here too, and the trap it would rebuild may
+	# already exist on this peer — that happens on the host itself, which is
+	# call_local. Named cheaply first, then checked.
+	var trap_name := "Trap_%s_%d" % [name, seq]
+	if get_parent().has_node(trap_name):
+		return
 	var trap: SnareTrap = SnareTrapScene.instantiate()
 	# Deterministic name so the host's consume RPC resolves on every peer.
-	trap.name = "Trap_%s_%d" % [name, seq]
+	trap.name = trap_name
 	trap.setup(_ability_by_id(ability_id), at)
+	trap.caster = self
+	trap.seq = seq
 	get_parent().add_child(trap)
+
+
+# Host only: the rate limit behind `host_cooldown_floor`. Kept in wall-clock
+# milliseconds rather than counted down in _process, because _process on a
+# player is already the host's survival tick and this has no business being
+# frame-rate dependent.
+func _host_allows_cast(ability: AbilityType) -> bool:
+	var now := Time.get_ticks_msec()
+	var ready_at: int = _host_next_cast.get(ability.id, 0)
+	if now < ready_at:
+		print("[Player] %s: %s refused - %d ms early" % [name, ability.id, ready_at - now])
+		return false
+	_host_next_cast[ability.id] = now + int(ability.cooldown * host_cooldown_floor * 1000.0)
+	return true
+
+
+## Host only: rebuild one of this player's live deployables on a peer that
+## joined after it was laid. Called by the deployable itself (see
+## snare_trap.gd) — it knows its own state, this node owns the RPC that builds
+## one, and neither has to know how the other works.
+##
+## Projectiles are deliberately NOT replayed the same way: a shot is in the air
+## for well under a second, which is shorter than the join handshake that would
+## carry it, so a replayed one would arrive somewhere it no longer is and hit
+## nothing on a client anyway (client copies are visual). A trap sits there for
+## its whole lifetime, which is why it is worth the packet and a projectile is
+## not.
+func host_replay_deployable(peer_id: int, at: Vector3, ability_id: StringName,
+		deploy_seq: int) -> void:
+	if multiplayer.is_server():
+		_spawn_deployable.rpc_id(peer_id, at, ability_id, deploy_seq)
 
 
 func _sender_is_host() -> bool:

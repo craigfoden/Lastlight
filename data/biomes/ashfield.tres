@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/biomes/biome_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"ashfield"
+display_name = "Ashfield"
+description = "Burnt over so long ago that nobody remembers by what. A long walk for very little, and a long walk back."
+weight = 0.8
+ground_color = Color(0.72, 0.7, 0.72, 1)
+material_weights = {
+&"essence_faint": 1.6,
+&"stone": 1.0,
+&"wood": 0.4
+}
+resource_density = 0.6
+solid_density = 0.6
+decor_density = 0.5

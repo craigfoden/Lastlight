@@ -1,13 +1,20 @@
 class_name SpriteAnimator
 extends Node
-## Gives a billboard sprite the motion a single static frame cannot: a walk
-## bob, a facing flip, a white flash when hit and a kick-back when it attacks.
+## Gives a billboard sprite the motion a static image cannot: a walk bob, a
+## facing flip, a white flash when hit, a kick-back when it attacks, a collapse
+## when it dies — and, since session 18, the walk cycle itself.
 ##
-## This is procedural rather than drawn on purpose. Frame animation for six
-## characters is two dozen more hand-drawn pixel maps and belongs with the real
-## art; the *feel* of a character being alive is mostly motion, not frames, and
-## motion is free. A sprite that bobs when it walks and recoils when it shoots
-## reads as animated even though it only ever has one frame.
+## Most of it is procedural rather than drawn, and that is deliberate: the *feel*
+## of a character being alive is mostly motion, not frames, and motion is free.
+## The frames are the one part that is not, so the pipeline meets it halfway —
+## ArtGenerator writes every character as a strip of frames (deriving a two-step
+## walk from the single authored pose until somebody draws a better one), and
+## this component walks the strip. The frame count is read off the texture
+## rather than configured, so a sprite that gains frames starts using them with
+## no change to any scene.
+##
+## The convention the whole thing rests on: **frame 0 is the standing pose and
+## every frame after it is a step**.
 ##
 ## Nothing here is networked, and nothing here needs to be. Every input is
 ## state that is already replicated for gameplay reasons — `velocity` is in the
@@ -60,10 +67,28 @@ extends Node
 ## downed player is still on the ground, they are just not taking steps.
 var upright := true
 
+## 0 = standing at its authored height, 1 = fully collapsed into the ground.
+## Driven by the owner (an enemy's death fade); like `upright` it exists here
+## rather than on the owner because this component is the single writer of
+## `sprite.position`, and a second one would fight the walk bob every frame.
+var sink := 0.0
+
+## How much of its rest height a fully sunk sprite drops. Not all the way to the
+## floor: a body that vanishes entirely below ground on the last frame reads as
+## falling through the world rather than falling over.
+@export var sink_depth := 0.45
+
+## One frame of a character strip, in texels. Every sprite in the game is
+## authored 32 wide (see ArtGenerator), so the strip's width divided by this is
+## the frame count.
+const FRAME_WIDTH := 32
+
 var _sprite: Sprite3D
 var _body: CharacterBody3D
 var _shadow: MeshInstance3D
 var _rest_position := Vector3.ZERO
+## Frames in this character's strip, including the standing pose at index 0.
+var _frame_count := 1
 ## Distance travelled, which drives the bob phase.
 var _stride := 0.0
 var _flash_left := 0.0
@@ -79,6 +104,12 @@ func setup(sprite: Sprite3D, body: CharacterBody3D, shadow: MeshInstance3D = nul
 	_body = body
 	_shadow = shadow
 	_rest_position = sprite.position
+	# Read from the texture rather than configured per scene: a sprite that grows
+	# frames should not need every scene that uses it edited to notice.
+	if sprite.texture != null:
+		_frame_count = maxi(sprite.texture.get_width() / FRAME_WIDTH, 1)
+	sprite.hframes = _frame_count
+	sprite.frame = 0
 
 
 ## Call when this character is seen to lose hp — on every peer, not just the
@@ -142,15 +173,25 @@ func _process(delta: float) -> void:
 		var phase := _stride / maxf(bob_cycle_distance, 0.01) * TAU
 		lift = absf(sin(phase))
 		offset.y = lift * bob_height
+		# ...and the step frames advance on the same phase, so which foot is off
+		# the ground agrees with how high the body is riding. Frame 0 is skipped
+		# while walking: it is the pose for standing still.
+		if _frame_count > 1:
+			var step := int(_stride / maxf(bob_cycle_distance, 0.01) * 2.0)
+			_sprite.frame = 1 + posmod(step, _frame_count - 1)
 	else:
 		# Reset so the next step starts from a footfall rather than resuming
 		# wherever the last one was interrupted.
 		_stride = 0.0
+		_sprite.frame = 0
 
 	if _recoil_left > 0.0:
 		offset -= _recoil_dir * recoil_distance * (_recoil_left / recoil_time)
 
+	offset.y -= _rest_position.y * sink_depth * clampf(sink, 0.0, 1.0)
 	_sprite.position = _rest_position + offset
 	if _shadow != null:
-		var shrink := 1.0 - lift * shadow_squash
+		# A shadow shrinks with the body it belongs to as well as with the step,
+		# so a corpse's shadow goes with it instead of outliving it.
+		var shrink := (1.0 - lift * shadow_squash) * (1.0 - clampf(sink, 0.0, 1.0))
 		_shadow.scale = Vector3(shrink, 1.0, shrink)
