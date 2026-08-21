@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="rock_mat"]
+albedo_color = Color(0.372549, 0.376471, 0.396078, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="rock_mesh"]
+material = SubResource("rock_mat")
+size = Vector3(0.9, 1.5, 0.85)
+
+[node name="CragRockVisual" type="Node3D"]
+
+[node name="Block" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.55, 0)
+rotation = Vector3(0.20944, 0.523599, 0.10472)
+mesh = SubResource("rock_mesh")

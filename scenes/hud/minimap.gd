@@ -5,9 +5,16 @@ extends Control
 ## whole picture is rotated by the camera's fixed 45° yaw so up on the radar
 ## is up on the screen (in 2D the camera was axis-aligned and no rotation was
 ## needed). Shows nearby resource nodes in their material colour, monsters in
-## red, teammates in cyan, and the direction home to the tower in gold (pinned
-## to the rim when it is off-radar). Pure local rendering from the shared
-## groups — reads state every peer already has, so it needs no networking.
+## red, teammates in cyan, landmarks as coloured diamonds, and the direction
+## home to the tower in gold (pinned to the rim when it is off-radar). Pure
+## local rendering from the shared groups — reads state every peer already has,
+## so it needs no networking.
+##
+## Landmarks are the one thing on here you can also see out of the window
+## (session 19), which is the point of drawing them: the radar is where you
+## match the crag on your screen to the crag on the map and work out which way
+## you are facing. Everything else on the radar is either too small to see at
+## range or too far to see at all.
 
 ## World-space radius the radar covers from centre to rim, in cells
 ## (2D: 1000 px).
@@ -17,6 +24,10 @@ extends Control
 @export var player_dot := 3.5
 ## Radius of the ring drawn around a camp site.
 @export var camp_ring := 6.5
+## Half-diagonal of the diamond drawn at a landmark. A diamond rather than a
+## dot or a ring so it cannot be read as either a resource node or a camp: the
+## radar has three kinds of thing on it now and they must be three shapes.
+@export var landmark_mark := 4.0
 
 const _BACKING := Color(0.05, 0.06, 0.10, 0.72)
 const _RIM := Color(1, 1, 1, 0.35)
@@ -99,6 +110,25 @@ func _draw() -> void:
 		if camp_rel.length() <= radius:
 			draw_arc(center + camp_rel, camp_ring, 0.0, TAU, 20,
 					_CAMP_OPEN if camp.is_cleared() else _CAMP_HELD, 1.5)
+
+	# Landmarks, in their own colour. Drawn after the camps and before the home
+	# marker so that where two things overlap, the one you steer by stays
+	# legible. A landmark never changes state, so unlike a camp ring this is a
+	# single colour with nothing to say beyond "there".
+	for node in get_tree().get_nodes_in_group("landmarks"):
+		var landmark := node as Landmark
+		if landmark == null or landmark.type == null:
+			continue
+		var mark_rel := _to_radar(landmark.global_position, radar_scale)
+		if mark_rel.length() > radius:
+			continue
+		var at := center + mark_rel
+		draw_colored_polygon(PackedVector2Array([
+				at + Vector2(0, -landmark_mark),
+				at + Vector2(landmark_mark, 0),
+				at + Vector2(0, landmark_mark),
+				at + Vector2(-landmark_mark, 0)]),
+				landmark.type.map_color)
 
 	# Home marker: pin the tower to the rim when it is off-radar so you can
 	# always find your way back to the village.

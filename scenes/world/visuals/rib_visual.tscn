@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="bone_mat"]
+albedo_color = Color(0.807843, 0.784314, 0.694118, 1)
+roughness = 1.0
+
+[sub_resource type="TorusMesh" id="rib_mesh"]
+material = SubResource("bone_mat")
+inner_radius = 0.82
+outer_radius = 1.0
+rings = 24
+ring_segments = 8
+
+[node name="RibVisual" type="Node3D"]
+
+[node name="Arch" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.18, 0)
+rotation = Vector3(1.570796, 0, 0)
+scale = Vector3(0.55, 1, 1.9)
+mesh = SubResource("rib_mesh")

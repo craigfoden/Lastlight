@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StandardMaterial3D" id="rock_mat"]
+albedo_color = Color(0.341176, 0.34902, 0.376471, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="base_mesh"]
+material = SubResource("rock_mat")
+size = Vector3(1.5, 0.6, 1.4)
+
+[sub_resource type="CylinderMesh" id="spire_mesh"]
+material = SubResource("rock_mat")
+top_radius = 0.06
+bottom_radius = 0.78
+height = 3.6
+radial_segments = 6
+
+[node name="CragSpireVisual" type="Node3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.22, 0)
+rotation = Vector3(0, 0.349066, 0)
+mesh = SubResource("base_mesh")
+
+[node name="Spire" type="MeshInstance3D" parent="."]
+position = Vector3(0.05, 1.85, -0.05)
+rotation = Vector3(0.05236, 0, 0.06981)
+mesh = SubResource("spire_mesh")

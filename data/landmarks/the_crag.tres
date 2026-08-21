@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LandmarkType" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://data/landmarks/landmark_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/crag_spire_visual.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/crag_rock_visual.tscn" id="3"]
+
+[resource]
+script = ExtResource("1")
+id = &"the_crag"
+display_name = "The Crag"
+description = "A finger of rock shoved up through the stripped ground, with half a hillside collapsed around its foot. Visible from most of the barrens, which is the only useful thing about it."
+site_count = 2
+radius_min = 26.0
+radius_max = 88.0
+footprint_radius = 4
+biome_ids = Array[StringName]([&"barrens"])
+centerpiece_scene = ExtResource("2")
+piece_scenes = Array[PackedScene]([ExtResource("3")])
+piece_count = 7
+arrangement = 1
+sight_radius = 16.0
+map_color = Color(0.72, 0.7, 0.68, 1)

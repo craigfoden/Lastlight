@@ -103,6 +103,25 @@ text = "E  Harvest"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="PlaceLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.5
+anchor_top = 0.0
+anchor_right = 0.5
+anchor_bottom = 0.0
+offset_left = -260.0
+offset_top = 46.0
+offset_right = 260.0
+offset_bottom = 76.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 20
+text = "The Thicket"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ConnectingPanel" type="ColorRect" parent="."]
 unique_name_in_owner = true
 visible = false

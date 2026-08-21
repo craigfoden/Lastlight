@@ -9,6 +9,12 @@ extends StaticBody3D
 
 ## Solid look — a mesh scene instantiated in _ready.
 @export var visual_scene: PackedScene
+## Yaw applied to that mesh, in radians. A landmark lays the same piece down
+## eight or nine times in one place (a ring of monoliths, a ribcage), and
+## without this every one of them faces exactly the same way — which reads as
+## nine copies of a prop rather than as one thing built out of nine stones.
+## Set from the world seed by WorldGen, so it stays identical on every peer.
+@export var visual_yaw := 0.0
 ## Decor look — drawn as a flat one-cell decal lying on the ground.
 @export var decal_texture: Texture2D
 ## Decal quad edge, slightly under one cell so neighbours don't touch.
@@ -24,7 +30,9 @@ func _ready() -> void:
 	if solid:
 		add_to_group("obstacles")
 		if visual_scene != null:
-			add_child(visual_scene.instantiate())
+			var visual := visual_scene.instantiate() as Node3D
+			visual.rotate_y(visual_yaw)
+			add_child(visual)
 		return
 	# Decor never blocks anything: drop its collision entirely and lie flat on
 	# the ground — the 3D equivalent of the 2D decal's z_index = -1.

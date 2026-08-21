@@ -131,6 +131,33 @@ worth placing with a third of your day**, not whether it works.
 - [ ] Guards must still be standing after a night passes — camps are not burned off at dawn.
 - [ ] Two players: clear a camp together, have the *other* player loot it. Pool credits once.
 
+### 4c. Landmarks (session 19 — the one thing here you judge by eye, not by numbers)
+
+Five features now stand in the wilds — standing stones, the elder tree, a bone field, crags,
+broken spires — each tied to a biome, each in its own clearing, each a coloured diamond on the
+radar. A banner at the top of the screen names the country you are in and the landmark you are
+at. None of them *does* anything, deliberately. The question is whether the map is easier to
+hold in your head, not whether they are worth visiting.
+
+The host log prints where they landed (`[WorldGen] Landmarks: elder_tree@38,1 ...`), and
+`--spawn-at=x,z` will drop you next to one without the walk.
+
+- [ ] **Walk out without looking at the minimap.** That is the whole test. Can you get back?
+      Could you tell the other player where you are in words they could follow?
+- [ ] Does a landmark read as a *place* from a distance, or only once you are standing in it?
+      Note which ones fail — the elder tree is the one most likely to just look like a tree.
+- [ ] **The banner**: does naming the country ("Barrens", "Leyfield") tell you anything you can
+      act on, or is it noise? It brightens for ~3 s when it changes and then dims — is that the
+      right amount of attention, or should it be quieter still / only on change?
+- [ ] Play two runs on different seeds. **Did they feel like different maps?** A run with no
+      leyfield has no standing stones on purpose; is the absence noticeable, or does one map
+      just feel emptier than the other for no reason you could name?
+- [ ] Landmark pieces are solid. Fight a roamer in a bone field or a stone ring — is the cover
+      interesting, or do you just get stuck on things you did not expect to be solid?
+- [ ] The radar has three kinds of mark now (resource dots, camp rings, landmark diamonds). Is
+      it still readable, or is it getting busy?
+- [ ] Two players: does "meet me at the crag" actually work?
+
 ### 5. Night combat (10 min — the fun question lives here)
 - [ ] Waves come from both openings; towers fire on their own.
 - [ ] The kit: bow on cooldown-clicks, Piercing Arrow through a line of enemies, trap roots

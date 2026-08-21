@@ -1252,6 +1252,82 @@ written for separation steering — which is the point of a diagnostic that repo
 pair rather than the mean: a stack *is* a pair at distance zero, and it never showed up in an
 average across a map-wide population.
 
+### Landmarks are navigation, not content (2026-08-21)
+`LandmarkType` + the `Landmarks` registry add five large features to the wilds — standing
+stones, the elder tree, a bone field, crags, broken spires. None of them grants anything, holds
+anything, or spawns anything. They are big, they are named, they are on the minimap, and that
+is the whole of it.
+
+**Why:** the wilds already had two things you could *do* out there (harvest a node, take a
+camp) and no third one was missing. What was missing was legibility: biomes changed what grew
+in a stretch of country but every stretch still looked like every other, so the map was
+navigable by minimap and by nothing else. A landmark is the cheapest possible fix for that —
+a fixed point you can see from a distance, name, and steer by. Deliberately rejected: a shrine
+that grants a run-long boon. It would have been a genuinely new mechanic, and it would have
+been a new unplayed number stacked on eight sessions of unplayed numbers still waiting on a
+human verdict. Landmarks as pure navigation are the one shape of this feature whose acceptance
+is a screenshot rather than a playtest.
+
+They are still solid, because every piece of one is a thing you would walk around in life, and
+that means they bend enemy paths exactly as a boulder already did. That is a consequence of
+being made of ordinary `SceneryProp`s, not a design goal — no landmark is placed to shape a
+lane, and the corridor rule keeps them off the approaches entirely.
+
+### A landmark belongs to a country, and a run may simply not have one (2026-08-21)
+`LandmarkType.biome_ids` ties most landmarks to a biome — standing stones only in a leyfield,
+the elder tree only in a thicket. A run rolls four to seven biome sites, so a map with no
+leyfield gets no standing stones. The generator logs the skip and moves on.
+
+**Why:** this is what makes a landmark navigation rather than decoration. Seeing the crag tells
+you you are in the barrens before you are close enough to count the rocks, which is a thing the
+ground tint could only say at short range and only by day. The absence is the other half of the
+same idea: if every map had all five, "the map with the standing stones" would not mean
+anything, and the one landmark that stands in any country (the broken spire) exists so that a
+weird biome roll still leaves you something to steer by. Measured across six seeds, runs got
+five to seven landmarks and every skip lined up exactly with a biome the run had not rolled.
+
+### One footprint rule for camps and landmarks (2026-08-21)
+`_camp_site_clear` became `_site_clear(center, radius, separation)` and `_camp_centers` became
+`_sites`, holding every reserved footprint as `(x, y, radius + separation)`. Both kinds test
+against the same list, and the larger of the two keep-out distances wins.
+
+**Why:** camps were "the only content with a footprint" and the code said so. Landmarks are the
+second, and left alone the old rule would have let a monolith ring stand in a bandit camp's
+courtyard — `_used` is cell-exact and knows nothing about elbow room. Storing the keep-out
+*with* the site is what lets a landmark (which wants 14 clear cells around it) hold a camp off
+without every camp having to know landmarks exist.
+
+Landmarks are placed **before** camps, reversing the "gameplay wins contested space" instinct.
+The constrained thing goes first: a landmark has one country to choose from, a camp has a whole
+ring band and forty attempts to work around whatever it finds.
+
+### The clearing is part of the landmark (2026-08-21)
+A landmark reserves its whole footprint against the resource and solid-prop scatters, most of
+which stays deliberately empty. Decor is *not* held off.
+
+**Why:** a thicket runs at 1.3 resource density. Without the reservation the elder tree is one
+more trunk in a wood, and the thing that was supposed to be visible from across the biome is
+invisible from ten cells away. The bald patch is what makes the feature read as a place rather
+than as a prop. Decor still dresses it because grass and bones do not hide anything.
+
+### The world names itself, once there is something to name (2026-08-21)
+A HUD banner names the country underfoot and the landmark you are standing at — "Thicket · The
+Elder Tree", "The Village" at home. Full strength for a beat when it changes, then a quiet
+always-on label.
+
+**Why:** `BiomeType` has carried a `display_name` and a `description` since session 18 and no
+screen has ever shown either, which was a carried gap. It could not usefully be closed on its
+own: a banner that only ever said "Thicket" would be noise, because one thicket is
+indistinguishable from the next and naming it tells you nothing you can act on. Paired with a
+landmark it becomes a location — the piece of information that turns "somewhere in the woods"
+into a place you can walk back to, and tell the other player to meet you at.
+
+Two smaller calls inside it. It reaches the HUD through a **separate `setup_world()`** rather
+than a wider `setup()`, because a joining client runs `setup()` in `_ready` and has no map at
+all until the host's seed lands. And the nearest landmark is chosen by `sight_ratio` — distance
+as a fraction of that landmark's own `sight_radius` — rather than by raw distance, so a bone
+field sprawling over eleven cells cannot shout down the broken spire you are standing on.
+
 ---
 
 ## Template for new entries

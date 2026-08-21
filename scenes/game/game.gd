@@ -175,6 +175,10 @@ func _begin_world(seed_value: int) -> void:
 		scenery_cells.append(build_manager.world_to_cell(node.global_position))
 	build_manager.setup(team_materials, opening_cells, HEART_CELL, scenery_cells)
 	ground.setup(world_gen)
+	# The HUD was set up in _ready with everything that exists before the map
+	# does; the map itself has to wait until here, because on a client _ready
+	# runs long before the host's seed arrives.
+	hud.setup_world(world_gen)
 	build_controller.setup(build_manager)
 	build_menu.setup(build_manager, build_controller, team_materials)
 	wave_director.setup(day_night, build_manager, glow_tower, spawn_positions,

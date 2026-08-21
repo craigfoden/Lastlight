@@ -32,7 +32,8 @@ same scene file.
 | 16 | **Visual overhaul: pixel art** — the game's whole look, in three parts. (1) **Art is text**: a single shared palette plus every character/decal authored as rows of palette characters in `tools/art/art_sprites.gd`, compiled to PNGs by a `--script` generator that also forces the import settings pixel art cannot survive (`detect_3d/compress_to`), with a contact-sheet previewer for reviewing it. All 15 sprites redrawn — 3 classes, 3 enemies, 5 decals, shadow, wisp, 2 projectiles. (2) **The world is pixelated too**: `PixelRender` sets the root Viewport's `SCALING_3D_MODE_NEAREST` and derives the scale from the live camera so one sprite texel = one rendered pixel, so meshes and sprites share one grid — no SubViewport, so no node paths moved. (3) **Procedural animation**: `SpriteAnimator` adds a walk bob, facing flip, hit flash and attack recoil from already-replicated state, at zero network cost. Also closed: projectiles get per-ability textures (`AbilityType.projectile_texture`) instead of every shot being the same yellow dart, and the dead `BuildingType.texture` field and the whole placeholder SVG folder are gone. | ✅ 2026-08-15 (green solo + host/client incl. mixed classes, zero errors/warnings; **art quality is placeholder and deliberately so** — see gaps) | Craig + Claude |
 | 17 | **Five carried gaps, closed** — a deliberate sweep of the small open items rather than one new system. (1) **The ground is drawn**: repeating 32×32 village-turf and wilds-dirt tiles authored in the same text pipeline as the sprites (`ArtSprites.TILES`), sampled by `ground.gdshader` at one texel per rendered pixel with a per-tile brightness jitter to break the repeat — the largest smooth surface left in frame is gone. (2) **Every run gets its own map**: `WorldGen.generate(seed)` replaces the baked constant and generation on `_ready`; the host rolls a seed, sends it on connect, and holds a joiner's spawn until they acknowledge having built it (`--world-seed=N` pins one). (3) **Talents can be spent**: a screen off the main menu, the first caller of `Profile.unlock_talent()`, plus three talents per class on keys that are safe to keep local. (4) **The hotbar prices per cell**: slots grey on `net_cost` at the hovered cell, so a tower you can afford only because of the wall's refund no longer looks unaffordable. (5) **A `Buildings` registry**, replacing the exported array inside `game.tscn` — which is what finally let the class-select screen name the tower your class unlocks. | ✅ 2026-08-16 (green solo + host/client, zero errors/warnings; ground checked in-frame at the village and out in the wilds) | Craig + Claude |
 | 18 | **Everything that didn't need a playtest** — a deliberate sweep of every carried gap whose acceptance is a log line or a screenshot rather than a human verdict, done in one session on Craig's call. (1) **Map-generation depth**: the seed now chooses the map's *shape* — 2–4 approach openings rolled per run with a cleared corridor each (the openings left `game.tscn`, because a lane has to be cleared by the pass that decides where it runs), a Voronoi partition of the wilds into four new `BiomeType`s that reweight what grows there and tint the ground to match, and per-run richness and camp counts. The rarity-by-distance bands are deliberately *not* rolled. (2) **Ground detail**: a third hand-authored tile, drawn as beaten roads along every approach corridor and as a trodden ring at the village boundary — the first thing in the world to say where the safe zone ends — plus a dithered biome border so the partition doesn't read as a seam. (3) **Enemies break buildings** when the way round is more than `breach_ratio` times the way through: mazing still works, sealing the map or walling a camp's doorway no longer does. (4) **Separation steering**, which immediately found that every camp garrison had been standing in one stacked cell since session 15 (`_post` vs `_home`). (5) **Regrowth**: felled nodes come back a share per dawn and emptied camps are reoccupied, both host-only and both down existing RPC lanes. (6) **Frame animation** as a pipeline — strip PNGs, `hframes`, a walk cycle derived from the single authored pose until real art lands. (7) Six small gaps: run-end → talents link, menu Quit, enemy death fade, deployable replay to late joiners, the hotbar's fully-upgraded mispricing, and a host-side cast rate limit. | ✅ 2026-08-16 (green solo + host/client, zero errors/warnings; every new number is unplayed — see gaps) | Craig + Claude |
-| 19+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; map-generation depth (the per-run *seed* landed in session 17; the layout rules behind it did not); balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
+| 19 | **Landmarks: a world you can navigate by sight** — the wilds had biomes but no *features*: one stretch of thicket looked exactly like the next, so the map was navigable by minimap and by nothing else. New `LandmarkType` resource + `Landmarks` registry (the `Camps` shape), five landmarks placed per run by WorldGen with **biome affinity** — the country decides which features it can hold, so a run with no leyfield has no standing stones and *that* is the feature — each stamped into its own reserved clearing so the scatter cannot bury it. Minimap diamonds, and a HUD place banner naming the country underfoot and the landmark you are at, which also closes session 18's "nothing in the UI ever names a biome". Deliberately **non-mechanical** — see gaps. | ✅ 2026-08-21 (green solo + host/client with matching layout hashes, zero errors/warnings; all three landmark shapes checked in-frame) | Chris + Claude |
+| 20+ | **Content & polish** (pattern-following) — enemy variety; gear tiers; balancing; menus; audio; juice; GodotSteam transport swap (test AppID 480) + Steam invite/lobby flow; art swap-in | free | — |
 
 ## Known gaps carried out of session 1 (fold into upcoming sessions)
 
@@ -98,9 +99,13 @@ same scene file.
   not know a client's dodge state; i-frames need a cheap dodge-state signal to the host (polish).
 - ~~World seed is a baked constant: every run has the same map.~~ Fixed session 17 (the seed),
   and the generation *depth* it did not buy was fixed session 18: biomes, 2–4 rolled openings,
-  per-run richness and camp counts. Still open, and now the obvious next layer: the map has no
-  *landmarks* — no rivers, cliffs, ruins-that-aren't-camps, nothing that makes one biome
-  navigable by sight rather than by minimap.
+  per-run richness and camp counts. The *landmarks* it did not buy
+  landed session 19: five features tied to biomes, each in a reserved clearing, named by a HUD
+  banner and marked on the radar. Still open, and now the obvious next layer: **there is no
+  terrain**. Everything the generator places is an object standing on a flat plane — no river,
+  no cliff, no elevation, nothing impassable — so nothing divides the map into regions you have
+  to go *around*, and a landmark is something you walk past rather than something that shapes
+  the walk.
 - Mini-map is functional but untuned (fixed range, no zoom, no fog); verified headless only —
   give it a visual pass when real art lands.
 - ~~Depleted resource nodes never respawn~~ Fixed session 18: `Regrowth` brings back a share
@@ -186,15 +191,15 @@ same scene file.
   several of them change how the game is *played* rather than how it looks. In rough order of
   how badly a human verdict is needed:
   1. `Enemy.breach_ratio` = 2.5 and wall hp = 90. Together they decide whether mazing is still
-     worth doing. Too low a ratio and walls stop working at all; too high and the exploit is
-     back. Neither has been seen by a player.
+	 worth doing. Too low a ratio and walls stop working at all; too high and the exploit is
+	 back. Neither has been seen by a player.
   2. Openings: a run with four approaches spreads the same living-cap across four lanes, which
-     may be *easier* rather than harder. `opening_count_max` is the dial.
+	 may be *easier* rather than harder. `opening_count_max` is the dial.
   3. `Regrowth.regrow_share` (22 % a dawn) and `repopulate_days` (3). The point was that a
-     seven-night run should not end with a strip-mined map — but regrowth that outpaces
-     harvesting removes the reason to walk further out, which is the thing camps exist for.
+	 seven-night run should not end with a strip-mined map — but regrowth that outpaces
+	 harvesting removes the reason to walk further out, which is the thing camps exist for.
   4. Biome weights and densities: an ashfield is deliberately a poor place, and a run whose
-     nearest country is all ashfield may simply be a bad run.
+	 nearest country is all ashfield may simply be a bad run.
 - Biome colour reads clearly in the band around the village and barely at all far out in the
   wilds, because the wilds are genuinely dark by design and the tint is multiplicative. That
   is arguably correct — you cannot see the colour of the ground at night — but it means a lot
@@ -202,12 +207,46 @@ same scene file.
 - The scatter uses a hard Voronoi border while the ground shader dithers it over ~5 cells, so
   right at a boundary the trees belong to one biome and the ground to a mix of both. Deliberate
   (borders interleave), but nobody has looked at whether it reads that way.
-- Nothing in the UI ever *names* a biome. The data carries a `display_name` and a description
-  and no screen shows either.
+- ~~Nothing in the UI ever *names* a biome. The data carries a `display_name` and a description
+  and no screen shows either.~~ Fixed session 19: a HUD place banner names the country underfoot
+  and the landmark you are at, bright for a beat when it changes and quiet after. Still open:
+  the `description` on both `BiomeType` and `LandmarkType` is still shown nowhere — the banner
+  has room for a name and no more.
 - A breaching enemy walks straight at the building in its way, ignoring the pathfinder. If
   something solid sits between it and that building it will grind against it until the recheck
   timer picks a different target. Not seen in testing; the geometry that would cause it (a
   prop directly between a monster and the wall it chose) is rare and self-correcting.
+
+## Known gaps carried out of session 19
+
+- **Landmarks are dark, because the wilds are dark.** The daylight bubble means a landmark 40
+  cells out is a silhouette by day and nearly nothing at night, so most of this session's work
+  is legible on the walk out and barely at all once you are deep in it. The same complaint the
+  biome tints have. It is arguably correct — you cannot see across a dark wood — but a feature
+  whose entire job is being visible from a distance is worth a second look once the playtest
+  says whether the bubble's radius is right at all.
+- **The meshes are placeholders and read as primitives.** Every landmark is boxes, cylinders
+  and a torus, exactly like the rest of the world's geometry, so they are *big* rather than
+  *distinctive*. The crag and the standing stones survive that best (a spire and a ring are
+  shapes); the elder tree is a large ordinary tree and the bone field's ribs read as pale
+  hoops. Session 16's note applies unchanged: silhouettes here are modelled, not drawn, and no
+  sprite work will change them.
+- **The numbers are unplayed, as usual, but cheaply reversible.** In order: `site_count` puts
+  two crags and two broken spires in every run, which may be one too many of each for something
+  that is supposed to be singular; `landmark_separation` (14 cells) has never been tested
+  against a map that is short of room; and `sight_radius` (14–16 cells) decides how early the
+  banner claims you have arrived somewhere, which is the one number a player will actually
+  notice being wrong.
+- Landmark pieces are solid, so they bend enemy paths like any boulder. Nothing is placed with
+  that in mind and the corridor rule keeps them off the approaches, but no run has been watched
+  with a horde crossing a bone field, and a 9x9 clearing ringed with solids near a lane is a
+  shape the pathfinder has not been stress-tested on.
+- The banner names a landmark by proximity alone — stand behind a hill you cannot see over (if
+  we ever have hills) and it will still claim you are there. Fine today; it is a line to
+  revisit the moment anything blocks line of sight.
+- Nothing connects landmarks to anything. The carried "no paths *between* places" gap is
+  untouched: camps and landmarks are still unlinked points, and the ground shader still draws
+  roads only along the approach corridors and the village ring.
 
 ## Post-v1 parking lot
 

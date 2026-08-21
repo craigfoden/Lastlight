@@ -2,19 +2,37 @@ class_name Hud
 extends CanvasLayer
 ## In-game overlay: day/phase clock, tower hp, shared material counts, player
 ## count, the local player's health + ability bar, the downed banner, the
-## corner minimap, and the "connecting" curtain a joining client sees.
+## corner minimap, the name of the place you are standing in, and the
+## "connecting" curtain a joining client sees.
 ##
 ## The Game scene injects its nodes via setup() — the HUD never reaches into
-## the tree to find them (dependency injection).
+## the tree to find them (dependency injection). The world arrives *separately*,
+## through setup_world(): a joining client runs setup() the moment its scene is
+## ready but has no map at all until the host's seed lands, so the two cannot be
+## one call (see game.gd `_begin_world`).
 
 ## .tres stats are px-denominated; tooltips show cells (1 cell = 32 px of 2D-era art).
 const PX_PER_UNIT := 32.0
+
+## Seconds the place banner stays at full strength after the place changes,
+## before settling back to a quiet always-on label. It is not a notification —
+## you must be able to glance down and ask "where am I" at any moment — but
+## walking into somewhere new is worth a beat of emphasis.
+const PLACE_FLASH := 3.0
+## What the banner fades back to once that beat has passed. High enough to read
+## on purpose, low enough not to compete with the tower's hp.
+const PLACE_RESTING_ALPHA := 0.34
 
 var _day_night: DayNightCycle
 var _team_materials: TeamMaterials
 var _glow_tower: GlowTower
 var _material_labels := {}  # material id -> Label
 var _local_player: Player
+## The generated map, for naming the country underfoot. Null until the world
+## exists, which on a client is later than _ready.
+var _world_gen: WorldGen
+var _place_text := ""
+var _place_flash := 0.0
 
 @onready var minimap: Minimap = %Minimap
 
@@ -33,6 +51,7 @@ var _local_player: Player
 @onready var ability_2_label: Label = %Ability2Label
 @onready var dodge_label: Label = %DodgeLabel
 @onready var interact_hint: Label = %InteractHint
+@onready var place_label: Label = %PlaceLabel
 
 
 func _ready() -> void:
@@ -57,11 +76,17 @@ func setup(
 	minimap.setup(glow_tower)
 
 
+## Injected once the world has actually been generated — on the host that is
+## immediately, on a client it is whenever the seed arrives.
+func setup_world(world_gen: WorldGen) -> void:
+	_world_gen = world_gen
+
+
 func show_connecting(showing: bool) -> void:
 	connecting_panel.visible = showing
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _day_night == null:
 		return
 	day_label.text = "Day %d / %d" % [_day_night.day_number, _day_night.final_day]
@@ -80,7 +105,54 @@ func _process(_delta: float) -> void:
 			foes += 1
 	foes_label.text = "Foes: %d" % foes
 	foes_label.visible = foes > 0
+	# Ability bar first: it is what resolves `_local_player`, and the place
+	# banner needs to know where that player is standing.
 	_refresh_ability_bar()
+	_refresh_place(delta)
+
+
+# Names the country underfoot, and the landmark you are at if you are at one.
+# Both come straight out of the generated map, which every peer built from the
+# same seed — so this is pure local reading with nothing synced, the same as the
+# minimap beside it.
+#
+# The nearest landmark wins by `sight_ratio` rather than by distance: a bone
+# field sprawls over eleven cells and a broken spire is one, so comparing raw
+# distances would have the big one shout down the small one you are standing on.
+func _refresh_place(delta: float) -> void:
+	if _world_gen == null or _local_player == null:
+		place_label.visible = false
+		return
+	var here := _local_player.global_position
+	var biome := _world_gen.biome_for(Vector2(here.x, here.z))
+	# `biome_for` answers null for the village and its surroundings, which is not
+	# a gap in the data — home is deliberately the same country on every map, and
+	# it is the one place in the world that already had a name.
+	var text := biome.display_name if biome != null else "The Village"
+	var closest: Landmark = null
+	var closest_ratio := 1.0
+	for node in get_tree().get_nodes_in_group("landmarks"):
+		var landmark := node as Landmark
+		if landmark == null:
+			continue
+		var ratio := landmark.sight_ratio(here)
+		if ratio < closest_ratio:
+			closest_ratio = ratio
+			closest = landmark
+	if closest != null:
+		text += "  ·  %s" % closest.type.display_name
+
+	if text != _place_text:
+		_place_text = text
+		_place_flash = PLACE_FLASH
+		place_label.text = text
+	_place_flash = maxf(_place_flash - delta, 0.0)
+	# Full strength for the first half of the flash, then down to resting over
+	# the second half — a fade rather than a cut, so it reads as settling rather
+	# than as the label being replaced by a different one.
+	var emphasis := clampf(_place_flash / (PLACE_FLASH * 0.5), 0.0, 1.0)
+	place_label.visible = true
+	place_label.modulate.a = lerpf(PLACE_RESTING_ALPHA, 1.0, emphasis)
 
 
 func _refresh_ability_bar() -> void:

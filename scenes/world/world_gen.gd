@@ -1,11 +1,11 @@
 class_name WorldGen
 extends Node3D
 ## Deterministic 3D world populator. From one seed it lays out the whole map —
-## approach openings and their corridors, then biomes, then camps, then
-## resources, then scenery — identically on every peer, and none of it is
-## synced. Node *state* still syncs through each node's own RPC lane, which
-## resolves by NodePath, so the deterministic `Camp_%d`/`Res_%d`/`Prop_%d` names
-## below are that contract (see GOTCHAS).
+## approach openings and their corridors, then biomes, then landmarks, then
+## camps, then resources, then scenery — identically on every peer, and none of
+## it is synced. Node *state* still syncs through each node's own RPC lane, which
+## resolves by NodePath, so the deterministic `Camp_%d`/`Landmark_%d`/`Res_%d`/
+## `Prop_%d` names below are that contract (see GOTCHAS).
 ##
 ## **What the seed actually decides.** Until session 18 the seed shuffled props
 ## and nothing else: every run had the same two openings due east and west, the
@@ -24,9 +24,18 @@ extends Node3D
 ##
 ## Order matters and is load-bearing. Openings come first because their
 ## corridors are the one part of the map nothing else may touch; biomes second
-## because both scatters ask what country they are standing in; camps third
-## because they are the only content with a footprint, and reserving a whole
-## site up front is what lets a camp keep its courtyard clear.
+## because both scatters ask what country they are standing in; then the two
+## kinds of content that own a *footprint* rather than a cell — landmarks, then
+## camps — because reserving a whole site up front is what lets each of them
+## keep its own ground clear; the loose scatters come last and fill what is
+## left.
+##
+## Landmarks go before camps because they are the more constrained of the two:
+## a landmark is tied to a country by `LandmarkType.biome_ids` and so has far
+## less map to choose from, while a camp may stand anywhere in its ring band and
+## has forty attempts to find somewhere. Placing the fussy thing first and
+## letting the flexible one work around it is why neither has ever had to be
+## given up on in a test run.
 ##
 ## Camps are a split responsibility and this is the half that has no state:
 ## WorldGen decides *where* a camp is and stamps its ruins; Camp itself owns the
@@ -133,6 +142,16 @@ var biome_kinds: Array[BiomeType] = []
 ## loop with a queue of work and one with a choice about which site is worth it.
 @export var camp_count_jitter := 1
 
+@export_group("Landmarks")
+## How many times a landmark site is re-rolled before that landmark is given up
+## on. Higher than the camps' budget because a landmark also has to land in the
+## right country, and a run may simply not contain one — see below.
+@export var landmark_site_attempts := 90
+## Clear cells kept between a landmark and any other footprint (a camp, another
+## landmark). Wider than `camp_separation`: the whole point of a landmark is to
+## be the only thing you are looking at.
+@export var landmark_separation := 14
+
 @export_group("Scenery")
 @export var solid_scenes: Array[PackedScene] = []
 @export var decor_textures: Array[Texture2D] = []
@@ -155,14 +174,27 @@ var camp_types: Array[CampType] = Camps.ALL
 ## The biome roster. Same rule as `camp_types`.
 var biome_types: Array[BiomeType] = Biomes.ALL
 
+## The landmark roster, in placement order (most constrained first). Same rule
+## again — a roster that only exists inside game.tscn cannot be read by anything
+## outside it, and here it means adding a landmark touches no scene file at all.
+var landmark_types: Array[LandmarkType] = Landmarks.ALL
+
 var _used := {}  # cell (Vector2i) -> true; camps + resources + solid props (one per cell)
 ## Cells no solid thing may ever occupy: the corridors from each opening to the
 ## tower's heart, plus the clearing around the heart itself. This replaces the
 ## old "the y == 0 row is kept clear" rule, which only worked because the
 ## openings were nailed to that row.
 var _corridor := {}
-## Centre cell of every camp already placed, for the separation rule.
-var _camp_centers: Array[Vector2i] = []
+## Every footprint already reserved, as (centre x, centre y, footprint radius).
+## Camps and landmarks share one list because they share one rule: two things
+## with a footprint must not grow into each other, whichever kinds they are.
+## Before landmarks existed this was a camps-only array of centres, which would
+## have let a monolith ring stand in a bandit camp's courtyard.
+var _sites: Array[Vector3i] = []
+## Cells already holding a landmark piece. `_used` cannot answer this: it marks
+## a landmark's *whole* clearing, most of which is deliberately empty, so it
+## would refuse every piece after the first.
+var _piece_cells := {}
 var _layout := PackedStringArray()  # per-node summary; hashed for the determinism smoke
 ## Highest density any biome asks for, per kind. Scatter acceptance is measured
 ## against these, so a `resource_density` of 1.3 really is twice as thick as a
@@ -187,16 +219,18 @@ func generate(seed_value: int, heart: Vector2i) -> void:
 	var richness := 1.0 + rng.randf_range(-density_jitter, density_jitter)
 	_roll_openings(rng, heart)
 	_roll_biomes(rng)
+	var landmarks := _scatter_landmarks(rng)
 	var camps := _scatter_camps(rng)
 	var resources := _scatter_resources(rng, richness)
 	var props := _scatter_scenery(rng, richness)
-	print("[WorldGen] Populated: %d camps, %d resources, %d scenery props "
-			% [camps, resources, props]
+	print("[WorldGen] Populated: %d landmarks, %d camps, %d resources, %d scenery props "
+			% [landmarks, camps, resources, props]
 			+ "(seed %d, %d openings, %d biomes, richness %.2f, layout hash %d)"
 			% [world_seed, opening_cells.size(), biome_sites.size(), richness,
 			hash("|".join(_layout))])
 	print("[WorldGen] Openings: %s" % [opening_cells])
 	print("[WorldGen] Biomes: %s" % [_biome_summary()])
+	print("[WorldGen] Landmarks: %s" % [_landmark_summary()])
 
 
 ## Which country a point on the ground plane belongs to, or null for the
@@ -319,6 +353,162 @@ func _biome_summary() -> Dictionary:
 	return counts
 
 
+# --- landmarks ---------------------------------------------------------------
+
+# The features you steer by. Placed before camps (see the class doc) and, like
+# camps, from a bounded number of attempts — but with one difference that is a
+# design decision rather than a safety net: a landmark that cannot find a home
+# is simply absent from this world, and that is the feature working.
+#
+# Most landmarks belong to one country (`biome_ids`), and a run rolls only four
+# to seven biome sites out of the whole roster. So a map with no leyfield has no
+# standing stones, and the map that does have them is *that* map — which is the
+# difference between a world you can describe to the other player and a world
+# where every quarter is interchangeable. The skip is logged, not warned about.
+func _scatter_landmarks(rng: RandomNumberGenerator) -> int:
+	var placed := 0
+	for type: LandmarkType in landmark_types:
+		for _site in maxi(type.site_count, 0):
+			var center := Vector2i.ZERO
+			var found := false
+			for _attempt in landmark_site_attempts:
+				center = _cell(_ring_point(rng, type.radius_min, type.radius_max))
+				if not _landmark_biome_allows(type, center):
+					continue
+				if _site_clear(center, type.footprint_radius, landmark_separation):
+					found = true
+					break
+			if not found:
+				print("[WorldGen] No room for the %s in this world - skipped" % type.id)
+				continue
+			_build_landmark(rng, type, center, placed)
+			placed += 1
+	return placed
+
+
+# Does the country at this cell match what the landmark asks for? An empty
+# `biome_ids` means anywhere in the wilds; `biome_for` answers null inside the
+# safe radius, which no landmark may claim (home is the tower's).
+func _landmark_biome_allows(type: LandmarkType, center: Vector2i) -> bool:
+	var biome := biome_for(Vector2(center.x + 0.5, center.y + 0.5))
+	if biome == null:
+		return false
+	return type.biome_ids.is_empty() or type.biome_ids.has(biome.id)
+
+
+# Stamp one landmark: reserve the clearing, put the marker node at the middle,
+# and lay the pieces out around it as children of that node.
+#
+# The whole footprint is reserved against the resource and solid-prop scatters
+# even where no piece stands. That bald patch IS the landmark: a thicket runs at
+# 1.3 resource density, and without the reservation the elder tree would be one
+# more trunk in a wood. The decor scatter is deliberately not held off — grass
+# and bones still dress the clearing, they just do not hide it.
+func _build_landmark(rng: RandomNumberGenerator, type: LandmarkType,
+		center: Vector2i, index: int) -> void:
+	var r := type.footprint_radius
+	for dx in range(-r, r + 1):
+		for dz in range(-r, r + 1):
+			_used[center + Vector2i(dx, dz)] = true
+	_sites.append(Vector3i(center.x, center.y, r + landmark_separation))
+
+	var landmark := Landmark.new()
+	landmark.name = "Landmark_%d" % index
+	landmark.position = _snap(center)
+	landmark.configure(type)
+	add_child(landmark)
+	_layout.append("%s:%s:%s" % [landmark.name, type.id, center])
+
+	var piece := 0
+	if type.centerpiece_scene != null:
+		_stamp_piece(landmark, type.centerpiece_scene, center, piece,
+				rng.randf() * TAU)
+		piece += 1
+	if type.piece_scenes.is_empty() or type.piece_count <= 0:
+		return
+	match type.arrangement:
+		LandmarkType.Arrangement.RING:
+			_lay_ring(rng, landmark, type, center, piece)
+		_:
+			_lay_cluster(rng, landmark, type, center, piece)
+
+
+# Pieces spaced evenly around the footprint's edge, leaving the middle open —
+# a place you walk into rather than around. Jittered on both axes so it reads as
+# put there by people rather than drawn with a compass.
+func _lay_ring(rng: RandomNumberGenerator, landmark: Landmark, type: LandmarkType,
+		center: Vector2i, first_piece: int) -> void:
+	var piece := first_piece
+	var spacing := TAU / float(type.piece_count)
+	var base := rng.randf() * TAU
+	for i in type.piece_count:
+		var angle := base + spacing * i \
+				+ rng.randf_range(-spacing, spacing) * type.ring_angle_jitter
+		var radius := float(type.footprint_radius) \
+				+ rng.randf_range(-type.ring_radius_jitter, 0.0)
+		var yaw := rng.randf() * TAU
+		var scene := type.piece_scenes[rng.randi() % type.piece_scenes.size()]
+		var cell := center + _offset_cell(Vector2(radius, 0).rotated(angle))
+		# Jitter can walk two neighbours onto one cell, and can walk one onto the
+		# open middle the ring exists to frame.
+		if cell == center or _piece_cells.has(cell):
+			continue
+		_stamp_piece(landmark, scene, cell, piece, yaw)
+		piece += 1
+
+
+# Pieces scattered inside the footprint around whatever stands at the middle.
+# Uniform in the disc rather than in the square, so a cluster reads as a heap
+# and not as a filled-in box with rounded-off corners.
+func _lay_cluster(rng: RandomNumberGenerator, landmark: Landmark, type: LandmarkType,
+		center: Vector2i, first_piece: int) -> void:
+	var piece := first_piece
+	for i in type.piece_count:
+		var radius := sqrt(rng.randf()) * float(type.footprint_radius)
+		var angle := rng.randf() * TAU
+		var yaw := rng.randf() * TAU
+		var scene := type.piece_scenes[rng.randi() % type.piece_scenes.size()]
+		var cell := center + _offset_cell(Vector2(radius, 0).rotated(angle))
+		# The centrepiece owns the middle cell, and two solids in one cell would
+		# leave the build grid marking it once and the player seeing it twice.
+		if _piece_cells.has(cell):
+			continue
+		_stamp_piece(landmark, scene, cell, piece, yaw)
+		piece += 1
+
+
+# One piece of a landmark: an ordinary solid SceneryProp, so it blocks movement
+# and registers in the build grid through the "obstacles" group exactly like a
+# boulder does. Landmark pieces are always solid — every one of them is a thing
+# you would walk around in life, and SceneryProp's non-solid path is a flat
+# ground decal, which no monolith has ever been.
+func _stamp_piece(landmark: Landmark, scene: PackedScene, cell: Vector2i,
+		index: int, yaw: float) -> void:
+	var prop := SceneryPropScene.instantiate() as SceneryProp
+	prop.name = "Piece_%d" % index
+	# Children are positioned relative to the landmark, which stands on its own
+	# centre cell — so the offset, not the absolute snap.
+	prop.position = _snap(cell) - landmark.position
+	prop.solid = true
+	prop.visual_scene = scene
+	prop.visual_yaw = yaw
+	landmark.add_child(prop)
+	_piece_cells[cell] = true
+	_layout.append("%s/%s:%s" % [landmark.name, prop.name, cell])
+
+
+# id and cell, not just id: a landmark is the one generated thing a human is
+# going to want to walk to on purpose, and `--spawn-at=x,z` takes exactly this.
+func _landmark_summary() -> Array:
+	var placed := []
+	for node in get_children():
+		var landmark := node as Landmark
+		if landmark != null and landmark.type != null:
+			placed.append("%s@%d,%d" % [landmark.type.id,
+					int(floorf(landmark.position.x)), int(floorf(landmark.position.z))])
+	return placed
+
+
 # --- camps -------------------------------------------------------------------
 
 # Camps go down after the openings and biomes (see the class doc). Returns how
@@ -334,7 +524,7 @@ func _scatter_camps(rng: RandomNumberGenerator) -> int:
 			var found := false
 			for _attempt in camp_site_attempts:
 				center = _cell(_ring_point(rng, type.radius_min, type.radius_max))
-				if _camp_site_clear(center, type):
+				if _site_clear(center, type.footprint_radius, camp_separation):
 					found = true
 					break
 			if not found:
@@ -347,18 +537,23 @@ func _scatter_camps(rng: RandomNumberGenerator) -> int:
 
 
 # A site is clear when the whole footprint is in bounds, off every corridor,
-# clear of anything already placed, and far enough from every camp already
-# standing.
-func _camp_site_clear(center: Vector2i, type: CampType) -> bool:
-	var r := type.footprint_radius
-	for other in _camp_centers:
-		if absi(other.x - center.x) < camp_separation + r * 2 \
-				and absi(other.y - center.y) < camp_separation + r * 2:
+# clear of anything already placed, and far enough from every footprint already
+# reserved — camp or landmark, since both own ground rather than a cell.
+#
+# `separation` is how much elbow room *this* kind wants; a site already standing
+# carries its own in `_sites`, and the larger of the two wins. That is what lets
+# a landmark (which wants 14 cells of nothing around it) keep a camp away
+# without every camp having to know landmarks exist.
+func _site_clear(center: Vector2i, radius: int, separation: int) -> bool:
+	var keep_out := radius + separation
+	for site in _sites:
+		var gap := maxi(keep_out, site.z)
+		if absi(site.x - center.x) < gap and absi(site.y - center.y) < gap:
 			return false
-	for dx in range(-r, r + 1):
-		for dz in range(-r, r + 1):
+	for dx in range(-radius, radius + 1):
+		for dz in range(-radius, radius + 1):
 			var cell := center + Vector2i(dx, dz)
-			# Straddling a lane would leave the camp with a hole punched through
+			# Straddling a lane would leave a camp with a hole punched through
 			# both its walls — and, worse, would let the site's own perimeter
 			# stand in the only guaranteed path to the tower.
 			if _used.has(cell) or _corridor.has(cell):
@@ -403,7 +598,7 @@ func _build_camp(rng: RandomNumberGenerator, type: CampType, center: Vector2i,
 			prop.visual_scene = camp_wall_scenes[pick % camp_wall_scenes.size()]
 			add_child(prop)
 			_layout.append("%s:%s" % [prop.name, cell])
-	_camp_centers.append(center)
+	_sites.append(Vector3i(center.x, center.y, r + camp_separation))
 	var camp := Camp.new()
 	camp.name = "Camp_%d" % index
 	camp.position = _snap(center)
@@ -584,6 +779,14 @@ func _snap(cell: Vector2i) -> Vector3:
 # Positions are already in cell units, so a cell is just the floor.
 func _cell(pos: Vector2) -> Vector2i:
 	return Vector2i(pos.floor())
+
+
+# An *offset* from a centre cell, which is a different question: flooring one
+# biases every negative component a whole cell away from the middle, so a ring
+# laid with `_cell` comes out lopsided — pushed out on the west and north sides
+# and pulled in on the east and south. Offsets round to nearest.
+func _offset_cell(offset: Vector2) -> Vector2i:
+	return Vector2i(offset.round())
 
 
 # The corridors from every opening to the tower's heart are the guaranteed

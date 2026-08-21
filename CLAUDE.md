@@ -179,7 +179,9 @@ never-to-change `id`, a `display_name`, `hud_color`) → add a `preload` to `Mat
 in `data/materials/materials.gd` (both HUDs build their rows from it) → point `ResourceNode`s
 at it via WorldGen's material slots.
 
-**Populate the world (materials & scenery):** the map is scattered by `World/WorldGen`
+**Populate the world (materials & scenery):** placement order is openings → biomes →
+**landmarks** → camps → resources → scenery, and it is load-bearing (see the class doc).
+The map is scattered by `World/WorldGen`
 (`scenes/world/world_gen.gd`) when the Game scene calls `generate(seed, heart_cell)` —
 identical on every peer, never synced. **The seed is per-run and comes from the host**
 (`--world-seed=N` pins it); a client generates nothing until that number arrives, which is what
@@ -202,7 +204,9 @@ in `solid_scenes` (they join group `"obstacles"`), decor is flat 32×32 decal te
 guaranteed opening→heart corridor).
 
 **Add a scenery prop:** solid props are small mesh scenes (add to `solid_scenes` on
-`World/WorldGen`; they block movement + register in the build grid via group `"obstacles"`);
+`World/WorldGen`; they block movement + register in the build grid via group `"obstacles"`;
+set `SceneryProp.visual_yaw` to spin the mesh, which is how one landmark piece laid down nine
+times stops looking like nine copies of a prop);
 decor is a flat 32×32 SVG decal texture (add to `decor_textures`, visual only).
 `scenes/world/scenery_prop.tscn` is the shared body; solid vs decor is one export.
 
@@ -272,6 +276,25 @@ worlds immediately. Two rules: `material_weights` reweights *within* the distanc
 never enlarge it, and `essence_radiant` is ignored there on purpose (see the recipe above).
 A density above 1.0 is genuinely denser than baseline — acceptance is measured against the
 highest density any biome asks for.
+
+**Add a landmark:** create `data/landmarks/<id>.tres` (script `landmark_type.gd`; stable `id`,
+`display_name`, `description`, `site_count`, the `radius_min`/`radius_max` ring band in cells,
+`footprint_radius`, an `arrangement` (RING lays pieces around the edge and leaves the middle
+open; CLUSTER fills the footprint around an optional `centerpiece_scene`), `piece_scenes` +
+`piece_count`, a `sight_radius` and a `map_color`) → add its preload to `Landmarks.ALL`.
+Placement, the reserved clearing, the minimap diamond, the HUD place banner and the per-piece
+yaw all follow from the data; **no scene file is touched**.
+Two rules. `biome_ids` ties a landmark to a country and is what makes it navigation rather
+than decoration — leave it empty only for something that genuinely stands everywhere, because
+a landmark that can turn up anywhere tells you nothing about where you are. And a run that
+rolls none of the named biomes simply *has no* such landmark: the skip is logged, not warned
+about, and that absence is the feature (decision log 2026-08-21).
+Landmark pieces are always **solid** `SceneryProp`s — SceneryProp's non-solid path is a flat
+ground decal, which no monolith has ever been. They therefore block movement and register in
+the build grid like any boulder; that is a consequence, not a lever, and no landmark should be
+placed to shape a night lane. Landmarks are stamped **before** camps (the constrained thing
+goes first), so adding one shifts the whole map layout — expected, and the startup layout hash
+changes on every peer together.
 
 **Add a camp:** create `data/camps/<id>.tres` (script `camp_type.gd`; stable `id`,
 `display_name`, `description`, `site_count`, the `radius_min`/`radius_max` ring band in cells,

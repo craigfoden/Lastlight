@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LandmarkType" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://data/landmarks/landmark_type.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/elder_tree_visual.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/world/visuals/boulder_visual.tscn" id="3"]
+
+[resource]
+script = ExtResource("1")
+id = &"elder_tree"
+display_name = "The Elder Tree"
+description = "Older than the tower and twice its girth. The woodcutters left it standing, which tells you something about the woodcutters."
+site_count = 1
+radius_min = 24.0
+radius_max = 80.0
+footprint_radius = 4
+biome_ids = Array[StringName]([&"thicket"])
+centerpiece_scene = ExtResource("2")
+piece_scenes = Array[PackedScene]([ExtResource("3")])
+piece_count = 5
+arrangement = 1
+sight_radius = 14.0
+map_color = Color(0.42, 0.82, 0.42, 1)

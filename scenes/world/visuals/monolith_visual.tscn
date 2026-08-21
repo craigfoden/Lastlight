@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="StandardMaterial3D" id="stone_mat"]
+albedo_color = Color(0.396078, 0.415686, 0.482353, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="slab_mesh"]
+material = SubResource("stone_mat")
+size = Vector3(0.52, 2.8, 0.3)
+
+[node name="MonolithVisual" type="Node3D"]
+
+[node name="Slab" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.34, 0)
+rotation = Vector3(0, 0, 0.05236)
+mesh = SubResource("slab_mesh")

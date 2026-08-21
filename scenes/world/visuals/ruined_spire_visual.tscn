@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="StandardMaterial3D" id="masonry_mat"]
+albedo_color = Color(0.596078, 0.588235, 0.552941, 1)
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="tower_mesh"]
+material = SubResource("masonry_mat")
+top_radius = 0.62
+bottom_radius = 0.8
+height = 3.4
+radial_segments = 8
+
+[sub_resource type="BoxMesh" id="break_mesh"]
+material = SubResource("masonry_mat")
+size = Vector3(1.05, 1.0, 0.5)
+
+[sub_resource type="BoxMesh" id="rubble_mesh"]
+material = SubResource("masonry_mat")
+size = Vector3(0.7, 0.35, 0.6)
+
+[node name="RuinedSpireVisual" type="Node3D"]
+
+[node name="Tower" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.7, 0)
+mesh = SubResource("tower_mesh")
+
+[node name="BrokenWall" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 3.75, 0.18)
+rotation = Vector3(0, 0.610865, 0.10472)
+mesh = SubResource("break_mesh")
+
+[node name="Rubble" type="MeshInstance3D" parent="."]
+position = Vector3(0.85, 0.16, 0.55)
+rotation = Vector3(0.10472, 0.785398, 0)
+mesh = SubResource("rubble_mesh")
